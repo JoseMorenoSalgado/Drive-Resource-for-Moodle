@@ -283,3 +283,7 @@ After upgrading and purging caches, open a portrait and landscape PDF on Android
 ## Moodle 4.5 verification for 1.1.30-beta
 
 On a clean Moodle 4.5 staging site running PHP 8.2 or 8.3, install the same plugin package used for Moodle 5.x. Confirm installation and upgrade complete without XMLDB or developer-debug warnings, create a Drive Resource, open a protected PDF and video, test byte-range seeking, progress/completion, Backup/Restore and Privacy API operations. No separate Moodle 4.5 package is required.
+
+## Video playback verification for 1.1.31-beta
+
+After deploying `1.1.31-beta` (`2026090901`), purge Moodle caches and reset PHP OPcache. Open a protected Google Drive video and verify initial playback, duration detection and seeks near the beginning, middle and end. A browser `Range` request must receive `206 Partial Content`; if Google ignores the upstream Range header, Drive Resource should still return a synthesized `206` rather than `502 UPSTREAM_RANGE_UNSUPPORTED`. Test Android Chrome and iPhone Safari on the physical devices used by learners.
