@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.31-beta - 2026-09-09
+
+### Fixed
+
+- Restored protected Google Drive video playback when the upstream endpoint ignores a browser `Range` request and returns HTTP `200`.
+- Added a bounded synthetic `206 Partial Content` fallback that discards only the prefix before the requested byte range and streams the requested window without loading the complete video into PHP memory.
+- Preserved strict upstream MIME validation, Moodle authorization, protected URLs and native/Plyr playback.
+- Advertises byte-range capability when the proxy can safely reconstruct ranges from a known `Content-Length`.
+
+### Compatibility
+
+- The fallback is shared by Moodle 4.5–5.2 and remains covered by the cross-version CI matrix.
+
 ## 1.1.30-beta - 2026-09-09
 
 ### Added
