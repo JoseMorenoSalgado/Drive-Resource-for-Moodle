@@ -19,6 +19,7 @@
 
 - The protected streaming, PDF.js, Plyr, Completion, Events, Privacy and Backup/Restore runtime paths remain shared across Moodle 4.5–5.2.
 - Moodle 4.4 and older remain outside the supported release contract.
+- Fixed Moodle 4.5 PHPCS coverage metadata so the cross-version CI gate can continue past coding-style validation and execute the full test suite.
 
 
 ## 1.1.29-beta - 2026-08-06
