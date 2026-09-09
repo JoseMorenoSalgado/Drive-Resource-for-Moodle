@@ -240,3 +240,7 @@ Keep PDF controls outside `.mod-videoplayer-pdfjs-canvas-wrap`. The canvas and w
 ## Cross-version PHPUnit contract
 
 Moodle 4.5 uses PHPUnit 9 while Moodle 5.0 uses PHPUnit 11. Tests that depend on data providers or coverage metadata must remain readable by both generations: retain PHPUnit 11 attributes and the equivalent PHPUnit 9 docblock metadata where required. Do not introduce a test-only dependency that prevents the same plugin package from being validated on both core branches.
+
+## Synthetic range fallback
+
+`http_range_proxy` must prefer native upstream range support. `RANGE_MODE_SYNTHETIC` is a last-resort compatibility path for Google responses that ignore `Range`. `resolve_range_window()` validates open, bounded and suffix ranges against a known total size. Do not replace this with full-file buffering or temporary whole-video downloads. For bounded requests, stop the cURL transfer after the requested window has been emitted.
