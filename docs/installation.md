@@ -2,13 +2,13 @@
 
 ## Supported platform
 
-- Moodle 5.0, 5.1 or 5.2.
-- Minimum core version `2025041400`.
+- Moodle 4.5, 5.0, 5.1 or 5.2.
+- Minimum core version `2024100700`.
 - PHP 8.2 or 8.3.
-- PHP cURL and the standard extensions required by Moodle 5.0.
+- PHP cURL and the standard extensions required by the installed supported Moodle branch.
 - HTTPS, working Moodle cron and writable `$CFG->localcachedir`.
 
-Moodle 4.x is not supported by release `1.1.27-beta`.
+Moodle 4.5 is supported from release `1.1.30-beta`. Moodle 4.4 and older remain unsupported.
 
 ## Install or upgrade
 
@@ -149,7 +149,7 @@ Cron must process ad-hoc tasks frequently. The PHP/web user must be able to crea
 
 After installation or upgrade, verify:
 
-1. Administration reports Drive Resource `1.1.27-beta` and version `2026080600`.
+1. Administration reports Drive Resource `1.1.30-beta` and version `2026090900`.
 2. A teacher can create and edit a Drive Resource.
 3. The saved `displaymode` is `pdfjs`.
 4. An enrolled learner can open the activity.
@@ -257,7 +257,7 @@ Unsatisfiable ranges must return `416` with `Content-Range: bytes */<size>` wher
 
 ## Automated validation
 
-`.github/workflows/moodle-50-ci.yml` tests Moodle `MOODLE_500_STABLE` with:
+`.github/workflows/moodle-supported-ci.yml` tests Moodle `MOODLE_405_STABLE` and `MOODLE_500_STABLE` with:
 
 - PHP 8.2 and 8.3;
 - MariaDB 10.11 and PostgreSQL 15;
@@ -279,3 +279,7 @@ After upgrade and cache purge, test a protected MP4 on Android Chrome and iPhone
 ## Verification for 1.1.29-beta
 
 After upgrading and purging caches, open a portrait and landscape PDF on Android Chrome and iPhone Safari. At fit-to-screen, confirm the page is centred vertically and horizontally. Increase zoom until both axes overflow and confirm the top-left document origin remains reachable, scrolling works in both directions, controls stay fixed and exiting fullscreen preserves the current page.
+
+## Moodle 4.5 verification for 1.1.30-beta
+
+On a clean Moodle 4.5 staging site running PHP 8.2 or 8.3, install the same plugin package used for Moodle 5.x. Confirm installation and upgrade complete without XMLDB or developer-debug warnings, create a Drive Resource, open a protected PDF and video, test byte-range seeking, progress/completion, Backup/Restore and Privacy API operations. No separate Moodle 4.5 package is required.
