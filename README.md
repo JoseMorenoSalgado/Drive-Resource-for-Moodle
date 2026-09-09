@@ -8,13 +8,13 @@ The internal Moodle component remains `mod_videoplayer` for upgrade, capability,
 
 | Component | Supported |
 |---|---|
-| Moodle | 5.0, 5.1 and 5.2 |
-| Minimum Moodle build | `2025041400` |
+| Moodle | 4.5, 5.0, 5.1 and 5.2 |
+| Minimum Moodle build | `2024100700` |
 | PHP | 8.2 and 8.3 |
 | Databases validated by CI | MariaDB 10.11 and PostgreSQL 15 |
 | Browser libraries | Bundled locally; no runtime CDN |
 
-`version.php` declares `$plugin->supported = [500, 502]`. Moodle 4.x is outside the current release contract.
+`version.php` declares `$plugin->supported = [405, 502]`. Moodle 4.5 is the minimum supported Moodle branch.
 
 ## Main capabilities
 
@@ -30,8 +30,8 @@ The internal Moodle component remains `mod_videoplayer` for upgrade, capability,
 
 ## Requirements
 
-- Moodle 5.0 or newer within the declared supported range.
-- PHP 8.2+ with the extensions required by Moodle 5.0, including cURL, DOM, Fileinfo, GD, Intl, Mbstring, OpenSSL, SimpleXML, Sodium, XML and ZIP.
+- Moodle 4.5 or newer within the declared supported range.
+- PHP 8.2+ with the extensions required by the supported Moodle branch, including cURL, DOM, Fileinfo, GD, Intl, Mbstring, OpenSSL, SimpleXML, Sodium, XML and ZIP.
 - HTTPS in production.
 - Moodle cron running frequently.
 - Writable `$CFG->localcachedir`.
@@ -177,9 +177,9 @@ Viewer presentation is loaded only from activity-scoped styles such as `styles_a
 
 ## Automated compatibility validation
 
-GitHub Actions runs `.github/workflows/moodle-50-ci.yml` against:
+GitHub Actions runs `.github/workflows/moodle-supported-ci.yml` against:
 
-- Moodle `MOODLE_500_STABLE`;
+- Moodle `MOODLE_405_STABLE` and `MOODLE_500_STABLE`;
 - PHP 8.2 and 8.3;
 - MariaDB 10.11 and PostgreSQL 15.
 
@@ -202,14 +202,15 @@ Any AMD source change must include its rebuilt production bundle. The generated 
 - `docs/installation.md`
 - `docs/security.md`
 - `docs/manual-test-checklist.md`
+- `docs/moodle-4.5-compatibility.md`
 
 ## Release
 
-- Release: `1.1.27-beta`
-- Moodle plugin version: `2026080600`
+- Release: `1.1.30-beta`
+- Moodle plugin version: `2026090900`
 - Component: `mod_videoplayer`
 - Product: Drive Resource
-- Supported Moodle branches: 5.0–5.2
+- Supported Moodle branches: 4.5–5.2
 - Minimum PHP: 8.2
 
 ## License
@@ -228,3 +229,7 @@ This release improves physical-device playback and reading. PDFs always open on 
 ## Release 1.1.29-beta
 
 The protected PDF.js viewer now uses a dedicated page stage. Pages that fit the screen are centred horizontally and vertically in fullscreen; pages enlarged beyond the viewport remain anchored to an accessible scroll origin and support smooth horizontal and vertical navigation. Overlay controls remain fixed, respect mobile safe areas and no longer move with the document.
+
+## Release 1.1.30-beta
+
+Drive Resource now declares Moodle 4.5 as the minimum supported branch and keeps Moodle 5.0–5.2 in the same production line. The CI gate installs the plugin on Moodle 4.5 and Moodle 5.0 with PHP 8.2/8.3 against MariaDB and PostgreSQL. PHPUnit tests carry compatibility metadata for both PHPUnit 9 used by Moodle 4.5 and PHPUnit 11 used by Moodle 5.0.

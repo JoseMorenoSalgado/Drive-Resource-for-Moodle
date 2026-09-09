@@ -19,29 +19,34 @@ namespace mod_videoplayer;
 use PHPUnit\Framework\Attributes\CoversNothing;
 
 /**
- * Moodle 5.0 compatibility contract tests.
+ * Supported Moodle platform compatibility contract tests.
  *
  * @package    mod_videoplayer
  * @category   test
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @coversNothing
  */
 #[CoversNothing]
-final class moodle50_compatibility_test extends \advanced_testcase {
+final class platform_compatibility_test extends \advanced_testcase {
     /**
-     * The plugin metadata must explicitly include Moodle 5.0.
+     * The plugin metadata must explicitly support Moodle 4.5 through 5.2.
+     *
+     * @coversNothing
      */
-    public function test_plugin_metadata_supports_moodle_50(): void {
+    public function test_plugin_metadata_supports_declared_range(): void {
         $plugininfo = \core_plugin_manager::instance()->get_plugin_info('mod_videoplayer');
 
         $this->assertNotNull($plugininfo);
         $this->assertSame('mod_videoplayer', $plugininfo->component);
-        $this->assertSame(2025041400, (int) $plugininfo->versionrequires);
-        $this->assertSame([500, 502], $plugininfo->pluginsupported);
+        $this->assertSame(2024100700, (int) $plugininfo->versionrequires);
+        $this->assertSame([405, 502], $plugininfo->pluginsupported);
     }
 
     /**
-     * Core APIs used by Drive Resource must exist on the target branch.
+     * Core APIs used by Drive Resource must exist on every supported branch.
+     *
+     * @coversNothing
      */
     public function test_required_moodle_apis_exist(): void {
         $this->assertTrue(class_exists(\core_external\external_api::class));
@@ -53,9 +58,11 @@ final class moodle50_compatibility_test extends \advanced_testcase {
     }
 
     /**
-     * Moodle 5.0 requires PHP 8.2 and the plugin may safely use modern types.
+     * Drive Resource intentionally requires PHP 8.2+ across all supported Moodle branches.
+     *
+     * @coversNothing
      */
-    public function test_runtime_meets_php_requirement(): void {
+    public function test_runtime_meets_plugin_php_requirement(): void {
         $this->assertGreaterThanOrEqual(80200, PHP_VERSION_ID);
     }
 }

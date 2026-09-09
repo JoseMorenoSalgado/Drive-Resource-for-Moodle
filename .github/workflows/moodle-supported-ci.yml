@@ -1,4 +1,4 @@
-name: Moodle 5.0 compatibility
+name: Moodle 4.5–5.0 compatibility
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: moodle-50-${{ github.workflow }}-${{ github.ref }}
+  group: moodle-supported-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -16,12 +16,17 @@ permissions:
 
 jobs:
   test:
-    name: PHP ${{ matrix.php }} · ${{ matrix.database }} · Moodle 5.0
+    name: PHP ${{ matrix.php }} · ${{ matrix.database }} · Moodle ${{ matrix.moodle.label }}
     runs-on: ubuntu-22.04
 
     strategy:
       fail-fast: false
       matrix:
+        moodle:
+          - label: '4.5'
+            branch: MOODLE_405_STABLE
+          - label: '5.0'
+            branch: MOODLE_500_STABLE
         php:
           - '8.2'
           - '8.3'
@@ -78,10 +83,10 @@ jobs:
           echo "$(pwd)/ci/vendor/bin" >> "$GITHUB_PATH"
           sudo locale-gen en_AU.UTF-8
 
-      - name: Install Moodle 5.0 test environment
+      - name: Install Moodle ${{ matrix.moodle.label }} test environment
         env:
           DB: ${{ matrix.database }}
-          MOODLE_BRANCH: MOODLE_500_STABLE
+          MOODLE_BRANCH: ${{ matrix.moodle.branch }}
         run: moodle-plugin-ci install --plugin ./plugin --db-host=127.0.0.1
 
       - name: PHP syntax
@@ -133,7 +138,7 @@ jobs:
           grep -q "render_from_template('mod_videoplayer/pdfjs'" "$VIEW"
           grep -q "videoplayer_get_safe_pdf_displaymode" "$VIEW"
           grep -q "videoplayer_get_safe_pdf_displaymode" "$FORM"
-          grep -q "\['pdfjs'\]" "$LOCALLIB"
+          grep -q "\\['pdfjs'\\]" "$LOCALLIB"
           grep -q 'DEFAULT="pdfjs"' "$INSTALL"
           grep -q "\$data->displaymode = 'pdfjs';" "$RESTORE"
           grep -q 'pdfjs-progress' "$SOURCE"

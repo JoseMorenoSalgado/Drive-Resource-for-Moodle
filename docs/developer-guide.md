@@ -6,13 +6,13 @@ The Moodle component remains `mod_videoplayer`. Do not rename it: installed site
 
 ## Supported development target
 
-- Moodle 5.0–5.2.
-- Baseline branch `MOODLE_500_STABLE`.
-- Minimum Moodle version `2025041400`.
+- Moodle 4.5–5.2.
+- Compatibility baselines `MOODLE_405_STABLE` and `MOODLE_500_STABLE`.
+- Minimum Moodle version `2024100700`.
 - PHP 8.2 and 8.3.
 - CI databases MariaDB 10.11 and PostgreSQL 15.
 
-Moodle 4.x compatibility must not be claimed without a separate maintained branch and complete CI matrix.
+Moodle 4.5 is supported from the shared release branch. Older Moodle 4.x branches remain unsupported.
 
 ## Engineering rules
 
@@ -194,7 +194,7 @@ Current contracts include:
 
 - `tests/drive_test.php` for supported URLs, file IDs, resource detection and protected endpoints;
 - `tests/http_range_proxy_test.php` for byte-range behavior;
-- `tests/moodle50_compatibility_test.php` for platform metadata and required APIs;
+- `tests/platform_compatibility_test.php` for Moodle 4.5–5.2 metadata and required APIs;
 - `tests/pdf_displaymode_test.php` for legacy display-mode normalisation and PDF.js-only routing.
 
 The CI workflow must pass:
@@ -236,3 +236,7 @@ Keep `amd/src/plyr.js` and `amd/build/plyr.min.js` synchronized through Moodle G
 ## Fullscreen PDF layout contract
 
 Keep PDF controls outside `.mod-videoplayer-pdfjs-canvas-wrap`. The canvas and watermark must remain inside `.mod-videoplayer-pdfjs-canvas-stage`. Do not centre an oversized canvas with `align-items: center` or transforms: doing so can create negative, unreachable scroll regions on mobile browsers. The stage owns centring through auto margins and the viewport owns scrolling.
+
+## Cross-version PHPUnit contract
+
+Moodle 4.5 uses PHPUnit 9 while Moodle 5.0 uses PHPUnit 11. Tests that depend on data providers or coverage metadata must remain readable by both generations: retain PHPUnit 11 attributes and the equivalent PHPUnit 9 docblock metadata where required. Do not introduce a test-only dependency that prevents the same plugin package from being validated on both core branches.

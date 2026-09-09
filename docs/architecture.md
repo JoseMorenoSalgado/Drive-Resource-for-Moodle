@@ -4,12 +4,12 @@ Drive Resource is a Moodle activity module. Its stable internal component is `mo
 
 ## Compatibility boundary
 
-- Moodle 5.0–5.2.
-- Minimum Moodle build `2025041400`.
+- Moodle 4.5–5.2.
+- Minimum Moodle build `2024100700`.
 - PHP 8.2 and 8.3.
 - MariaDB 10.11 and PostgreSQL 15 in CI.
 
-The implementation uses APIs available on `MOODLE_500_STABLE`. A newer Moodle-only API must not enter the shared release branch while Moodle 5.0 remains supported.
+The shared production branch is constrained to APIs available on both `MOODLE_405_STABLE` and `MOODLE_500_STABLE`. A newer Moodle-only API must be feature-detected or isolated before entering the shared release branch while Moodle 4.5 remains supported.
 
 ## Target flow
 
@@ -195,7 +195,7 @@ Backup and Restore include activity configuration, Moodle-local PDF files and op
 
 ## Validation architecture
 
-`.github/workflows/moodle-50-ci.yml` is the executable compatibility gate. It runs lint, Moodle Coding Style, PHPDoc, plugin validation, XMLDB savepoint validation, Mustache, AMD/JavaScript and PHPUnit on Moodle 5.0 across the supported PHP/database matrix.
+`.github/workflows/moodle-supported-ci.yml` is the executable compatibility gate. It runs lint, Moodle Coding Style, PHPDoc, plugin validation, XMLDB savepoint validation, Mustache, AMD/JavaScript and PHPUnit on Moodle 4.5 and Moodle 5.0 across the supported PHP/database matrix.
 
 The workflow also enforces:
 
@@ -211,3 +211,7 @@ The protected stream boundary now treats browser Range requests as strict contra
 ## PDF fullscreen stage (1.1.29-beta)
 
 The PDF template separates three layers: a fixed control overlay, a scrollable viewport and a `mod-videoplayer-pdfjs-canvas-stage` containing the canvas and watermark. Auto margins centre a page only while positive free space exists. When zoom creates overflow, those margins collapse to zero, preserving a reachable top-left scroll origin without JavaScript layout heuristics.
+
+## Moodle 4.5 compatibility boundary (1.1.30-beta)
+
+Moodle 4.5 becomes the lowest supported core branch. The plugin metadata, PHPUnit metadata and CI matrix are aligned to that boundary without forking the runtime architecture. Production code must continue using APIs present on Moodle 4.5 for authorisation, File API, Completion, Events, External API, Tasks, Privacy, Backup/Restore, XMLDB, AMD and session locking. The Moodle 5.x path must remain behaviorally identical unless a newer API is guarded by an explicit compatibility adapter.

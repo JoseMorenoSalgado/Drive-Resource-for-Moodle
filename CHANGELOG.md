@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.1.30-beta - 2026-09-09
+
+### Added
+
+- Official Moodle 4.5 support while retaining Moodle 5.0, 5.1 and 5.2 in the same plugin package.
+- Cross-version GitHub Actions matrix for `MOODLE_405_STABLE` and `MOODLE_500_STABLE` on PHP 8.2/8.3 with MariaDB and PostgreSQL.
+- Moodle 4.5 compatibility audit and manual staging checks.
+
+### Changed
+
+- Lowered the minimum Moodle build from `2025041400` to the Moodle 4.5 baseline `2024100700`.
+- Expanded `$plugin->supported` from `[500, 502]` to `[405, 502]`.
+- Replaced the Moodle 5-only compatibility test with a shared platform contract.
+- Added PHPUnit 9-compatible data-provider and coverage metadata while retaining PHPUnit 11 attributes for Moodle 5.0.
+
+### Compatibility
+
+- The protected streaming, PDF.js, Plyr, Completion, Events, Privacy and Backup/Restore runtime paths remain shared across Moodle 4.5–5.2.
+- Moodle 4.4 and older remain outside the supported release contract.
+
+
 ## 1.1.29-beta - 2026-08-06
 
 ### Fixed
