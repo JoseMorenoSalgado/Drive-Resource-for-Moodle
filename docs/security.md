@@ -4,7 +4,7 @@ Drive Resource is a protected Moodle delivery layer. Browser restrictions are de
 
 ## Supported security baseline
 
-The current release supports Moodle 5.0–5.2 and PHP 8.2/8.3. Security validation is anchored to `MOODLE_500_STABLE`. Running the plugin on an undeclared Moodle or PHP branch is unsupported because API behavior and security fixes may differ.
+The current release supports Moodle 4.5–5.2 and PHP 8.2/8.3. Security validation is anchored to both `MOODLE_405_STABLE` and `MOODLE_500_STABLE`. Running the plugin on an undeclared Moodle or PHP branch is unsupported because API behavior and security fixes may differ.
 
 ## Authorisation
 
@@ -153,3 +153,7 @@ Drive Resource does not forward browser `If-Range` validators to Google. The pro
 ## Fullscreen presentation boundary
 
 Fullscreen centring is presentation-only. The protected Moodle endpoint remains the sole document URL, context-menu restrictions remain attached to the viewer and canvas, and the watermark is now bounded to the rendered page. No Google Drive identifier, redirect URL or upstream validator is introduced into the DOM.
+
+## Moodle 4.5 security compatibility
+
+Supporting Moodle 4.5 does not weaken the protected-delivery boundary. The same `require_login()`, course-module lookup, `context_module`, capability checks, protected Moodle URL, MIME validation and byte-range enforcement are required on every supported branch. Compatibility code must never bypass authorisation or expose upstream Google data merely to accommodate an older core API.
