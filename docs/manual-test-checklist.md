@@ -4,7 +4,7 @@ Run these tests on a staging Moodle site with developer debugging enabled before
 
 ## Environment
 
-- Moodle target staging version installed.
+- Moodle 4.5 or Moodle 5.x target staging version installed.
 - PHP 8.2 or 8.3.
 - PHP cURL enabled.
 - Moodle cron and ad-hoc tasks running.
@@ -17,12 +17,23 @@ Run these tests on a staging Moodle site with developer debugging enabled before
 
 ## Fresh installation
 
+Run this section once on Moodle 4.5 and once on a supported Moodle 5.x site.
+
 - Install the plugin from a clean database state.
 - Confirm no XMLDB errors.
 - Confirm `thirdpartylibs.xml` is accepted.
 - Confirm capabilities are available in role definitions.
 - Confirm the activity appears as Drive Resource.
 - Confirm `videoplayer.displaymode` defaults to `pdfjs`.
+
+## Moodle 4.5 compatibility smoke test
+
+- Confirm Administration accepts the plugin with minimum core build `2024100700`.
+- Create and edit a Google Drive PDF activity.
+- Create and edit a protected video activity.
+- Verify `protected.php` authorisation and byte ranges.
+- Verify progress, completion, Backup/Restore and Privacy API behavior.
+- Repeat with developer debugging enabled and confirm no new warnings.
 
 ## Upgrade from 1.1.26-beta
 
