@@ -179,8 +179,8 @@ This indicates an obsolete plugin build, cached viewer route or old PageFlip exe
 Verify:
 
 ```text
-Drive Resource release: 1.1.27-beta
-Plugin version: 2026080600
+Drive Resource release: 1.1.30-beta
+Plugin version: 2026090900
 ```
 
 Then:
