@@ -26,7 +26,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * @package    mod_videoplayer
  * @category   test
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
- * @covers     \\mod_videoplayer\\local\\drive
+ * @covers     \mod_videoplayer\local\drive
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[CoversClass(drive::class)]
