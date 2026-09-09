@@ -25,6 +25,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * @package    mod_videoplayer
  * @category   test
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
+ * @coversNothing
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[CoversNothing]
@@ -33,6 +34,7 @@ final class pdf_displaymode_test extends \advanced_testcase {
      * Legacy and unsupported modes must resolve to the stable PDF.js viewer.
      *
      * @param string|null $requestedmode Requested mode.
+     * @dataProvider legacy_mode_provider
      */
     #[DataProvider('legacy_mode_provider')]
     public function test_legacy_modes_resolve_to_pdfjs(?string $requestedmode): void {
