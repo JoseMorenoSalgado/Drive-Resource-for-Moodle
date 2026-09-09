@@ -31,6 +31,8 @@ use PHPUnit\Framework\Attributes\CoversNothing;
 final class platform_compatibility_test extends \advanced_testcase {
     /**
      * The plugin metadata must explicitly support Moodle 4.5 through 5.2.
+     *
+     * @coversNothing
      */
     public function test_plugin_metadata_supports_declared_range(): void {
         $plugininfo = \core_plugin_manager::instance()->get_plugin_info('mod_videoplayer');
@@ -43,6 +45,8 @@ final class platform_compatibility_test extends \advanced_testcase {
 
     /**
      * Core APIs used by Drive Resource must exist on every supported branch.
+     *
+     * @coversNothing
      */
     public function test_required_moodle_apis_exist(): void {
         $this->assertTrue(class_exists(\core_external\external_api::class));
@@ -55,6 +59,8 @@ final class platform_compatibility_test extends \advanced_testcase {
 
     /**
      * Drive Resource intentionally requires PHP 8.2+ across all supported Moodle branches.
+     *
+     * @coversNothing
      */
     public function test_runtime_meets_plugin_php_requirement(): void {
         $this->assertGreaterThanOrEqual(80200, PHP_VERSION_ID);
