@@ -140,7 +140,7 @@ jobs:
           grep -q "videoplayer_get_safe_pdf_displaymode" "$FORM"
           grep -q "\\['pdfjs'\\]" "$LOCALLIB"
           grep -q 'DEFAULT="pdfjs"' "$INSTALL"
-          grep -q "\\$data->displaymode = 'pdfjs';" "$RESTORE"
+          grep -q "\$data->displaymode = 'pdfjs';" "$RESTORE"
           grep -q 'pdfjs-progress' "$SOURCE"
           grep -q 'pdfjs-points' "$SOURCE"
           grep -q 'pdfjs-achievements' "$SOURCE"
@@ -172,7 +172,7 @@ jobs:
 
       - name: Mobile PDF and video seek contract
         run: |
-          grep -Fq "'initialpage' => \\$initialpage" plugin/view.php
+          grep -Fq "'initialpage' => \$initialpage" plugin/view.php
           grep -q 'styles_pdf_overlay.css' plugin/view.php
           grep -q 'styles_pdf_mobile.css' plugin/view.php
           grep -q 'videomimetype' plugin/templates/video.mustache
