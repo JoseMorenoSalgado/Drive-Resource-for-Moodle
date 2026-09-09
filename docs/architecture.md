@@ -215,3 +215,7 @@ The PDF template separates three layers: a fixed control overlay, a scrollable v
 ## Moodle 4.5 compatibility boundary (1.1.30-beta)
 
 Moodle 4.5 becomes the lowest supported core branch. The plugin metadata, PHPUnit metadata and CI matrix are aligned to that boundary without forking the runtime architecture. Production code must continue using APIs present on Moodle 4.5 for authorisation, File API, Completion, Events, External API, Tasks, Privacy, Backup/Restore, XMLDB, AMD and session locking. The Moodle 5.x path must remain behaviorally identical unless a newer API is guarded by an explicit compatibility adapter.
+
+## Protected video range recovery (1.1.31-beta)
+
+The proxy uses three ordered strategies for browser byte ranges: libcurl `CURLOPT_RANGE`, an explicit `Range` header across redirects, and a synthetic range fallback. The synthetic fallback is used only when Google returns a complete `200` response with a known `Content-Length`; Moodle discards bytes before the requested offset and streams only the requested window as `206 Partial Content`. It does not buffer the complete video in PHP memory. MIME validation, login, module context and capability checks remain unchanged.

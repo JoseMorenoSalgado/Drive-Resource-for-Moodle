@@ -206,8 +206,8 @@ Any AMD source change must include its rebuilt production bundle. The generated 
 
 ## Release
 
-- Release: `1.1.30-beta`
-- Moodle plugin version: `2026090900`
+- Release: `1.1.31-beta`
+- Moodle plugin version: `2026090901`
 - Component: `mod_videoplayer`
 - Product: Drive Resource
 - Supported Moodle branches: 4.5–5.2
@@ -233,3 +233,7 @@ The protected PDF.js viewer now uses a dedicated page stage. Pages that fit the 
 ## Release 1.1.30-beta
 
 Drive Resource now declares Moodle 4.5 as the minimum supported branch and keeps Moodle 5.0–5.2 in the same production line. The CI gate installs the plugin on Moodle 4.5 and Moodle 5.0 with PHP 8.2/8.3 against MariaDB and PostgreSQL. PHPUnit tests carry compatibility metadata for both PHPUnit 9 used by Moodle 4.5 and PHPUnit 11 used by Moodle 5.0.
+
+## Release 1.1.31-beta
+
+Protected video now has a third byte-range strategy. If Google Drive ignores both normal Range forwarding strategies and returns a complete `200` response, Moodle synthesizes the requested `206 Partial Content` window from the streamed upstream response. The proxy never buffers the whole video in memory and keeps Drive URLs server-side.

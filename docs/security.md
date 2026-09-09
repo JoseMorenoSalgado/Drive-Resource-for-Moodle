@@ -157,3 +157,7 @@ Fullscreen centring is presentation-only. The protected Moodle endpoint remains 
 ## Moodle 4.5 security compatibility
 
 Supporting Moodle 4.5 does not weaken the protected-delivery boundary. The same `require_login()`, course-module lookup, `context_module`, capability checks, protected Moodle URL, MIME validation and byte-range enforcement are required on every supported branch. Compatibility code must never bypass authorisation or expose upstream Google data merely to accommodate an older core API.
+
+## Synthetic byte ranges
+
+Synthetic `206` responses do not weaken access control. They execute only after the normal Moodle `require_login()`, course-module/context and capability checks. The upstream URL and Drive file ID remain server-side. The fallback requires a known upstream length, preserves MIME validation, emits only the requested byte window and never turns Drive Resource into an arbitrary URL proxy.

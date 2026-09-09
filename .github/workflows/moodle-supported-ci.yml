@@ -181,6 +181,8 @@ jobs:
           grep -q 'emptied' plugin/amd/build/plyr.min.js
           grep -q 'is_range_response_usable' plugin/classes/local/http_range_proxy.php
           grep -q 'UPSTREAM_RANGE_UNSUPPORTED' plugin/classes/local/http_range_proxy.php
+          grep -q 'RANGE_MODE_SYNTHETIC' plugin/classes/local/http_range_proxy.php
+          grep -q 'resolve_range_window' plugin/classes/local/http_range_proxy.php
           grep -q 'X-Accel-Buffering: no' plugin/classes/local/http_range_proxy.php
           grep -q 'max-width: none !important' plugin/styles_pdf_mobile.css
           grep -q 'mod-videoplayer-pdfjs-canvas-stage' plugin/templates/pdfjs.mustache
