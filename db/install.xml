@@ -57,6 +57,10 @@
         <FIELD NAME="completionpercentage" TYPE="number" LENGTH="5" NOTNULL="true" DEFAULT="0" DECIMALS="2"/>
         <FIELD NAME="lastpage" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
         <FIELD NAME="totalpages" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+        <FIELD NAME="visitedpages" TYPE="text" NOTNULL="false"/>
+        <FIELD NAME="lastsecond" TYPE="number" LENGTH="10" NOTNULL="true" DEFAULT="0" DECIMALS="2"/>
+        <FIELD NAME="totalseconds" TYPE="number" LENGTH="10" NOTNULL="true" DEFAULT="0" DECIMALS="2"/>
+        <FIELD NAME="watchedranges" TYPE="text" NOTNULL="false"/>
         <FIELD NAME="timespent" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
         <FIELD NAME="points" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
       </FIELDS>
