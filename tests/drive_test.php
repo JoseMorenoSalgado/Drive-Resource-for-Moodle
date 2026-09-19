@@ -37,7 +37,6 @@ final class drive_test extends \advanced_testcase {
      * @covers ::is_supported_url
      * @dataProvider supported_url_provider
      */
-    #[DataProvider('supported_url_provider')]
     public function test_extract_file_id(string $url, string $expectedid): void {
         $this->assertSame($expectedid, drive::extract_file_id($url));
         $this->assertTrue(drive::is_supported_url($url));
