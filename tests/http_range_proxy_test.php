@@ -17,8 +17,6 @@
 namespace mod_videoplayer;
 
 use mod_videoplayer\local\http_range_proxy;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Tests for protected upstream MIME and byte-range validation.
@@ -26,10 +24,9 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * @package    mod_videoplayer
  * @category   test
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
- * @coversDefaultClass \mod_videoplayer\local\http_range_proxy
+ * @covers     \mod_videoplayer\local\http_range_proxy
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-#[CoversClass(http_range_proxy::class)]
 final class http_range_proxy_test extends \advanced_testcase {
     /**
      * Compatible media types must be accepted.
