@@ -7,7 +7,7 @@ Drive Resource is a Moodle activity module. Its stable internal component is `mo
 - Moodle 4.5–5.2.
 - Minimum Moodle build `2024100700`.
 - PHP 8.2 and 8.3 for Moodle 4.5/5.0; Moodle 5.2 is validated on PHP 8.3.
-- MariaDB 10.11 and PostgreSQL 15 in CI.
+- MariaDB 10.11 and PostgreSQL 16 in CI.
 
 The shared production branch is constrained to APIs available on both `MOODLE_405_STABLE` and `MOODLE_500_STABLE`. A newer Moodle-only API must be feature-detected or isolated before entering the shared release branch while Moodle 4.5 remains supported.
 
