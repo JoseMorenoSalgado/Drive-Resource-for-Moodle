@@ -16,7 +16,6 @@
 
 namespace mod_videoplayer;
 
-use PHPUnit\Framework\Attributes\CoversNothing;
 
 /**
  * Supported Moodle platform compatibility contract tests.
@@ -27,7 +26,6 @@ use PHPUnit\Framework\Attributes\CoversNothing;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @coversNothing
  */
-#[CoversNothing]
 final class platform_compatibility_test extends \advanced_testcase {
     /**
      * The plugin metadata must explicitly support Moodle 4.5 through 5.2.
