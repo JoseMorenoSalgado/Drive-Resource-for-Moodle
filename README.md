@@ -237,3 +237,5 @@ Drive Resource now declares Moodle 4.5 as the minimum supported branch and keeps
 ## Release 1.1.31-beta
 
 Protected video now has a third byte-range strategy. If Google Drive ignores both normal Range forwarding strategies and returns a complete `200` response, Moodle synthesizes the requested `206 Partial Content` window from the streamed upstream response. The proxy never buffers the whole video in memory and keeps Drive URLs server-side.
+
+Cross-version CI note: the shared Moodle 4.5–5.x PHPUnit suite uses docblock metadata for providers and coverage so the same tests run under PHPUnit 9 and PHPUnit 11 without version-specific test branches.
