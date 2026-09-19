@@ -34,7 +34,6 @@ final class pdf_displaymode_test extends \advanced_testcase {
      * @coversNothing
      * @dataProvider legacy_mode_provider
      */
-    #[DataProvider('legacy_mode_provider')]
     public function test_legacy_modes_resolve_to_pdfjs(?string $requestedmode): void {
         require_once(__DIR__ . '/../locallib.php');
 
