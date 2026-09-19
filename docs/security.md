@@ -163,3 +163,11 @@ Supporting Moodle 4.5 does not weaken the protected-delivery boundary. The same 
 Synthetic `206` responses do not weaken access control. They execute only after the normal Moodle `require_login()`, course-module/context and capability checks. The upstream URL and Drive file ID remain server-side. The fallback requires a known upstream length, preserves MIME validation, emits only the requested byte window and never turns Drive Resource into an arbitrary URL proxy.
 
 Cross-version PHPUnit metadata changes are confined to the test suite; they do not alter authentication, capability checks, protected URLs, MIME validation, or byte-range enforcement in production.
+
+## 1.1.32 RC security boundary
+
+The Moodle endpoint, not browser UI restrictions, is the security boundary. `protected.php` validates the authenticated session, course module, course, module context and `mod/videoplayer:view` capability before resolving the upstream Google resource. Upstream URLs and resource identifiers remain server-side.
+
+Legacy Google preview and generic iframe templates are removed from the production-candidate path. PDF-compatible resources are rendered with local PDF.js and videos with HTML5/Plyr. Browser controls such as disabled context menus and hidden download actions are defense-in-depth UX measures only; they do not make browser-delivered content cryptographically non-extractable.
+
+Precise progress payloads are bounded and normalized server-side before persistence. Privacy export/deletion and Backup/Restore include the exact viewer state.
