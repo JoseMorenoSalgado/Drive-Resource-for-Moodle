@@ -239,7 +239,7 @@ Keep PDF controls outside `.mod-videoplayer-pdfjs-canvas-wrap`. The canvas and w
 
 ## Cross-version PHPUnit contract
 
-Moodle 4.5 uses PHPUnit 9 while Moodle 5.0 uses PHPUnit 11. Tests that depend on data providers or coverage metadata must remain readable by both generations: retain PHPUnit 11 attributes and the equivalent PHPUnit 9 docblock metadata where required. Do not introduce a test-only dependency that prevents the same plugin package from being validated on both core branches.
+Moodle 4.5 uses PHPUnit 9 while Moodle 5.0 uses PHPUnit 11. Cross-version tests must use docblock metadata (`@dataProvider`, `@covers`, `@coversNothing`) that both generations can parse; do not add PHPUnit 10/11-only attributes to shared tests. Do not introduce a test-only dependency that prevents the same plugin package from being validated on both core branches.
 
 ## Synthetic range fallback
 
