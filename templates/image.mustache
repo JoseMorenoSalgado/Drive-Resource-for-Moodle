@@ -1,0 +1,39 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    @template mod_videoplayer/image
+
+    Protected image viewer for Drive Resource.
+    Example context (json):
+    {
+        "type": "image",
+        "cmid": 42,
+        "resourcetype": "Resource type: Image",
+        "imageurl": "https://example.invalid/protected.php?id=42",
+        "title": "Protected image",
+        "disablecontextmenu": true,
+        "enablewatermark": true,
+        "watermark": "Example User"
+    }
+
+}}
+<div class="mod-videoplayer-container mod-videoplayer-image" data-resource-type="{{type}}" data-cmid="{{cmid}}">
+    <div class="mod-videoplayer-meta mb-2">
+        <span class="mod-videoplayer-meta-item">{{resourcetype}}</span>
+        <span class="mod-videoplayer-meta-item">{{#str}} protectedresource, mod_videoplayer {{/str}}</span>
+    </div>
+
+    <div class="mod-videoplayer-image-frame" {{#disablecontextmenu}}oncontextmenu="return false;"{{/disablecontextmenu}}>
+        <img
+            class="mod-videoplayer-protected-image"
+            src="{{imageurl}}"
+            alt="{{title}}"
+            loading="lazy"
+            decoding="async"
+            draggable="false"
+            {{#disablecontextmenu}}oncontextmenu="return false;"{{/disablecontextmenu}}>
+        {{#enablewatermark}}
+            <div class="mod-videoplayer-watermark" aria-hidden="true">{{watermark}}</div>
+        {{/enablewatermark}}
+    </div>
+</div>
