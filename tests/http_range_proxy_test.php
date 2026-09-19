@@ -36,7 +36,6 @@ final class http_range_proxy_test extends \advanced_testcase {
      * @covers ::is_compatible_content_type
      * @dataProvider compatible_type_provider
      */
-    #[DataProvider('compatible_type_provider')]
     public function test_accepts_compatible_types(string $candidate, string $fallback): void {
         $this->assertTrue(http_range_proxy::is_compatible_content_type($candidate, $fallback));
     }
@@ -66,7 +65,6 @@ final class http_range_proxy_test extends \advanced_testcase {
      * @covers ::is_compatible_content_type
      * @dataProvider incompatible_type_provider
      */
-    #[DataProvider('incompatible_type_provider')]
     public function test_rejects_incompatible_types(string $candidate, string $fallback): void {
         $this->assertFalse(http_range_proxy::is_compatible_content_type($candidate, $fallback));
     }
