@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.1.32-rc1 - 2026-09-19
+
+### Added
+
+- Exact video progress from normalized playback ranges, persisted resume second and duration.
+- Exact PDF completion from pages actually viewed, with local PDF.js text search.
+- Standard `course_module_instance_list_viewed` event for the activity index.
+- Moodle-owned protected image viewer.
+- CI coverage for Moodle 4.5, 5.0 and 5.2 on PHP 8.2/8.3 with MariaDB and PostgreSQL.
+
+### Changed
+
+- Google Docs, Sheets and Slides are exported server-side and rendered through local PDF.js.
+- Generic presence tracking no longer competes with dedicated PDF/video tracking.
+- Privacy, Backup/Restore and reports include precise PDF/video progress state.
+- Release maturity moved to `MATURITY_RC` while live staging/device validation remains the final stable-release gate.
+
+### Removed
+
+- Google Drive preview URL helper and the legacy generic iframe viewer.
+- Legacy native PDF object/iframe template.
+
+### Fixed
+
+- Preserves the Moodle 4.5 protected-video Range/206 fallback, including synthetic partial-content handling when Google ignores the browser Range request.
+
 ## 1.1.31-beta - 2026-09-09
 
 ### Fixed
