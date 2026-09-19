@@ -5,7 +5,7 @@ Run these tests on a staging Moodle site with developer debugging enabled before
 ## Environment
 
 - Moodle 4.5 or Moodle 5.x target staging version installed.
-- PHP 8.2 or 8.3.
+- PHP 8.2 or 8.3 as supported by the target Moodle branch; use PHP 8.3 for Moodle 5.2.
 - PHP cURL enabled.
 - Moodle cron and ad-hoc tasks running.
 - `thirdpartylibs/pdfjs/pdf.min.mjs` installed.
