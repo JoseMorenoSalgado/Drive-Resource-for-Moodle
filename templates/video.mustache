@@ -1,48 +1,52 @@
 {{!
     This file is part of Moodle - http://moodle.org/
 
-    Moodle is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    Moodle is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
-}}
-{{!
     @template mod_videoplayer/video
 
-    Protected HTML5 video template for Drive Resource.
-
+    Protected HTML5 video viewer with precise playback progress state.
     Example context (json):
     {
         "type": "video",
         "cmid": 42,
+        "trackingcmid": 42,
         "resourcetype": "Resource type: Video",
-        "title": "Example protected video",
-        "videourl": "https://example.com/protected-video.mp4",
-        "videomimetype": "video/mp4"
+        "videourl": "https://example.invalid/protected.php?id=42",
+        "title": "Protected video",
+        "disablecontextmenu": true,
+        "lastsecond": 15.5,
+        "totalseconds": 120,
+        "initialtimespent": 20,
+        "watchedranges": "[[0,15.5]]",
+        "completionpercent": 12.92,
+        "completed": false
     }
+
 }}
 <div class="mod-videoplayer-container mod-videoplayer-native" data-resource-type="{{type}}" data-cmid="{{cmid}}"{{#playerstyle}} style="{{playerstyle}}"{{/playerstyle}}>
     <div class="mod-videoplayer-meta mb-2">
         <span class="mod-videoplayer-meta-item">{{resourcetype}}</span>
         <span class="mod-videoplayer-meta-item">{{#str}} protectedresource, mod_videoplayer {{/str}}</span>
+        {{#completionpercent}}
+            <span class="mod-videoplayer-meta-item" data-region="video-progress">{{completionpercent}}%</span>
+        {{/completionpercent}}
     </div>
 
-    <div class="mod-videoplayer-native-frame">
+    <div class="mod-videoplayer-native-frame" {{#disablecontextmenu}}oncontextmenu="return false;"{{/disablecontextmenu}}>
         <video
             class="mod-videoplayer-native-video js-drive-resource-video"
             controls
             draggable="false"
+            {{#disablecontextmenu}}oncontextmenu="return false;"{{/disablecontextmenu}}
             playsinline
             preload="metadata"
-            data-protected-stream="1"
+            data-cmid="{{trackingcmid}}"
+            data-disable-context-menu="{{#disablecontextmenu}}1{{/disablecontextmenu}}{{^disablecontextmenu}}0{{/disablecontextmenu}}"
+            data-initial-second="{{lastsecond}}"
+            data-total-seconds="{{totalseconds}}"
+            data-initial-time-spent="{{initialtimespent}}"
+            data-watched-ranges="{{watchedranges}}"
+            data-initial-completion="{{completionpercent}}"
+            data-initial-completed="{{#completed}}1{{/completed}}{{^completed}}0{{/completed}}"
             title="{{title}}">
             <source src="{{videourl}}" type="{{videomimetype}}">
             {{#str}} videonotsupported, mod_videoplayer {{/str}}
