@@ -90,7 +90,7 @@ jobs:
           --health-retries=10
 
       postgres:
-        image: postgres:15
+        image: postgres:16
         env:
           POSTGRES_USER: postgres
           POSTGRES_HOST_AUTH_METHOD: trust
