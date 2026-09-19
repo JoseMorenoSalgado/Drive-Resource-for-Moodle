@@ -1,4 +1,4 @@
-name: Moodle 4.5–5.0 compatibility
+name: Moodle 4.5–5.2 compatibility
 
 on:
   push:
@@ -27,6 +27,8 @@ jobs:
             branch: MOODLE_405_STABLE
           - label: '5.0'
             branch: MOODLE_500_STABLE
+          - label: '5.2'
+            branch: MOODLE_502_STABLE
         php:
           - '8.2'
           - '8.3'
@@ -189,6 +191,27 @@ jobs:
           grep -q 'mod-videoplayer-pdfjs-canvas-stage' plugin/styles_pdf_overlay.css
           grep -q 'margin: auto !important' plugin/styles_pdf_mobile.css
           grep -q 'justify-content: flex-start !important' plugin/styles_pdf_mobile.css
+
+      - name: Protected viewer and precise progress contract
+        run: |
+          test ! -f plugin/templates/resource.mustache
+          test ! -f plugin/templates/pdf.mustache
+          if grep -R -nE 'drive\.google\.com/.*/preview|iframeurl|preview_url'               plugin/view.php plugin/templates plugin/classes/local; then
+            echo 'Obsolete Google Drive preview/iframe path detected.' >&2
+            exit 1
+          fi
+          grep -q 'visitedpages' plugin/db/install.xml
+          grep -q 'lastsecond' plugin/db/install.xml
+          grep -q 'totalseconds' plugin/db/install.xml
+          grep -q 'watchedranges' plugin/db/install.xml
+          grep -q 'data-watched-ranges' plugin/templates/video.mustache
+          grep -q 'mod_videoplayer_save_progress' plugin/amd/src/plyr.js
+          grep -q 'data-visited-pages' plugin/templates/pdfjs.mustache
+          grep -q 'pdf-search-form' plugin/templates/pdfjs.mustache
+          grep -q 'search-pdf' plugin/amd/src/pdfviewer.js
+          grep -q 'course_module_instance_list_viewed' plugin/index.php
+          grep -q 'visitedpages' plugin/classes/privacy/provider.php
+          grep -q 'watchedranges' plugin/backup/moodle2/backup_videoplayer_stepslib.php
 
       - name: PHPUnit
         run: moodle-plugin-ci phpunit --fail-on-warning
