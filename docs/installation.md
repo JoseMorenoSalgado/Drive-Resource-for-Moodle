@@ -287,3 +287,5 @@ On a clean Moodle 4.5 staging site running PHP 8.2 or 8.3, install the same plug
 ## Video playback verification for 1.1.31-beta
 
 After deploying `1.1.31-beta` (`2026090901`), purge Moodle caches and reset PHP OPcache. Open a protected Google Drive video and verify initial playback, duration detection and seeks near the beginning, middle and end. A browser `Range` request must receive `206 Partial Content`; if Google ignores the upstream Range header, Drive Resource should still return a synthesized `206` rather than `502 UPSTREAM_RANGE_UNSUPPORTED`. Test Android Chrome and iPhone Safari on the physical devices used by learners.
+
+For Moodle 4.5 release validation, the shared PHPUnit suite must remain annotation-based so PHPCS and PHPUnit 9 can complete the same gate that runs on Moodle 5.x/PHPUnit 11.
