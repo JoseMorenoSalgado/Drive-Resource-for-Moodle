@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.1.32-rc2 - 2026-09-19
+
+### Fixed
+
+- Corrected the activity-index event namespace so PHP lint can execute on every supported Moodle branch.
+- Removed invalid Moodle 5.2 + PHP 8.2 CI jobs; Moodle 5.2 is validated on PHP 8.3, while Moodle 4.5 and 5.0 remain validated on PHP 8.2 and 8.3.
+- Aligned release documentation with the actual Moodle/PHP runtime compatibility boundary.
+
 ## v1.1.32-rc1 - 2026-09-19
 
 ### Added
@@ -8,7 +16,7 @@
 - Exact PDF completion from pages actually viewed, with local PDF.js text search.
 - Standard `course_module_instance_list_viewed` event for the activity index.
 - Moodle-owned protected image viewer.
-- CI coverage for Moodle 4.5, 5.0 and 5.2 on PHP 8.2/8.3 with MariaDB and PostgreSQL.
+- CI coverage for Moodle 4.5 and 5.0 on PHP 8.2/8.3, plus Moodle 5.2 on PHP 8.3, with MariaDB and PostgreSQL.
 
 ### Changed
 
