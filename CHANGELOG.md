@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.1.32-rc3 - 2026-09-19
+
+### Fixed
+
+- Sorted English and Spanish language-string keys to satisfy Moodle Coding Style with zero warnings.
+- Updated the CI PostgreSQL service from 15 to 16 so Moodle 5.2 can initialize its PHPUnit environment.
+- Kept Moodle 4.5 and 5.0 in the same cross-version matrix while using a database baseline accepted by all tested branches.
+
 ## v1.1.32-rc2 - 2026-09-19
 
 ### Fixed
