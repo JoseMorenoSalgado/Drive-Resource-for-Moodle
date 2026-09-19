@@ -39,7 +39,7 @@ $PAGE->set_heading(format_string($course->fullname));
 $PAGE->set_context($coursecontext);
 $PAGE->navbar->add(get_string('modulenameplural', 'mod_videoplayer'));
 
-$event = \\mod_videoplayer\\event\\course_module_instance_list_viewed::create([
+$event = \mod_videoplayer\event\course_module_instance_list_viewed::create([
     'context' => $coursecontext,
 ]);
 $event->add_record_snapshot('course', $course);
