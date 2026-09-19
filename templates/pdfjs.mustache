@@ -57,12 +57,39 @@
     <div class="mod-videoplayer-pdfjs-viewer"
          data-pdf-url="{{pdfurl}}"
          data-title="{{title}}"
-         data-cmid="{{cmid}}"
+         data-cmid="{{trackingcmid}}"
          data-initial-page="{{initialpage}}"
+         data-initial-progress="{{initialprogress}}"
+         data-initial-time-spent="{{initialtimespent}}"
+         data-initial-completion="{{completionpercent}}"
+         data-initial-completed="{{#completed}}1{{/completed}}{{^completed}}0{{/completed}}"
+         data-visited-pages="{{visitedpages}}"
+         data-search-not-found="{{#str}} searchpdfnotfound, mod_videoplayer {{/str}}"
+         data-search-result-page="{{#str}} searchpdfresultpage, mod_videoplayer {{/str}}"
          data-display-mode="pdfjs"
          data-disable-context-menu="{{#disablecontextmenu}}1{{/disablecontextmenu}}{{^disablecontextmenu}}0{{/disablecontextmenu}}"
          data-watermark="{{#enablewatermark}}{{watermark}}{{/enablewatermark}}"
          oncontextmenu="return false;">
+        <form class="mod-videoplayer-pdfjs-searchbar" data-region="pdf-search-form" role="search">
+            <label class="sr-only visually-hidden" for="mod-videoplayer-pdf-search-{{cmid}}">
+                {{#str}} searchpdf, mod_videoplayer {{/str}}
+            </label>
+            <input id="mod-videoplayer-pdf-search-{{cmid}}"
+                   class="form-control mod-videoplayer-pdfjs-search-input"
+                   type="search"
+                   data-region="pdf-search-input"
+                   placeholder="{{#str}} searchpdfplaceholder, mod_videoplayer {{/str}}"
+                   autocomplete="off">
+            <button type="submit"
+                    class="btn btn-secondary mod-videoplayer-pdfjs-search-button"
+                    data-action="search-pdf">
+                {{#str}} searchpdf, mod_videoplayer {{/str}}
+            </button>
+            <span class="mod-videoplayer-pdfjs-search-status"
+                  data-region="pdf-search-status"
+                  aria-live="polite"></span>
+        </form>
+
         <div class="mod-videoplayer-pdfjs-overlay" aria-label="{{title}}">
             <button type="button"
                     class="mod-videoplayer-pdfjs-control mod-videoplayer-pdfjs-control-prev"
