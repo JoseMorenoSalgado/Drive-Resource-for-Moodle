@@ -21,9 +21,9 @@ The workflow `.github/workflows/moodle-supported-ci.yml` installs the plugin on 
 Each branch is validated with:
 
 - PHP 8.2 + MariaDB 10.11;
-- PHP 8.2 + PostgreSQL 15;
+- PHP 8.2 + PostgreSQL 16;
 - PHP 8.3 + MariaDB 10.11;
-- PHP 8.3 + PostgreSQL 15.
+- PHP 8.3 + PostgreSQL 16.
 
 The gate runs clean installation, PHP lint, Moodle Coding Style, PHPDoc, plugin validation, XMLDB savepoints, Mustache validation, AMD/Grunt validation, PDF.js production contracts and PHPUnit.
 
