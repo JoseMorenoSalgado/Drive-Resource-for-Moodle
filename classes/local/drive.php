@@ -114,17 +114,6 @@ class drive {
     }
 
     /**
-     * Build a Google Drive preview URL.
-     *
-     * @param string $fileid
-     * @return \moodle_url
-     */
-    public static function preview_url(string $fileid): \moodle_url {
-        $fileid = clean_param($fileid, PARAM_ALPHANUMEXT);
-        return new \moodle_url('https://drive.google.com/file/d/' . rawurlencode($fileid) . '/preview');
-    }
-
-    /**
      * Build the Google Drive content URL used by the protected proxy.
      *
      * This URL is never rendered in the Moodle page. It is used server-side by
