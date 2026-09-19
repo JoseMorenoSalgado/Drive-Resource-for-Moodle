@@ -16,8 +16,6 @@
 
 namespace mod_videoplayer;
 
-use PHPUnit\Framework\Attributes\CoversNothing;
-use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * PDF display-mode stability tests.
@@ -28,16 +26,13 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * @coversNothing
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-#[CoversNothing]
 final class pdf_displaymode_test extends \advanced_testcase {
     /**
      * Legacy and unsupported modes must resolve to the stable PDF.js viewer.
      *
      * @param string|null $requestedmode Requested mode.
      * @dataProvider legacy_mode_provider
-     * @coversNothing
      */
-    #[DataProvider('legacy_mode_provider')]
     public function test_legacy_modes_resolve_to_pdfjs(?string $requestedmode): void {
         require_once(__DIR__ . '/../locallib.php');
 
@@ -64,7 +59,6 @@ final class pdf_displaymode_test extends \advanced_testcase {
     /**
      * The learner entry point must not load alternative PDF renderers.
      *
-     * @coversNothing
      */
     public function test_view_uses_only_pdfjs_renderer(): void {
         $viewsource = file_get_contents(__DIR__ . '/../view.php');
@@ -79,7 +73,6 @@ final class pdf_displaymode_test extends \advanced_testcase {
     /**
      * Legacy backups must be normalised during restore.
      *
-     * @coversNothing
      */
     public function test_restore_normalises_displaymode_to_pdfjs(): void {
         $restoresource = file_get_contents(
@@ -94,7 +87,6 @@ final class pdf_displaymode_test extends \advanced_testcase {
     /**
      * Obsolete renderer source and third-party assets must not ship.
      *
-     * @coversNothing
      */
     public function test_obsolete_pdf_renderers_are_not_packaged(): void {
         $obsoletepaths = [

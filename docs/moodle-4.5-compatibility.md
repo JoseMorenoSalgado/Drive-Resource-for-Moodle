@@ -29,7 +29,7 @@ The gate runs clean installation, PHP lint, Moodle Coding Style, PHPDoc, plugin 
 
 ## Cross-version PHPUnit support
 
-Moodle 4.5 uses PHPUnit 9 while Moodle 5.0 uses PHPUnit 11. Drive Resource keeps PHPUnit 11 attributes and the equivalent PHPUnit 9 docblock metadata for data providers and coverage declarations where required. This allows the same test sources to execute on both generations without maintaining a separate test branch.
+Moodle 4.5 uses PHPUnit 9 while Moodle 5.0 uses PHPUnit 11. Shared tests use PHPUnit docblock metadata for data providers and coverage declarations, avoiding PHPUnit 10/11-only attributes in the cross-version suite. This keeps the same test sources executable on both generations without a separate test branch.
 
 ## Core APIs reviewed
 

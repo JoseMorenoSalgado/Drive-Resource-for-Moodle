@@ -17,8 +17,6 @@
 namespace mod_videoplayer;
 
 use mod_videoplayer\local\http_range_proxy;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Tests for protected upstream MIME and byte-range validation.
@@ -29,16 +27,15 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * @covers     \mod_videoplayer\local\http_range_proxy
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-#[CoversClass(http_range_proxy::class)]
 final class http_range_proxy_test extends \advanced_testcase {
     /**
      * Compatible media types must be accepted.
      *
      * @param string $candidate Upstream MIME type.
      * @param string $fallback Expected viewer MIME type.
+     * @covers ::is_compatible_content_type
      * @dataProvider compatible_type_provider
      */
-    #[DataProvider('compatible_type_provider')]
     public function test_accepts_compatible_types(string $candidate, string $fallback): void {
         $this->assertTrue(http_range_proxy::is_compatible_content_type($candidate, $fallback));
     }
@@ -65,9 +62,9 @@ final class http_range_proxy_test extends \advanced_testcase {
      *
      * @param string $candidate Upstream MIME type.
      * @param string $fallback Expected viewer MIME type.
+     * @covers ::is_compatible_content_type
      * @dataProvider incompatible_type_provider
      */
-    #[DataProvider('incompatible_type_provider')]
     public function test_rejects_incompatible_types(string $candidate, string $fallback): void {
         $this->assertFalse(http_range_proxy::is_compatible_content_type($candidate, $fallback));
     }
@@ -88,7 +85,33 @@ final class http_range_proxy_test extends \advanced_testcase {
     }
 
     /**
+     * Browser ranges can be synthesized safely from a known full response.
+     *
+     * @covers ::resolve_range_window
+     */
+    public function test_resolves_range_windows(): void {
+        $this->assertSame(
+            ['start' => 0, 'end' => 4095, 'total' => 4096, 'length' => 4096],
+            http_range_proxy::resolve_range_window('bytes=0-', 4096)
+        );
+        $this->assertSame(
+            ['start' => 1024, 'end' => 2047, 'total' => 4096, 'length' => 1024],
+            http_range_proxy::resolve_range_window('bytes=1024-2047', 4096)
+        );
+        $this->assertSame(
+            ['start' => 3596, 'end' => 4095, 'total' => 4096, 'length' => 500],
+            http_range_proxy::resolve_range_window('bytes=-500', 4096)
+        );
+        $this->assertNull(http_range_proxy::resolve_range_window('bytes=4096-', 4096));
+        $this->assertNull(http_range_proxy::resolve_range_window('bytes=100-99', 4096));
+        $this->assertNull(http_range_proxy::resolve_range_window('invalid', 4096));
+        $this->assertNull(http_range_proxy::resolve_range_window('bytes=0-', 0));
+    }
+
+    /**
      * Range requests require a valid HTTP 206 response and Content-Range.
+     *
+     * @covers ::is_range_response_usable
      */
     public function test_range_requests_require_valid_partial_content(): void {
         $this->assertTrue(http_range_proxy::is_range_response_usable('', 200, ''));

@@ -43,6 +43,9 @@ final class http_range_proxy {
     /** @var string Send one explicit Range header across redirects. */
     private const RANGE_MODE_HEADER = 'header';
 
+    /** @var string Synthesize a browser range from an upstream full response. */
+    private const RANGE_MODE_SYNTHETIC = 'synthetic';
+
     /**
      * Stream an upstream resource through Moodle.
      *
@@ -69,7 +72,7 @@ final class http_range_proxy {
         $validator = self::stable_validator($url);
         $rangemodes = $range === ''
             ? [self::RANGE_MODE_NONE]
-            : [self::RANGE_MODE_CURL, self::RANGE_MODE_HEADER];
+            : [self::RANGE_MODE_CURL, self::RANGE_MODE_HEADER, self::RANGE_MODE_SYNTHETIC];
         $lastresponse = null;
 
         foreach ($rangemodes as $rangemode) {
@@ -155,6 +158,9 @@ final class http_range_proxy {
         $headerssent = false;
         $discardbody = false;
         $invalidcontent = false;
+        $syntheticwindow = null;
+        $syntheticposition = 0;
+        $syntheticrangeinvalid = false;
 
         $headercallback = static function (
             $curl,
@@ -163,8 +169,11 @@ final class http_range_proxy {
             &$responseheaders,
             &$discardbody,
             &$invalidcontent,
+            &$syntheticwindow,
+            &$syntheticrangeinvalid,
             $fallbacktype,
-            $range
+            $range,
+            $rangemode
         ): int {
             $length = strlen($header);
             $trimmed = trim($header);
@@ -175,6 +184,19 @@ final class http_range_proxy {
                     if (!self::is_compatible_content_type($candidate, $fallbacktype)) {
                         $invalidcontent = true;
                         $discardbody = true;
+                    } else if (
+                        $rangemode === self::RANGE_MODE_SYNTHETIC &&
+                        $range !== '' &&
+                        $status === 200
+                    ) {
+                        $total = (int) ($responseheaders['content-length'] ?? 0);
+                        $syntheticwindow = self::resolve_range_window($range, $total);
+                        if ($syntheticwindow === null) {
+                            $syntheticrangeinvalid = true;
+                            $discardbody = true;
+                        } else {
+                            $discardbody = false;
+                        }
                     } else if (
                         !self::is_range_response_usable(
                             $range,
@@ -191,8 +213,14 @@ final class http_range_proxy {
             if (preg_match('/^HTTP\/\S+\s+(\d+)/i', $trimmed, $matches)) {
                 $status = (int) $matches[1];
                 $responseheaders = ['status' => $status];
-                $discardbody = $status >= 400 || ($range !== '' && $status !== 206);
+                if ($rangemode === self::RANGE_MODE_SYNTHETIC && $range !== '') {
+                    $discardbody = $status >= 400 || !in_array($status, [200, 206], true);
+                } else {
+                    $discardbody = $status >= 400 || ($range !== '' && $status !== 206);
+                }
                 $invalidcontent = false;
+                $syntheticwindow = null;
+                $syntheticrangeinvalid = false;
                 return $length;
             }
 
@@ -236,7 +264,7 @@ final class http_range_proxy {
             CURLOPT_BUFFERSIZE => self::STREAM_BUFFER_SIZE,
             CURLOPT_HTTPHEADER => $requestheaders,
             CURLOPT_HEADERFUNCTION => $headercallback,
-            CURLOPT_USERAGENT => 'DriveResourceMoodleProxy/1.1.28',
+            CURLOPT_USERAGENT => 'DriveResourceMoodleProxy/1.1.31',
             CURLOPT_WRITEFUNCTION => static function (
                 $curl,
                 string $data
@@ -244,17 +272,66 @@ final class http_range_proxy {
                 &$headerssent,
                 &$responseheaders,
                 &$discardbody,
+                &$syntheticwindow,
+                &$syntheticposition,
                 $fallbacktype,
                 $filename,
                 $cachestatus,
                 $validator,
-                $range
+                $range,
+                $rangemode
             ): int {
+                $datalength = strlen($data);
                 if ($discardbody) {
-                    return strlen($data);
+                    return $datalength;
                 }
 
                 $status = (int) ($responseheaders['status'] ?? 0);
+                if (
+                    $rangemode === self::RANGE_MODE_SYNTHETIC &&
+                    $range !== '' &&
+                    $status === 200 &&
+                    is_array($syntheticwindow)
+                ) {
+                    $chunkstart = $syntheticposition;
+                    $chunkend = $syntheticposition + $datalength - 1;
+                    $emitstart = max($chunkstart, $syntheticwindow['start']);
+                    $emitend = min($chunkend, $syntheticwindow['end']);
+
+                    if ($emitstart <= $emitend) {
+                        if (!$headerssent) {
+                            $syntheticheaders = $responseheaders;
+                            $syntheticheaders['status'] = 206;
+                            $syntheticheaders['content-range'] = 'bytes ' .
+                                $syntheticwindow['start'] . '-' .
+                                $syntheticwindow['end'] . '/' .
+                                $syntheticwindow['total'];
+                            $syntheticheaders['content-length'] = $syntheticwindow['length'];
+                            $syntheticheaders['accept-ranges'] = 'bytes';
+                            self::send_response_headers(
+                                $syntheticheaders,
+                                $fallbacktype,
+                                $filename,
+                                $cachestatus,
+                                $validator
+                            );
+                            $headerssent = true;
+                        }
+
+                        $offset = $emitstart - $chunkstart;
+                        $emitlength = $emitend - $emitstart + 1;
+                        echo substr($data, $offset, $emitlength);
+                        flush();
+                    }
+
+                    $syntheticposition += $datalength;
+                    if ($syntheticposition > $syntheticwindow['end']) {
+                        return 0;
+                    }
+
+                    return $datalength;
+                }
+
                 if (
                     !$headerssent &&
                     self::is_range_response_usable(
@@ -278,7 +355,7 @@ final class http_range_proxy {
                     flush();
                 }
 
-                return strlen($data);
+                return $datalength;
             },
         ];
 
@@ -305,6 +382,31 @@ final class http_range_proxy {
             $ishead &&
             $result !== false &&
             !$invalidcontent &&
+            $rangemode === self::RANGE_MODE_SYNTHETIC &&
+            $range !== '' &&
+            $curlcode === 200 &&
+            is_array($syntheticwindow)
+        ) {
+            $syntheticheaders = $responseheaders;
+            $syntheticheaders['status'] = 206;
+            $syntheticheaders['content-range'] = 'bytes ' .
+                $syntheticwindow['start'] . '-' .
+                $syntheticwindow['end'] . '/' .
+                $syntheticwindow['total'];
+            $syntheticheaders['content-length'] = $syntheticwindow['length'];
+            $syntheticheaders['accept-ranges'] = 'bytes';
+            self::send_response_headers(
+                $syntheticheaders,
+                $fallbacktype,
+                $filename,
+                $cachestatus,
+                $validator
+            );
+            $headerssent = true;
+        } else if (
+            $ishead &&
+            $result !== false &&
+            !$invalidcontent &&
             self::is_range_response_usable(
                 $range,
                 $curlcode,
@@ -323,8 +425,8 @@ final class http_range_proxy {
 
         return [
             'sent' => $headerssent,
-            'result' => $result !== false,
-            'status' => $curlcode,
+            'result' => $result !== false || $headerssent,
+            'status' => $syntheticrangeinvalid ? 416 : $curlcode,
             'error' => $curlerror,
             'headers' => $responseheaders,
             'invalidcontent' => $invalidcontent,
@@ -386,6 +488,55 @@ final class http_range_proxy {
 
         return $status === 206 &&
             preg_match('/^bytes\s+\d+-\d+\/(?:\d+|\*)$/i', trim($contentrange)) === 1;
+    }
+
+    /**
+     * Resolve one validated browser byte range against a known resource size.
+     *
+     * @param string $range Browser Range header.
+     * @param int $total Total upstream resource size.
+     * @return array{start: int, end: int, total: int, length: int}|null
+     */
+    public static function resolve_range_window(string $range, int $total): ?array {
+        if ($total <= 0) {
+            return null;
+        }
+
+        if (preg_match('/^bytes=(\d+)-(\d*)$/', $range, $matches)) {
+            $start = (int) $matches[1];
+            if ($start >= $total) {
+                return null;
+            }
+
+            $end = $matches[2] === '' ? $total - 1 : min((int) $matches[2], $total - 1);
+            if ($end < $start) {
+                return null;
+            }
+
+            return [
+                'start' => $start,
+                'end' => $end,
+                'total' => $total,
+                'length' => $end - $start + 1,
+            ];
+        }
+
+        if (preg_match('/^bytes=-(\d+)$/', $range, $matches)) {
+            $suffixlength = (int) $matches[1];
+            if ($suffixlength <= 0) {
+                return null;
+            }
+
+            $length = min($suffixlength, $total);
+            return [
+                'start' => $total - $length,
+                'end' => $total - 1,
+                'total' => $total,
+                'length' => $length,
+            ];
+        }
+
+        return null;
     }
 
     /**
@@ -451,7 +602,7 @@ final class http_range_proxy {
         header('X-Drive-Resource-Status: MEDIA');
 
         $acceptranges = strtolower((string) ($headers['accept-ranges'] ?? ''));
-        if ($status === 206 || $acceptranges === 'bytes') {
+        if ($status === 206 || $acceptranges === 'bytes' || !empty($headers['content-length'])) {
             header('Accept-Ranges: bytes');
         }
 

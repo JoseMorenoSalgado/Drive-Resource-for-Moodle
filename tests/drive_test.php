@@ -17,8 +17,6 @@
 namespace mod_videoplayer;
 
 use mod_videoplayer\local\drive;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Tests for the Google Drive URL helper.
@@ -29,16 +27,16 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * @covers     \mod_videoplayer\local\drive
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-#[CoversClass(drive::class)]
 final class drive_test extends \advanced_testcase {
     /**
      * Supported sharing URL formats must resolve to the same file identifier.
      *
      * @param string $url Sharing URL.
      * @param string $expectedid Expected Drive identifier.
+     * @covers ::extract_file_id
+     * @covers ::is_supported_url
      * @dataProvider supported_url_provider
      */
-    #[DataProvider('supported_url_provider')]
     public function test_extract_file_id(string $url, string $expectedid): void {
         $this->assertSame($expectedid, drive::extract_file_id($url));
         $this->assertTrue(drive::is_supported_url($url));
@@ -76,6 +74,9 @@ final class drive_test extends \advanced_testcase {
 
     /**
      * Unsupported hosts and malformed links must be rejected.
+     *
+     * @covers ::is_supported_url
+     * @covers ::extract_file_id
      */
     public function test_rejects_unsupported_urls(): void {
         $this->assertFalse(drive::is_supported_url('https://example.com/file/d/1AbC_def-123'));
@@ -85,6 +86,8 @@ final class drive_test extends \advanced_testcase {
 
     /**
      * Resource keys must be retained only when they are valid.
+     *
+     * @covers ::extract_resource_key
      */
     public function test_extract_resource_key(): void {
         $url = 'https://drive.google.com/file/d/1AbC_def-123/view?resourcekey=0-AbC_def-456&usp=sharing';
@@ -95,6 +98,8 @@ final class drive_test extends \advanced_testcase {
 
     /**
      * Google Workspace resources must use PDF export endpoints server-side.
+     *
+     * @covers ::protected_content_url
      */
     public function test_protected_content_url_uses_expected_exports(): void {
         $fileid = '1AbC_def-123';
@@ -119,6 +124,8 @@ final class drive_test extends \advanced_testcase {
 
     /**
      * Protected URLs must preserve a Drive resource key server-side.
+     *
+     * @covers ::protected_content_url
      */
     public function test_protected_content_url_preserves_resource_key(): void {
         $originalurl = 'https://drive.google.com/file/d/1AbC_def-123/view?resourcekey=0-AbC_def-456';
@@ -132,6 +139,8 @@ final class drive_test extends \advanced_testcase {
 
     /**
      * Resource detection must stay deterministic for typed Workspace URLs.
+     *
+     * @covers ::detect_type
      */
     public function test_detect_type(): void {
         $this->assertSame('document', drive::detect_type('https://docs.google.com/document/d/example/edit'));
