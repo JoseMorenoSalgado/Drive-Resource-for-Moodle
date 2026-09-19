@@ -116,6 +116,23 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
         }, true);
     };
 
+    const notifyRewards = function(container, rewards) {
+        const region = container.querySelector('[data-region="pdfjs-achievements"]');
+        if (!region || !Array.isArray(rewards) || !rewards.length) {
+            return;
+        }
+
+        rewards.forEach(function(reward) {
+            const item = document.createElement('div');
+            item.className = 'alert alert-success mod-videoplayer-reward';
+            item.textContent = String(reward.label || '') + ' +' + (parseInt(reward.points, 10) || 0);
+            region.appendChild(item);
+            window.setTimeout(function() {
+                item.remove();
+            }, 7000);
+        });
+    };
+
     const initViewer = function(root, pdfjsLib) {
         const pdfUrl = root.getAttribute('data-pdf-url');
         const cmid = parseInt(root.getAttribute('data-cmid'), 10) || 0;
@@ -136,6 +153,7 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
         const searchButton = root.querySelector('[data-action="search-pdf"]');
         const searchStatus = root.querySelector('[data-region="pdf-search-status"]');
         const container = root.closest('.mod-videoplayer-container') || document;
+        const pointsNode = container.querySelector('[data-region="pdfjs-points"]');
         const progressNode = container.querySelector('[data-region="pdfjs-progress"]');
 
         if (!pdfUrl || !canvas || !wrap) {
@@ -278,9 +296,13 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
                     activeSeconds = Math.max(activeSeconds, parseFloat(response.progress) || 0);
                     timeSpent = Math.max(timeSpent, parseInt(response.timespent, 10) || 0);
                     absorbServerPages(response.visitedpages || '');
+                    if (pointsNode) {
+                        pointsNode.textContent = String(parseInt(response.points, 10) || 0);
+                    }
                     if (progressNode) {
                         progressNode.textContent = response.completionpercentage + '%';
                     }
+                    notifyRewards(container, response.rewards);
                 }
                 return response;
             }).catch(Notification.exception).finally(function() {
