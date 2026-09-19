@@ -161,3 +161,5 @@ Supporting Moodle 4.5 does not weaken the protected-delivery boundary. The same 
 ## Synthetic byte ranges
 
 Synthetic `206` responses do not weaken access control. They execute only after the normal Moodle `require_login()`, course-module/context and capability checks. The upstream URL and Drive file ID remain server-side. The fallback requires a known upstream length, preserves MIME validation, emits only the requested byte window and never turns Drive Resource into an arbitrary URL proxy.
+
+Cross-version PHPUnit metadata changes are confined to the test suite; they do not alter authentication, capability checks, protected URLs, MIME validation, or byte-range enforcement in production.
