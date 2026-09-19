@@ -10,7 +10,7 @@ The Moodle component remains `mod_videoplayer`. Do not rename it: installed site
 - Compatibility baselines `MOODLE_405_STABLE` and `MOODLE_500_STABLE`.
 - Minimum Moodle version `2024100700`.
 - PHP 8.2 and 8.3 for Moodle 4.5/5.0; Moodle 5.2 CI uses PHP 8.3.
-- CI databases MariaDB 10.11 and PostgreSQL 15.
+- CI databases MariaDB 10.11 and PostgreSQL 16.
 
 Moodle 4.5 is supported from the shared release branch. Older Moodle 4.x branches remain unsupported.
 
