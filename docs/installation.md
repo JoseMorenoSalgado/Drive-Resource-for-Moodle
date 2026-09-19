@@ -149,7 +149,7 @@ Cron must process ad-hoc tasks frequently. The PHP/web user must be able to crea
 
 After installation or upgrade, verify:
 
-1. Administration reports Drive Resource `1.1.32-rc2` and version `2026091901`.
+1. Administration reports Drive Resource `1.1.32-rc3` and version `2026091902`.
 2. A teacher can create and edit a Drive Resource.
 3. The saved `displaymode` is `pdfjs`.
 4. An enrolled learner can open the activity.
@@ -259,7 +259,7 @@ Unsatisfiable ranges must return `416` with `Content-Range: bytes */<size>` wher
 
 `.github/workflows/moodle-supported-ci.yml` tests Moodle 4.5 and 5.0 on PHP 8.2/8.3, and Moodle 5.2 on PHP 8.3, with:
 
-- MariaDB 10.11 and PostgreSQL 15;
+- MariaDB 10.11 and PostgreSQL 16;
 - PHP lint, Moodle Coding Style, PHPDoc, plugin validation and XMLDB savepoints;
 - Mustache, Grunt/AMD and PHPUnit;
 - PDF.js native-ESM loader assertions;
