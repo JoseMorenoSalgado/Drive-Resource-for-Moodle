@@ -219,3 +219,5 @@ Moodle 4.5 becomes the lowest supported core branch. The plugin metadata, PHPUni
 ## Protected video range recovery (1.1.31-beta)
 
 The proxy uses three ordered strategies for browser byte ranges: libcurl `CURLOPT_RANGE`, an explicit `Range` header across redirects, and a synthetic range fallback. The synthetic fallback is used only when Google returns a complete `200` response with a known `Content-Length`; Moodle discards bytes before the requested offset and streams only the requested window as `206 Partial Content`. It does not buffer the complete video in PHP memory. MIME validation, login, module context and capability checks remain unchanged.
+
+The compatibility gate intentionally keeps PHPUnit metadata annotation-based in shared tests. This is test-infrastructure only and does not fork or weaken the protected streaming runtime between Moodle 4.5 and 5.x.
