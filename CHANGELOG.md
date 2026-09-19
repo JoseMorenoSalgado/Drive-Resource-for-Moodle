@@ -359,3 +359,5 @@ The internal Moodle component is `mod_videoplayer` for compatibility with previo
 - Removed plugin-owned open-in-Drive controls.
 - Added iframe restrictions and no-referrer policy where legacy embeds remain.
 - Added Moodle course and capability checks to protected delivery.
+
+- Normalised shared PHPUnit metadata to docblock annotations so the Moodle 4.5 gate can execute the same test suite as Moodle 5.x instead of stopping at PHPCS.
