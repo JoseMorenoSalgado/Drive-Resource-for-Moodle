@@ -9,7 +9,7 @@ $plugin->requires = 2024100700;
 $plugin->supported = [405, 502];
 ```
 
-The commercial runtime baseline remains PHP 8.2 or 8.3. Moodle 4.5 itself can run on older PHP versions, but Drive Resource intentionally standardises on PHP 8.2+ so the same production code and test contract are used across Moodle 4.5–5.2.
+The plugin code baseline remains PHP 8.2+. Moodle 4.5 and 5.0 are validated on PHP 8.2 and 8.3. Moodle 5.2 is validated on PHP 8.3 because that Moodle branch requires PHP 8.3+. The production code remains shared across Moodle 4.5–5.2.
 
 ## Automated compatibility matrix
 
