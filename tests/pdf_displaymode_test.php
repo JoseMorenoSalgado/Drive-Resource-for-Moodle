@@ -16,8 +16,6 @@
 
 namespace mod_videoplayer;
 
-use PHPUnit\Framework\Attributes\CoversNothing;
-use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * PDF display-mode stability tests.
@@ -28,7 +26,6 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * @coversNothing
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-#[CoversNothing]
 final class pdf_displaymode_test extends \advanced_testcase {
     /**
      * Legacy and unsupported modes must resolve to the stable PDF.js viewer.
