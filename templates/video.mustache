@@ -11,6 +11,7 @@
         "trackingcmid": 42,
         "resourcetype": "Resource type: Video",
         "videourl": "https://example.invalid/protected.php?id=42",
+        "videomimetype": "video/mp4",
         "title": "Protected video",
         "disablecontextmenu": true,
         "lastsecond": 15.5,
@@ -48,7 +49,7 @@
             data-initial-completion="{{completionpercent}}"
             data-initial-completed="{{#completed}}1{{/completed}}{{^completed}}0{{/completed}}"
             title="{{title}}">
-            <source src="{{videourl}}" type="{{videomimetype}}">
+            <source src="{{videourl}}"{{#videomimetype}} type="{{videomimetype}}"{{/videomimetype}}>
             {{#str}} videonotsupported, mod_videoplayer {{/str}}
         </video>
     </div>
