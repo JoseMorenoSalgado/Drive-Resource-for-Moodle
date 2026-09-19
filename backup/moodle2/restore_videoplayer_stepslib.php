@@ -117,6 +117,10 @@ class restore_videoplayer_activity_structure_step extends restore_activity_struc
 
         $data->lastpage = $data->lastpage ?? 0;
         $data->totalpages = $data->totalpages ?? 0;
+        $data->visitedpages = $data->visitedpages ?? null;
+        $data->lastsecond = $data->lastsecond ?? 0;
+        $data->totalseconds = $data->totalseconds ?? 0;
+        $data->watchedranges = $data->watchedranges ?? null;
         $data->timespent = $data->timespent ?? 0;
         $data->points = $data->points ?? 0;
 
