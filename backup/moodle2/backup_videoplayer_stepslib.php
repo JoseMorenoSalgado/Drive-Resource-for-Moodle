@@ -58,6 +58,7 @@ class backup_videoplayer_activity_structure_step extends backup_activity_structu
             'starttime',
             'endtime',
             'completionpercentage',
+            'completionprogressenabled',
             'grade',
             'displayoptions',
             'posterimage',
