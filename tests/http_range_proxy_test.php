@@ -109,6 +109,34 @@ final class http_range_proxy_test extends \advanced_testcase {
     }
 
     /**
+     * Generic upstream MIME must use the real Drive filename when available.
+     *
+     * @covers ::resolve_content_type
+     */
+    public function test_infers_video_type_from_content_disposition(): void {
+        $this->assertSame(
+            'video/webm',
+            http_range_proxy::resolve_content_type(
+                'application/octet-stream',
+                'video/mp4',
+                'attachment; filename="lesson.webm"'
+            )
+        );
+        $this->assertSame(
+            'video/quicktime',
+            http_range_proxy::resolve_content_type(
+                '',
+                'video/mp4',
+                "attachment; filename*=UTF-8''lesson.mov"
+            )
+        );
+        $this->assertSame(
+            'video/mp4',
+            http_range_proxy::resolve_content_type('application/octet-stream', 'video/mp4', '')
+        );
+    }
+
+    /**
      * Range requests require a valid HTTP 206 response and Content-Range.
      *
      * @covers ::is_range_response_usable
