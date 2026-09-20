@@ -148,10 +148,11 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
             var status = response.headers.get('X-Drive-Resource-Status') || '';
             if ((response.status === 200 || response.status === 206) && status === 'MEDIA') {
                 setVideoError(node, codecMessage || genericMessage);
-                return;
+                return null;
             }
 
             setVideoError(node, networkMessage || genericMessage);
+            return null;
         }).catch(function() {
             setVideoError(node, genericMessage || networkMessage);
         });
