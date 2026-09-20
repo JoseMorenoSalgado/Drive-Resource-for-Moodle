@@ -304,3 +304,16 @@ For an existing standard Google Drive video link using `/file/d/.../view`, verif
 
 If the Moodle upgrade reports `ddldependencyerror` for `videoplayer->type` with dependency `vide_typ_ix` / `type_idx`, deploy Drive Resource `1.1.32-rc7` (`2026092003`) and rerun the normal Moodle upgrade. Do **not** manually drop the database index. RC7 temporarily removes the XMLDB index, changes the field default, restores the index, seeds the missing plugin defaults and records the new savepoint. After the upgrade succeeds, purge Moodle caches and verify video playback again.
 
+## RC8 video compatibility verification
+
+After deploying Drive Resource `1.1.32-rc8` (`2026092004`), run the Moodle upgrade and purge caches. Test a standard Google Drive shared video link such as `https://drive.google.com/file/d/<id>/view?usp=drivesdk`.
+
+Verify that:
+
+1. the learner HTML contains only the Moodle `protected.php` URL, never the raw Drive URL or file ID;
+2. initial metadata and seeks receive valid `200/206` responses;
+3. `206 Content-Range` starts at the byte requested by the browser;
+4. a Drive/proxy failure shows an actionable protected-stream message instead of an unexplained black player;
+5. a transport-successful but undecodable video shows the codec compatibility message.
+
+For direct browser playback, use MP4 with H.264/AVC video and AAC audio. An MP4 container can still contain a desktop codec such as TSCC2 that Chrome, Safari, Firefox, Android and iOS do not decode natively. Such a file must be transcoded before direct protected HTML5 playback can be guaranteed.
