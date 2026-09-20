@@ -26,6 +26,15 @@ use mod_videoplayer\local\gamification\reward_service;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class progress_service {
+    /** @var int Seconds to wait for a concurrent progress write to finish. */
+    private const LOCK_TIMEOUT_SECONDS = 10;
+
+    /** @var int Maximum accepted active time on the first progress write. */
+    private const INITIAL_TIMESPENT_LIMIT = 35;
+
+    /** @var int Grace seconds added to elapsed server wall time. */
+    private const TIMESPENT_GRACE_SECONDS = 5;
+
     /**
      * Save progress and return the persisted state.
      *
@@ -47,7 +56,7 @@ final class progress_service {
     ): array {
         $lockfactory = \core\lock\lock_config::get_lock_factory('mod_videoplayer');
         $lockkey = 'progress_' . (int)$instance->id . '_' . $userid;
-        $lock = $lockfactory->get_lock($lockkey, 10);
+        $lock = $lockfactory->get_lock($lockkey, self::LOCK_TIMEOUT_SECONDS);
 
         if (!$lock) {
             throw new \moodle_exception('progresslocktimeout', 'mod_videoplayer');
@@ -88,8 +97,6 @@ final class progress_service {
         $progress = max(0.0, (float)($input['progress'] ?? 0));
         $lastposition = max(0.0, (float)($input['lastposition'] ?? 0));
         $duration = max(0.0, (float)($input['duration'] ?? 0));
-        $clientpercentage = $this->clamp_percentage((float)($input['completionpercentage'] ?? 0));
-
         $conditions = [
             'videoplayerid' => (int)$instance->id,
             'userid' => $userid,
@@ -101,7 +108,6 @@ final class progress_service {
         $timespent = $this->bounded_timespent($clienttimespent, $record ?: null, $now);
         $requiredseconds = max(60, (int)get_config('mod_videoplayer', 'defaultrequiredseconds'));
         $derivedpercentage = $this->derive_percentage(
-            $clientpercentage,
             $lastpage,
             $totalpages,
             $lastposition,
@@ -195,11 +201,9 @@ final class progress_service {
     }
 
     /**
-     * Derive a trustworthy internal percentage from the resource-specific
-     * position fields. Client percentage is retained as a fallback for generic
-     * resources only.
+     * Derive a server-side completion percentage from resource-specific
+     * position fields. Generic resources use server-bounded active time.
      *
-     * @param float $clientpercentage
      * @param int $lastpage
      * @param int $totalpages
      * @param float $lastposition
@@ -209,7 +213,6 @@ final class progress_service {
      * @return float
      */
     private function derive_percentage(
-        float $clientpercentage,
         int $lastpage,
         int $totalpages,
         float $lastposition,
@@ -224,11 +227,7 @@ final class progress_service {
             return $this->clamp_percentage((min($lastposition, $duration) / $duration) * 100);
         }
 
-        if ($requiredseconds > 0) {
-            return $this->clamp_percentage(($timespent / $requiredseconds) * 100);
-        }
-
-        return $this->clamp_percentage($clientpercentage);
+        return $this->clamp_percentage(($timespent / max(1, $requiredseconds)) * 100);
     }
 
     /**
@@ -244,12 +243,12 @@ final class progress_service {
      */
     private function bounded_timespent(int $clienttimespent, ?object $record, int $now): int {
         if ($record === null) {
-            return min($clienttimespent, 60);
+            return min($clienttimespent, self::INITIAL_TIMESPENT_LIMIT);
         }
 
         $stored = max(0, (int)($record->timespent ?? 0));
         $elapsed = max(0, $now - (int)($record->timemodified ?? $now));
-        $maximum = $stored + $elapsed + 5;
+        $maximum = $stored + $elapsed + self::TIMESPENT_GRACE_SECONDS;
 
         return max($stored, min($clienttimespent, $maximum));
     }
