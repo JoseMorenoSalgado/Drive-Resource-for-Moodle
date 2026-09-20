@@ -131,3 +131,13 @@ node --check amd/src/pdfviewer.js
 CI additionally runs Moodle Plugin CI checks and PHPUnit where a full Moodle environment is available.
 
 Manual release testing is mandatory because Google Drive playback is an external integration. Follow `docs/manual-test-checklist.md`.
+
+## Commercial hardening workflow
+
+Changes intended for a stable commercial release must pass both the standard Moodle 4.5 CI matrix and the dedicated hardening gate. Run the invariant guard locally from the plugin root with:
+
+```bash
+bash .github/scripts/release-invariants.sh
+```
+
+Do not weaken an invariant simply to make the gate pass. If the architecture legitimately changes, update the implementation, security model, tests and `docs/hardening-validation.md` together, then document why the invariant changed.
