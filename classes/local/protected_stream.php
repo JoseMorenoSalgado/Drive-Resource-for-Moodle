@@ -653,6 +653,30 @@ final class protected_stream {
     }
 
     /**
+     * Delete a stale cache lock only when no process currently owns it.
+     *
+     * @param string $path Lock file path.
+     * @return void
+     */
+    private static function delete_stale_lock_file(string $path): void {
+        $handle = fopen($path, 'c');
+        if ($handle === false) {
+            return;
+        }
+
+        try {
+            if (!flock($handle, LOCK_EX | LOCK_NB)) {
+                return;
+            }
+
+            @unlink($path);
+        } finally {
+            flock($handle, LOCK_UN);
+            fclose($handle);
+        }
+    }
+
+    /**
      * Delete a path when it is an existing file.
      *
      * @param string $path File path.
