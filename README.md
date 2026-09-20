@@ -68,6 +68,10 @@ php admin/cli/purge_caches.php
 
 After deployment, reset PHP OPcache and invalidate Cloudflare, NGINX or other reverse-proxy caches for `/mod/videoplayer/`.
 
+## Release 1.1.32-rc10
+
+Release `1.1.32-rc10` restores the proven `drive.google.com/uc` route as the first server-side request for shared video files. Google large-file confirmation pages remain validated and may continue internally through `drive.usercontent.google.com`; neither upstream URL is rendered to the learner. This fixes the playback transport regression without changing the bundled Plyr player.
+
 ## Release 1.1.32-rc9
 
 Release `1.1.32-rc9` adds a playback-health layer around the protected HTML5 video path. Media errors are classified separately from Moodle transport failures. When playback fails, the browser performs only a same-origin `bytes=0-1` diagnostic request to `protected.php`, reads the safe `X-Drive-Resource-Status` response and never receives an upstream Google Drive URL.
@@ -230,7 +234,7 @@ Any AMD source change must include its rebuilt production bundle. The generated 
 
 ## Release
 
-- Release: `1.1.32-rc8`
+- Release: `1.1.32-rc10`
 - Moodle plugin version: `2026092004`
 - Component: `mod_videoplayer`
 - Product: Drive Resource
