@@ -750,5 +750,23 @@ function xmldb_videoplayer_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026092006, 'videoplayer');
     }
 
+    if ($oldversion < 2026092007) {
+        $configdefaults = [
+            'videonormalizationenabled' => 1,
+            'ffmpegpath' => '/usr/bin/ffmpeg',
+            'videocachettl' => 2592000,
+        ];
+
+        foreach ($configdefaults as $name => $value) {
+            if (get_config('mod_videoplayer', $name) === false) {
+                set_config($name, $value, 'mod_videoplayer');
+            }
+        }
+
+        // RC11 adds optional asynchronous normalization for codecs that
+        // browsers cannot decode directly (for example TSCC2 in an MP4 file).
+        upgrade_mod_savepoint(true, 2026092007, 'videoplayer');
+    }
+
     return true;
 }
