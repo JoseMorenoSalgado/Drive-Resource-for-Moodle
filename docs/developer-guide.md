@@ -65,6 +65,14 @@ Never return raw Google Drive IDs, direct download URLs, preview URLs or upstrea
 
 `protected_stream` owns Moodle-private/cache files. `http_range_proxy` owns upstream HTTP streaming. Do not send both a manually constructed `Range` header and `CURLOPT_RANGE` for the same upstream request.
 
+## Video normalization engineering contract
+
+`classes/local/drive_downloader.php` is the only background full-file Drive downloader. Keep redirects HTTPS-only and host-allowlisted; do not use unbounded `CURLOPT_FOLLOWLOCATION` for cache/transcode jobs. Drive warning continuations must be resolved through `drive::resolve_download_warning_url()`.
+
+`classes/local/video_normalizer.php` must remain asynchronous. Never execute FFmpeg from `protected.php` or `view.php`. The learner request may only queue a duplicate-suppressed ad-hoc task and continue with an already-ready normalized file or the direct protected source.
+
+Direct-play classification is intentionally conservative: H.264 video, yuv420p-family pixel format, and AAC or no audio. Anything else is eligible for H.264/AAC normalization. External processes must be started with an argument vector through `proc_open`, never a shell-concatenated command. Temporary files must remain under Moodle private cache storage and be atomically promoted only after FFprobe validates the result.
+
 ## Video playback health contract
 
 The native `<video>` element is the playback authority; Plyr is presentation enhancement only. `mod_videoplayer/videohealth` must remain usable even when Plyr fails to load.
