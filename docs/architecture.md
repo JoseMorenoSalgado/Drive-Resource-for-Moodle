@@ -152,3 +152,8 @@ Resource source/type normalization is owned by `classes/local/drive.php`. Runtim
 This prevents divergent behavior for opaque Drive sharing links. In particular, legacy/opaque `/file/d/{id}/view` records using `type=auto` retain the historical video fallback consistently in the learner view, course index, cache task and lifecycle callbacks.
 
 `drive::RESOURCE_TYPES` is the canonical registry used by form options and persistence validation. `drive::SOURCE_GOOGLEDRIVE` and `drive::SOURCE_LOCALPDF` are the canonical source identifiers.
+
+
+## Moodle completion form integration
+
+Custom activity-completion controls are namespaced using Moodle 4.5's `core_completion\form\form_trait::get_suffix()` API. Form preprocessing, postprocessing, rule creation and validation must concatenate the returned suffix to the base field name. The plugin must not call a non-core `get_suffixed_name()` helper.
