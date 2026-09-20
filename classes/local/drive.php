@@ -99,7 +99,7 @@ class drive {
      * @return string|null Resource key or null.
      */
     public static function extract_resource_key(string $url): ?string {
-        $query = (string)parse_url($url, PHP_URL_QUERY);
+        $query = (string) parse_url($url, PHP_URL_QUERY);
         if ($query === '') {
             return null;
         }
@@ -518,17 +518,17 @@ class drive {
             return false;
         }
 
-        $scheme = strtolower((string)parse_url($url, PHP_URL_SCHEME));
-        $host = strtolower((string)parse_url($url, PHP_URL_HOST));
+        $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
         $port = parse_url($url, PHP_URL_PORT);
         $user = parse_url($url, PHP_URL_USER);
         $pass = parse_url($url, PHP_URL_PASS);
-        $path = (string)parse_url($url, PHP_URL_PATH);
+        $path = (string) parse_url($url, PHP_URL_PATH);
 
         if ($scheme !== 'https' || $host === '' || $path === '' || $user !== null || $pass !== null) {
             return false;
         }
-        if ($port !== null && (int)$port !== 443) {
+        if ($port !== null && (int) $port !== 443) {
             return false;
         }
 
@@ -553,7 +553,7 @@ class drive {
         if (strpos($candidate, '//') === 0) {
             $candidate = 'https:' . $candidate;
         } else if (strpos($candidate, '/') === 0) {
-            $host = (string)parse_url($baseurl, PHP_URL_HOST);
+            $host = (string) parse_url($baseurl, PHP_URL_HOST);
             if ($host === '') {
                 return null;
             }
