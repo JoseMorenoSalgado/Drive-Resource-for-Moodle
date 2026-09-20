@@ -153,5 +153,14 @@ final class http_range_proxy_test extends \advanced_testcase {
         $this->assertFalse(
             http_range_proxy::is_range_response_usable('bytes=1024-', 206, 'bytes */4096')
         );
+        $this->assertFalse(
+            http_range_proxy::is_range_response_usable('bytes=1024-', 206, 'bytes 0-3071/4096')
+        );
+        $this->assertTrue(
+            http_range_proxy::is_range_response_usable('bytes=-500', 206, 'bytes 3596-4095/4096')
+        );
+        $this->assertFalse(
+            http_range_proxy::is_range_response_usable('bytes=-500', 206, 'bytes 0-499/4096')
+        );
     }
 }
