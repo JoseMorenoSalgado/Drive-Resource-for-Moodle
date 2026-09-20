@@ -69,9 +69,7 @@ function videoplayer_queue_pdf_precache(int $instanceid): void {
         return;
     }
 
-    $type = empty($instance->type) || $instance->type === drive::TYPE_AUTO
-        ? drive::detect_type((string)$instance->videourl)
-        : clean_param($instance->type, PARAM_ALPHANUMEXT);
+    $type = drive::resolve_record_type($instance);
     if (!drive::is_pdf_type($type)) {
         return;
     }
@@ -89,15 +87,15 @@ function videoplayer_queue_pdf_precache(int $instanceid): void {
  * @return stdClass
  */
 function videoplayer_normalise_instance_data(stdClass $data): stdClass {
-    $allowedsources = [drive::SOURCE_GOOGLEDRIVE, 'localpdf'];
+    $allowedsources = [drive::SOURCE_GOOGLEDRIVE, drive::SOURCE_LOCALPDF];
     $source = clean_param($data->source ?? drive::SOURCE_GOOGLEDRIVE, PARAM_ALPHANUMEXT);
     $data->source = in_array($source, $allowedsources, true) ? $source : drive::SOURCE_GOOGLEDRIVE;
 
-    $allowedtypes = array_merge([drive::TYPE_AUTO], resource_descriptor::SUPPORTED_TYPES);
+    $allowedtypes = array_merge([drive::TYPE_AUTO], drive::RESOURCE_TYPES);
     $type = clean_param($data->type ?? drive::TYPE_AUTO, PARAM_ALPHANUMEXT);
     $data->type = in_array($type, $allowedtypes, true) ? $type : drive::TYPE_AUTO;
 
-    if ($data->source === 'localpdf') {
+    if ($data->source === drive::SOURCE_LOCALPDF) {
         $data->type = 'pdf';
         $data->videourl = '';
         $data->displaymode = 'standard';
@@ -125,7 +123,7 @@ function videoplayer_normalise_instance_data(stdClass $data): stdClass {
  */
 function videoplayer_save_localpdf_file(stdClass $data): void {
     if (
-        ($data->source ?? drive::SOURCE_GOOGLEDRIVE) !== 'localpdf'
+        ($data->source ?? drive::SOURCE_GOOGLEDRIVE) !== drive::SOURCE_LOCALPDF
             || empty($data->localpdffile)
             || empty($data->coursemodule)
     ) {
@@ -181,9 +179,7 @@ function videoplayer_invalidate_instance_pdf_cache(stdClass $instance): void {
 
     $url = trim((string)($instance->videourl ?? ''));
     $fileid = drive::extract_file_id($url);
-    $type = empty($instance->type) || $instance->type === drive::TYPE_AUTO
-        ? drive::detect_type($url)
-        : clean_param($instance->type, PARAM_ALPHANUMEXT);
+    $type = drive::resolve_record_type($instance);
     if ($fileid && drive::is_pdf_type($type)) {
         protected_stream::invalidate_pdf_cache($fileid, $type);
     }
@@ -234,6 +230,8 @@ function videoplayer_delete_instance($id) {
         $context = context_module::instance($cm->id);
         get_file_storage()->delete_area_files($context->id, 'mod_videoplayer', VIDEOPLAYER_LOCALPDF_FILEAREA);
     }
+
+    videoplayer_invalidate_instance_pdf_cache($instance);
 
     $transaction = $DB->start_delegated_transaction();
     $DB->delete_records('videoplayer_rewards', ['videoplayerid' => $instance->id]);
