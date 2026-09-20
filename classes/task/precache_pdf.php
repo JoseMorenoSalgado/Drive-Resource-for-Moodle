@@ -16,6 +16,7 @@
 
 namespace mod_videoplayer\task;
 
+
 use mod_videoplayer\local\drive;
 use mod_videoplayer\local\protected_stream;
 
@@ -45,7 +46,9 @@ class precache_pdf extends \core\task\adhoc_task {
             return;
         }
 
-        $type = drive::resolve_record_type($record);
+        $type = empty($record->type) || $record->type === 'auto'
+            ? drive::detect_type($record->videourl)
+            : clean_param($record->type, PARAM_ALPHANUMEXT);
 
         if (!drive::is_pdf_type($type) || (string)get_config('mod_videoplayer', 'pdfcacheenabled') === '0') {
             return;
@@ -56,7 +59,7 @@ class precache_pdf extends \core\task\adhoc_task {
             return;
         }
 
-        $url = drive::protected_content_url($record->videourl, $fileid, $type);
+        $url = drive::protected_content_url($fileid, $type);
         if (!$url) {
             return;
         }

@@ -1,41 +1,40 @@
 {{!
-    This file is part of Moodle - http://moodle.org/
-
+    Protected image viewer.
+}}
+{{!
     @template mod_videoplayer/image
 
-    Protected image viewer for Drive Resource.
+    Protected image viewer.
+
     Example context (json):
     {
         "type": "image",
         "cmid": 42,
-        "resourcetype": "Resource type: Image",
-        "imageurl": "https://example.invalid/protected.php?id=42",
-        "title": "Protected image",
         "disablecontextmenu": true,
+        "showresourcetype": true,
+        "resourcetype": "Image",
+        "imageurl": "/mod/videoplayer/protected.php?id=42",
+        "title": "Protected course image",
         "enablewatermark": true,
-        "watermark": "Example User"
+        "watermark": "Student"
     }
-
 }}
-<div class="mod-videoplayer-container mod-videoplayer-image" data-resource-type="{{type}}" data-cmid="{{cmid}}">
+<div class="mod-videoplayer-container mod-videoplayer-image" data-resource-type="{{type}}" data-cmid="{{cmid}}" data-protected-ui data-disable-context-menu="{{#disablecontextmenu}}1{{/disablecontextmenu}}{{^disablecontextmenu}}0{{/disablecontextmenu}}">
     <div class="mod-videoplayer-meta mb-2">
-        {{#showresourcetype}}
-            <span class="mod-videoplayer-meta-item">{{resourcetype}}</span>
-        {{/showresourcetype}}
+        {{#showresourcetype}}<span class="mod-videoplayer-meta-item">{{resourcetype}}</span>{{/showresourcetype}}
         <span class="mod-videoplayer-meta-item">{{#str}} protectedresource, mod_videoplayer {{/str}}</span>
     </div>
 
-    <div class="mod-videoplayer-image-frame" {{#disablecontextmenu}}oncontextmenu="return false;"{{/disablecontextmenu}}>
-        <img
-            class="mod-videoplayer-protected-image"
-            src="{{imageurl}}"
-            alt="{{title}}"
-            loading="lazy"
-            decoding="async"
-            draggable="false"
-            {{#disablecontextmenu}}oncontextmenu="return false;"{{/disablecontextmenu}}>
+    <figure class="mod-videoplayer-image-frame"
+            data-disable-context-menu="{{#disablecontextmenu}}1{{/disablecontextmenu}}{{^disablecontextmenu}}0{{/disablecontextmenu}}">
+        <img src="{{imageurl}}"
+             class="mod-videoplayer-protected-image"
+             alt="{{title}}"
+             loading="eager"
+             decoding="async"
+             draggable="false">
         {{#enablewatermark}}
-            <div class="mod-videoplayer-watermark" aria-hidden="true">{{watermark}}</div>
+            <figcaption class="mod-videoplayer-image-watermark" aria-hidden="true">{{watermark}}</figcaption>
         {{/enablewatermark}}
-    </div>
+    </figure>
 </div>

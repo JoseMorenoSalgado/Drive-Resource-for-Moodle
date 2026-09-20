@@ -23,6 +23,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+
 /**
  * Restore structure step for the videoplayer activity.
  */
@@ -64,13 +65,11 @@ class restore_videoplayer_activity_structure_step extends restore_activity_struc
             $data->source = 'googledrive';
         }
         if (empty($data->type)) {
-            $data->type = $data->source === 'localpdf' ? 'pdf' : 'video';
+            $data->type = $data->source === 'localpdf' ? 'pdf' : 'auto';
         }
-
-        // Legacy backups may contain standard, ebook or book. The stable
-        // production renderer accepts only the local PDF.js mode.
-        $data->displaymode = 'pdfjs';
-
+        if (empty($data->displaymode)) {
+            $data->displaymode = 'standard';
+        }
         if (!isset($data->disabledownload)) {
             $data->disabledownload = 1;
         }
@@ -117,11 +116,9 @@ class restore_videoplayer_activity_structure_step extends restore_activity_struc
 
         $data->lastpage = $data->lastpage ?? 0;
         $data->totalpages = $data->totalpages ?? 0;
-        $data->visitedpages = $data->visitedpages ?? null;
-        $data->lastsecond = $data->lastsecond ?? 0;
-        $data->totalseconds = $data->totalseconds ?? 0;
-        $data->watchedranges = $data->watchedranges ?? null;
         $data->timespent = $data->timespent ?? 0;
+        $data->lastposition = $data->lastposition ?? 0;
+        $data->duration = $data->duration ?? 0;
         $data->points = $data->points ?? 0;
 
         $DB->insert_record('videoplayer_views', $data);

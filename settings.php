@@ -1,5 +1,5 @@
 <?php
-// This file is part of Moodle - https://moodle.org/
+// This file is part of Moodle - http://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -46,13 +46,6 @@ if ($ADMIN->fulltree) {
         get_string('setting_defaultcompletionpercentage_desc', 'mod_videoplayer'),
         80,
         PARAM_INT
-    ));
-
-    $settings->add(new admin_setting_configcheckbox(
-        'mod_videoplayer/protectedmode',
-        get_string('setting_protectedmode', 'mod_videoplayer'),
-        get_string('setting_protectedmode_desc', 'mod_videoplayer'),
-        1
     ));
 
     $settings->add(new admin_setting_configcheckbox(

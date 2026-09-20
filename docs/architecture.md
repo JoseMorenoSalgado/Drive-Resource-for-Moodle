@@ -1,278 +1,140 @@
 # Drive Resource architecture
 
-Drive Resource is a Moodle activity module. Its stable internal component is `mod_videoplayer`; its commercial product name is **Drive Resource**.
+## Scope
 
-## Compatibility boundary
+Drive Resource is a Moodle 4.5 activity module that presents Google Drive learning resources without delegating the learner experience to the Google Drive viewer. The component name remains `mod_videoplayer`; the architecture is resource-oriented rather than video-only.
 
-- Moodle 4.5–5.2.
-- Minimum Moodle build `2024100700`.
-- PHP 8.2 and 8.3 for Moodle 4.5/5.0/5.1; Moodle 5.2 is validated on PHP 8.3.
-- MariaDB 10.11 and PostgreSQL 16 in CI.
+## Design goals
 
-The shared production branch is constrained to APIs available on both `MOODLE_405_STABLE` and `MOODLE_500_STABLE`. A newer Moodle-only API must be feature-detected or isolated before entering the shared release branch while Moodle 4.5 remains supported.
+1. Moodle owns authorization and the browser-visible resource URL.
+2. Large files are streamed; they are not loaded completely into PHP memory.
+3. Video/audio use native HTML5 media APIs.
+4. PDF-like content uses locally bundled PDF.js.
+5. Google Drive identifiers and temporary upstream URLs remain server-side.
+6. Progress/completion are handled by a service layer and Moodle APIs.
+7. Resource-specific JavaScript has one responsibility and one progress writer.
 
-## Target flow
+## Request path
 
 ```text
-Google Drive link or Moodle private PDF
-↓
-Drive Resource activity
-↓
 view.php
-↓
-protected.php
-↓
-require_login + course module + context_module + capability
-↓
-protected_stream OR http_range_proxy
-↓
-local PDF.js / HTML5 video / protected resource output
-↓
-progress + completion + Moodle events
-↓
-learner
+  -> activity_context
+  -> resource_descriptor
+  -> resource_view
+  -> renderer + type-specific Mustache template
+  -> AMD viewer/player
+  -> protected.php
+       -> activity_context
+       -> resource_descriptor
+       -> protected_resource_service
+            -> protected_stream (local/cache)
+            -> drive_stream_resolver (video progressive stream)
+            -> drive::protected_content_url (server-side fallback/export)
+            -> http_range_proxy
 ```
 
-Plugin-owned PDF and video viewers must not receive raw Google Drive file IDs, direct download URLs or Google preview URLs.
+### Access boundary
 
-## Main responsibilities
+`classes/local/access/activity_context.php` centralizes:
 
-### `view.php`
+- course-module lookup;
+- course lookup;
+- activity-instance lookup;
+- `require_login()`;
+- `context_module` resolution;
+- capability enforcement.
 
-- Resolves the course module, course and activity instance.
-- Enforces login and `mod/videoplayer:view`.
-- Builds only Moodle-owned protected URLs.
-- Selects the viewer by detected resource type.
-- Loads `mod_videoplayer/pdfviewer` for every PDF.
-- Loads `mod_videoplayer/videohealth` plus the local Plyr enhancement for video.
-- Renders the appropriate Mustache template.
+`protected.php` and the external progress API use this boundary rather than duplicating access checks.
 
-### `protected.php`
+### Resource model
 
-- Repeats the complete access-control boundary for every byte request.
-- Closes the Moodle session write lock before long streaming operations.
-- Delegates local/cache delivery to `protected_stream`.
-- Delegates upstream range proxying to `http_range_proxy`.
-- Never becomes a generic arbitrary-URL proxy.
+`classes/local/resource/resource_descriptor.php` normalizes source and type. It is the only object the presentation/service layers need to determine whether the resource is video, audio, image, PDF-like or generic.
 
-### `classes/local/protected_stream.php`
+The descriptor generates only Moodle `protected.php` URLs for templates. It does not provide a browser-facing Google URL.
 
-Handles Moodle-private files and trusted cache files, including:
+## Video
 
-- PDF signature validation;
-- `HEAD` requests;
-- one validated byte range;
-- `200`, `206` and `416` responses;
-- `Content-Type`, `Content-Length`, `Content-Range` and `Accept-Ranges`;
-- cache freshness and lifecycle;
-- bounded streaming without loading the complete resource into PHP memory.
+`templates/video.mustache` contains an HTML5 `<video>` element without native browser controls. `amd/src/nativevideo.js` owns the Drive Resource control surface and uses the HTML5 Media API.
 
-### `classes/local/http_range_proxy.php`
-
-Handles Google Drive upstream delivery, including:
-
-- validated Google-owned upstream destinations;
-- one browser range forwarded upstream;
-- allowlisted response metadata;
-- rejection of HTML/login/error bodies presented as media;
-- chunked cURL output;
-- no complete-file PHP buffering.
-
-## Video health and recovery boundary
-
-`mod_videoplayer/videohealth` is an independent AMD layer around the native HTML5 element. It does not replace Plyr and does not receive Google Drive URLs.
-
-When the browser raises a media error or a sustained playback stall:
-
-1. the module probes only the Moodle-owned protected URL;
-2. the probe requests `Range: bytes=0-1` with same-origin credentials;
-3. it reads only the browser-safe response status, MIME type and `X-Drive-Resource-Status`;
-4. a healthy protected response plus `MEDIA_ERR_DECODE` / `MEDIA_ERR_SRC_NOT_SUPPORTED` is classified as browser codec incompatibility;
-5. protected transport failures are surfaced separately and may use a bounded user-triggered retry.
-
-Retries call `video.load()` on the same Moodle URL and attempt to restore the previous second after metadata reload. No client-side path can discover or construct the upstream Drive URL.
-
-## Stable PDF rendering boundary
-
-Release `1.1.27-beta` defines one production PDF renderer:
+Playback order:
 
 ```text
-protected PDF URL
-↓
-mod_videoplayer/pdfviewer
-↓
-mod_videoplayer/pdfjsloader
-↓
-<script type="module" src="thirdpartylibs/pdfjs/pdf.min.mjs">
-↓
-validate window.pdfjsLib
-↓
-configure thirdpartylibs/pdfjs/pdf.worker.min.mjs
-↓
-render the requested page to canvas
+protected.php?stream=transcoded
+  -> drive_stream_resolver
+  -> progressive MP4 playback URL
+  -> http_range_proxy
+
+if unavailable/error:
+
+protected.php?stream=source
+  -> drive::protected_content_url
+  -> http_range_proxy
 ```
 
-The activity form stores `displaymode = pdfjs`. Runtime normalisation and the database upgrade convert historical `standard`, `ebook` and `book` values to `pdfjs`.
+The browser sees only Moodle protected URLs.
 
-StPageFlip and the legacy book renderer are not part of the learner execution path. This prevents a JavaScript library asset from being mistaken for document content and removes inconsistent renderer selection across mobile and desktop browsers.
+Persistent buffering is handled as a recovery state rather than an immediate fatal error. `nativevideo.js` waits through short buffer underruns, then reloads the protected progressive endpoint with a server-side refresh flag while preserving `currentTime`. `drive_stream_resolver` bypasses its short-lived signed-URL cache for that recovery request. If the refreshed progressive stream remains unavailable, the player switches to the protected source stream. No upstream Google URL is returned to the browser.
 
-## PDF.js ES-module loading
+The current progressive resolver uses the public playback endpoint used by the Drive web client. It is intentionally isolated in `drive_stream_resolver` because it is an upstream compatibility integration and may need maintenance when Google changes its web playback service.
 
-PDF.js is bundled as an ES module. Moodle AMD source must not call `import(PDFJS_URL)` directly because the build can transform that expression into a RequireJS request, while `.mjs` is not an AMD module.
+## Audio
 
-`mod_videoplayer/pdfjsloader` owns the loading contract:
+`templates/audio.mustache` uses native `<audio controls>` with the source pointing to `protected.php`. `amd/src/nativeaudio.js` tracks active time and resume position.
 
-- same-origin constant paths only;
-- one cached loading promise per page;
-- one local `<script type="module">` element;
-- validation of `getDocument` and `GlobalWorkerOptions`;
-- assignment of the bundled worker path only;
-- controlled rejection when the module cannot initialise;
-- no CDN, `eval`, arbitrary URL or unsafe runtime code generation.
+## PDF-like resources
 
-## PDF fast-first-byte flow
+The following types are PDF-like:
+
+- PDF;
+- Google Docs;
+- Google Sheets;
+- Google Slides.
+
+Docs/Sheets/Slides are converted to a server-side Google export URL and proxied as PDF. The browser renders the protected Moodle endpoint using locally bundled PDF.js.
+
+`amd/src/pdfviewer.js` provides page navigation, zoom, fit, fullscreen, search and progress persistence.
+
+### PDF cache
+
+A cold Google Drive PDF is proxied immediately. When caching is enabled, an ad-hoc `precache_pdf` task warms the complete PDF into:
 
 ```text
-PDF.js byte-range request
-↓
-Moodle authorisation
-↓
-fresh protected cache?
-├─ yes → serve requested local range
-└─ no  → queue deduplicated precache task
-          ↓
-          proxy the requested range immediately
-          ↓
-          cron warms the complete verified PDF cache
+$CFG->localcachedir/mod_videoplayer/pdf/
 ```
 
-Drive Resource preserves the original PDF bytes. It does not recompress, rasterise or transcode the document.
+Subsequent requests can be served by `protected_stream` from the local cache. `cleanup_pdf_cache` removes stale cache artifacts on schedule.
 
-## PDF viewer state
+## Byte streaming
 
-`amd/src/pdfviewer.js` maintains:
+`http_range_proxy` forwards a single validated byte range and streams received chunks directly to the response. It preserves safe protocol metadata required by media clients and PDF.js.
 
-- current page and total pages;
-- zoom and fit-to-screen state;
-- fullscreen state;
-- touch-swipe navigation;
-- last page reached;
-- active time;
-- completion percentage;
-- optional points/rewards.
+`protected_stream` implements equivalent range handling for trusted local/cache files.
 
-Only the active page is rendered. Adjacent pages may be prefetched through PDF.js without eagerly creating canvases for the complete document.
-
-## Video viewer
-
-`amd/src/plyr.js` progressively enhances a native HTML5 `<video>` element. Native controls remain the fallback. The protected response determines the media MIME type, and correct range metadata enables Safari/iOS seeking.
-
-## CSS isolation
-
-Moodle compiles root module CSS globally. Drive Resource keeps `styles.css` free of presentation rules.
-
-Activity presentation is loaded explicitly from viewer-scoped files such as:
-
-```text
-styles_activity.css
-styles_pdf_mobile.css
-styles_pdf_overlay.css
-styles_visual_refinements.css
-```
-
-Selectors, overlays and fullscreen states must remain scoped beneath Drive Resource roots. Themes and third-party course formats must never be modified to compensate for a plugin-local defect.
+Neither path uses `file_get_contents()` to buffer an entire learning resource before delivery.
 
 ## Progress and completion
 
-Viewer AMD modules call `mod_videoplayer_save_progress`. The external function revalidates context and capability before delegating to progress and optional reward services.
+```text
+video -> nativevideo.js ----+
+audio -> nativeaudio.js ----+--> mod_videoplayer_save_progress
+PDF   -> pdfviewer.js -------+          |
+generic -> progress.js ------+          v
+                                 progress_service
+                                      |
+                        +-------------+--------------+
+                        |                            |
+                 videoplayer_views          Moodle Completion API
+                        |
+                 progress_updated
+                 resource_completed
+```
 
-Persisted state includes:
+Video/audio persist `lastposition`, `duration` and active `timespent`. PDF persists `lastpage`, `totalpages` and active time. Generic resources use the generic progress tracker only.
 
-- active time;
-- progress value;
-- completion percentage;
-- last PDF page;
-- total PDF pages;
-- completion state;
-- optional points and rewards.
+## Database compatibility
 
-## Events
+Some legacy activity columns are retained in the schema and backup format to make upgrades/restores from older `mod_videoplayer` installations safe. New runtime code does not depend on obsolete player/viewer fields.
 
-- `course_module_viewed`
-- `progress_updated`
-- `resource_completed`
-- `reward_awarded`
+## Third-party dependencies
 
-## Backup, restore and privacy
-
-Backup and Restore include activity configuration, Moodle-local PDF files and optional user progress/reward data. The Privacy API declares, exports and deletes the personal data stored by progress and reward tables.
-
-## Validation architecture
-
-`.github/workflows/moodle-supported-ci.yml` is the executable compatibility gate. It runs lint, Moodle Coding Style, PHPDoc, plugin validation, XMLDB savepoint validation, Mustache, AMD/JavaScript and PHPUnit on Moodle 4.5 and Moodle 5.0 across the supported PHP/database matrix.
-
-The workflow also enforces:
-
-- the native local PDF.js ES-module loader contract;
-- the PDF.js-only learner production path;
-- absence of PageFlip and legacy book viewer references from `view.php`;
-- `pdfjs` as the XMLDB display-mode default.
-
-## Mobile media reliability in 1.1.28-beta
-
-The protected stream boundary now treats browser Range requests as strict contracts. A seek request is emitted to the learner only when Google returns a valid `206` response with `Content-Range`; an upstream `200` is discarded and retried with an explicit Range header. Browser-facing validators are owned by Moodle so redirect-specific Google ETags cannot downgrade later seeks to complete responses. PDF rendering remains local PDF.js and starts from page 1.
-
-## PDF fullscreen stage (1.1.29-beta)
-
-The PDF template separates three layers: a fixed control overlay, a scrollable viewport and a `mod-videoplayer-pdfjs-canvas-stage` containing the canvas and watermark. Auto margins centre a page only while positive free space exists. When zoom creates overflow, those margins collapse to zero, preserving a reachable top-left scroll origin without JavaScript layout heuristics.
-
-## Moodle 4.5 compatibility boundary (1.1.30-beta)
-
-Moodle 4.5 becomes the lowest supported core branch. The plugin metadata, PHPUnit metadata and CI matrix are aligned to that boundary without forking the runtime architecture. Production code must continue using APIs present on Moodle 4.5 for authorisation, File API, Completion, Events, External API, Tasks, Privacy, Backup/Restore, XMLDB, AMD and session locking. The Moodle 5.x path must remain behaviorally identical unless a newer API is guarded by an explicit compatibility adapter.
-
-## Protected video range recovery (1.1.31-beta)
-
-The proxy uses three ordered strategies for browser byte ranges: libcurl `CURLOPT_RANGE`, an explicit `Range` header across redirects, and a synthetic range fallback. The synthetic fallback is used only when Google returns a complete `200` response with a known `Content-Length`; Moodle discards bytes before the requested offset and streams only the requested window as `206 Partial Content`. It does not buffer the complete video in PHP memory. MIME validation, login, module context and capability checks remain unchanged.
-
-The compatibility gate intentionally keeps PHPUnit metadata annotation-based in shared tests. This is test-infrastructure only and does not fork or weaken the protected streaming runtime between Moodle 4.5 and 5.x.
-
-## 1.1.32 RC protected delivery architecture
-
-The production-candidate learner path is:
-
-`Google Drive link -> Drive Resource -> protected.php -> authorization -> streamed/exported upstream content -> Moodle-owned viewer`.
-
-No learner template receives a Google Drive preview URL or file ID. Google Docs, Sheets and Slides are exported server-side as PDF and rendered by the local PDF.js bundle. Video requests preserve HTTP byte-range semantics; when an upstream server returns `200` to a browser Range request, the proxy can synthesize a standards-compliant `206 Partial Content` response without buffering the complete video in PHP memory.
-
-Progress is content-aware. PDF state persists visited pages and last page. Video state persists normalized watched ranges, last playback second and total duration. Generic active-presence tracking is reserved for other supported resource types so it cannot inflate PDF/video completion.
-
-## Large Google Drive video confirmation flow
-
-Large public videos may return an HTML confirmation page instead of media bytes. The protected proxy now captures only a bounded warning body, parses the Google Drive download form, validates the form action against an HTTPS Google host allow-list, replays the generated confirmation parameters, preserves response cookies server-side, and then retries the original byte-range request.
-
-The browser continues to see only `protected.php`. Google file identifiers, confirmation UUIDs, cookies, redirect URLs and final download URLs remain server-side. The proxy never buffers the full video in PHP memory; successful media responses are streamed incrementally and browser Range semantics remain authoritative.
-
-## Deterministic resource-type resolution
-
-The activity record is now the single source of truth for viewer selection. `drive::resolve_record_type()` is used by `view.php`, `protected.php`, progress persistence, reports and PDF precache. Explicit resource types take precedence. Google Workspace URLs and URLs with visible extensions remain detectable. An opaque standard Google Drive `/file/d/{id}/view` URL stored as `auto` falls back to Video because the original `mod_videoplayer` product accepted only videos and historical records were migrated to `auto`.
-
-New activities and clean-install XMLDB defaults use `video` explicitly. This removes viewer/proxy disagreement where the page selected a generic unsupported resource while the protected endpoint could otherwise stream valid video bytes.
-
-## Legacy-compatible Drive media transport
-
-Shared binary media starts from the proven `drive.google.com/uc` download route used by earlier working releases. This remains entirely server-side. When Google responds with a large-file confirmation document, the bounded confirmation resolver validates the action and parameters before continuing to an allow-listed Google host such as `drive.usercontent.google.com`. The learner always requests only `protected.php`.
-## Index-safe XMLDB migrations
-
-Schema migrations that alter an indexed field must respect Moodle's DDL dependency checks. The `videoplayer.type` default migration therefore treats `type_idx` as part of the operation: remove the logical XMLDB index, alter the field, and restore the same index in a `finally` block. This keeps PostgreSQL/MariaDB schema state consistent and makes failed upgrades safely retryable.
-
-## Browser codec boundary and media normalization
-
-Drive Resource owns authorization and byte delivery, but HTML5 decoding remains a browser capability. A Google Drive URL can point to an MP4 container whose internal codec is not web-compatible. In direct proxy mode the plugin never asks Google's preview player to transcode the asset; it serves the original protected bytes.
-
-The production path therefore separates three concerns:
-
-1. **Drive resolution:** resolve the shared link and bounded Google confirmation flow server-side.
-2. **Protected transport:** return validated MIME and exact byte-range semantics through Moodle.
-3. **Browser decoding:** require a browser-compatible codec for direct playback.
-
-For broad browser support, source videos should use H.264/AVC video and AAC audio in MP4. Desktop capture codecs such as TSCC2 require a media-normalization/transcoding layer before they can be guaranteed to play in Chrome, Safari, Firefox, Android or iOS. A future transcoding subsystem must be asynchronous and cache-backed; it must not make `protected.php` buffer a complete source file in PHP memory.
+Only PDF.js is required by the learner viewer and is bundled locally. Video/audio have no player-library dependency. No CDN is used.

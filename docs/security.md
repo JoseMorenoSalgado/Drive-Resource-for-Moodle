@@ -1,207 +1,90 @@
 # Drive Resource security model
 
-Drive Resource is a protected Moodle delivery layer. Browser restrictions are deterrents; Moodle server-side authorisation is the enforceable boundary.
+## Security boundary
 
-## Supported security baseline
+Drive Resource does not rely on a hidden button or obfuscated JavaScript for authorization. The enforceable boundary is the Moodle server.
 
-The current release supports Moodle 4.5–5.2. Security validation covers Moodle 4.5, 5.0 and 5.1 on PHP 8.2/8.3 and Moodle 5.2 on PHP 8.3, matching the runtime requirements of each Moodle branch. Running the plugin on an undeclared Moodle or PHP combination is unsupported because API behavior and security fixes may differ.
+Every learner byte request passes through `protected.php`, which resolves an `activity_context` and enforces:
 
-## Authorisation
+- valid course module;
+- valid course;
+- valid activity instance;
+- `require_login()`;
+- `context_module`;
+- `mod/videoplayer:view`.
 
-Every protected request must validate:
+Only after those checks may `protected_resource_service` resolve or proxy content.
 
-- the course module belongs to `mod_videoplayer`;
-- course and activity instance records exist;
-- `require_login($course, true, $cm)` succeeds;
-- `context_module::instance($cm->id)` is used;
-- the user has `mod/videoplayer:view`.
+## URL confidentiality
 
-Guest access is not granted by the default capability archetypes.
-
-## URL and data exposure
-
-Plugin-owned viewers must never expose:
+Plugin-owned templates must not render:
 
 - raw Google Drive file IDs;
-- direct Google Drive download URLs;
-- Google preview URLs;
-- open-in-Drive controls;
-- upstream authentication/error bodies;
-- PageFlip or other JavaScript assets as document content.
+- Google Drive sharing URLs;
+- temporary progressive playback URLs;
+- direct Google download/export URLs.
 
-Learner-facing protected URLs point to Moodle `protected.php`.
+The browser receives a Moodle URL containing the course-module id and cache/version information only.
 
-## Storage
+This reduces leakage but is not DRM. An authorized browser necessarily receives content bytes and can potentially capture them.
 
-Local PDFs use Moodle File API outside the web root. Google Drive PDF cache files remain under:
+## SSRF controls
 
-```text
-$CFG->localcachedir/mod_videoplayer/pdf/
-```
+All upstream URLs are generated server-side from validated Drive identifiers. `upstream_url_policy` also requires HTTPS and restricts hosts to the Google media/content hosts needed by the integration.
 
-Every browser request is reauthorised before bytes are returned. A cache hit does not bypass login, enrolment or capability checks.
+Never add a public controller parameter that lets a learner supply an arbitrary proxy URL.
 
-## Streaming boundaries
+## Streaming response hardening
 
-`protected_stream` handles trusted local/cache files, PDF signature verification, local ranges and cache lifecycle.
+Protected responses use safe, reconstructed headers rather than blindly forwarding all upstream headers. Controls include:
 
-`http_range_proxy` handles upstream HTTP delivery, accepts one validated range, relays allowlisted headers, sanitises values and streams without buffering the complete resource.
-
-The endpoint must never become a generic URL proxy. Upstream destinations must originate from validated activity data and explicit Google host rules.
-
-## Response hardening
-
-Protected responses use:
-
-- validated MIME types;
-- inline disposition with sanitised filenames;
 - `X-Content-Type-Options: nosniff`;
-- private/no-store or controlled private caching as appropriate;
-- no-index directives;
-- `no-transform` where needed;
-- correct `Content-Length`, `Content-Range` and `Accept-Ranges` metadata.
-
-Valid ranges preserve `206`. Unsatisfiable ranges return `416` without leaking upstream details. HTML login/error responses must never be returned as successful PDF or media bytes.
-
-## Video diagnostic safety
-
-The browser-side health monitor performs diagnostics only against the Moodle-owned `protected.php` URL. It must never receive a raw Drive ID, confirmation token, cookie, direct download URL or redirect destination.
-
-The diagnostic request is same-origin and bounded to `Range: bytes=0-1`. Client code may use only safe response metadata such as HTTP status, validated `Content-Type` and `X-Drive-Resource-Status`. Upstream error bodies and effective URLs remain server-side.
-
-A retry reloads the existing protected Moodle source. It must not weaken `require_login`, enrolment/capability checks, host validation, MIME validation or Range validation.
-
-## Stable PDF asset boundary
-
-PDF.js and its worker are local, same-origin ES modules:
-
-```text
-thirdpartylibs/pdfjs/pdf.min.mjs
-thirdpartylibs/pdfjs/pdf.worker.min.mjs
-```
-
-`mod_videoplayer/pdfjsloader` may load only constant plugin-owned paths. It must never accept a URL from activity data, request parameters or user input.
-
-The loader must:
-
-- create a same-origin `<script type="module">`;
-- validate the expected PDF.js API;
-- configure only the bundled worker path;
-- avoid CDN, `eval`, inline executable source and arbitrary dynamic imports;
-- expose failures through the controlled viewer error path.
-
-The production learner path loads only `mod_videoplayer/pdfviewer`. It does not load StPageFlip or the legacy book renderer. This reduces the attack surface and prevents third-party library source from being interpreted as learner-visible PDF content.
-
-The Moodle Content Security Policy must allow same-origin module scripts and workers. Drive Resource does not require external script origins or `unsafe-eval`.
-
-## Document-response validation
-
-Before a response is treated as a PDF, server-side delivery must reject content that does not satisfy the expected PDF contract. A successful PDF response should:
-
-- use `Content-Type: application/pdf` after validation;
-- begin with the `%PDF-` signature when the start of the file is available;
-- reject HTML, JSON and upstream error documents;
-- preserve byte-range semantics;
-- never substitute a script or stylesheet URL as the document URL.
-
-Only the Moodle-owned protected resource URL may be supplied to PDF.js.
-
-## Task and cache safety
-
-PDF cache warming uses Moodle ad-hoc tasks with duplicate suppression. Complete files are written to temporary paths, verified as PDFs and atomically renamed. Lock, cookie and temporary files must be cleaned up.
-
-Cache keys must not expose raw Drive identifiers to the browser. Cache contents remain outside the web root and are always served through authorised endpoints.
-
-## UI isolation
-
-Moodle compiles root module CSS globally. Drive Resource keeps `styles.css` free of viewer rules and loads activity-scoped CSS only on its activity page.
-
-Fullscreen and overlay rules must remain beneath Drive Resource roots. This prevents invisible overlays, click interception and UI denial of service in themes or course formats such as Tiles/Mosaico.
-
-Drive Resource must never modify third-party course formats or themes to solve a local compatibility defect.
+- private cache directives;
+- safe inline filename handling;
+- no upstream cookie forwarding to the browser;
+- no upstream Google URL in redirects generated by the plugin;
+- rejection of HTML responses when video bytes are expected;
+- controlled `Range`/`If-Range` handling.
 
 ## Browser deterrents
 
-Disabling context menus, copy shortcuts or visible download controls reduces accidental extraction but is not DRM. It cannot prevent screen capture, developer-tool inspection or an authorised user from receiving bytes required for rendering.
+The following options are UX deterrents only:
 
-Product documentation and commercial claims must describe these controls accurately.
+- `controlslist="nodownload"`;
+- disabled context menu/drag;
+- watermark;
+- omission of direct-download UI.
 
-## Personal data
+They must never be described as preventing a determined authorized user from saving content.
 
-Progress, active time, completion, page position, points and rewards are personal data. Privacy API coverage must include metadata declaration, context discovery, export and deletion for users and approved user lists.
+## Sessions and long streaming
 
-Drive Resource stores page/progress values but does not store rendered canvases, page images, gestures or viewport dimensions.
+`protected.php` releases the PHP session lock after authorization and before long transfer work. This prevents one media request from blocking other Moodle requests for the same logged-in user.
 
-## Moodle security validation
+## Privacy
 
-Automated validation covers PHP syntax, Moodle Coding Style, metadata, XMLDB savepoints, Mustache, AMD, the PDF.js native-ESM contract, the PDF.js-only production path and PHPUnit.
+Per-user data includes progress, completion state, active time, last page, media resume position/duration and optional rewards. The Privacy API declares, exports and deletes this information.
 
-Production validation additionally requires:
+No Google OAuth token, account password or secret API credential is stored in learner progress records.
 
-- current supported Moodle maintenance release;
-- guest and unenrolled access denial;
-- direct protected endpoint denial without login/capability;
-- no raw Drive data in HTML;
-- safe handling of CR/LF in filenames and headers;
-- upstream failures not returned as HTTP 200 media;
-- correct valid/invalid range behavior;
-- no direct web access to local/cache files;
-- PDF.js and worker loaded only from same-origin plugin paths;
-- no PageFlip request in learner sessions;
-- no JavaScript source displayed as PDF content;
-- physical Android and iPhone validation;
-- normal navigation in standard and third-party course formats;
-- Backup/Restore and Privacy API tests;
-- review of current Moodle security advisories before commercial release.
+## Public Drive playback integration
 
-## Range and validator hardening
+The progressive video resolver uses a public browser API key associated with the Google Drive web playback service. It is treated as a public integration identifier, not as a secret credential. Temporary media URLs returned by that service are held only server side and cached briefly.
 
-Drive Resource does not forward browser `If-Range` validators to Google. The proxy emits a stable, URL-derived private ETag, validates `Content-Type`, requires `206` plus `Content-Range` for byte requests and sends `X-Accel-Buffering: no`. These headers improve streaming without exposing file IDs, redirect URLs or Google validators.
+Because this endpoint is not a stable contractual API for third-party Moodle plugins, source-file fallback is retained and changes must be regression-tested.
 
-## Fullscreen presentation boundary
+The protected endpoint accepts a boolean `refresh` hint only after the normal Moodle access boundary has succeeded. The hint invalidates/bypasses the server-side cached signed playback URL for recovery; it does not accept, expose or redirect to an arbitrary upstream URL. This keeps buffering recovery inside the same authorization and SSRF boundary as ordinary playback.
 
-Fullscreen centring is presentation-only. The protected Moodle endpoint remains the sole document URL, context-menu restrictions remain attached to the viewer and canvas, and the watermark is now bounded to the rendered page. No Google Drive identifier, redirect URL or upstream validator is introduced into the DOM.
+## Production checklist
 
-## Moodle 4.5 security compatibility
+Before release:
 
-Supporting Moodle 4.5 does not weaken the protected-delivery boundary. The same `require_login()`, course-module lookup, `context_module`, capability checks, protected Moodle URL, MIME validation and byte-range enforcement are required on every supported branch. Compatibility code must never bypass authorisation or expose upstream Google data merely to accommodate an older core API.
-
-## Synthetic byte ranges
-
-Synthetic `206` responses do not weaken access control. They execute only after the normal Moodle `require_login()`, course-module/context and capability checks. The upstream URL and Drive file ID remain server-side. The fallback requires a known upstream length, preserves MIME validation, emits only the requested byte window and never turns Drive Resource into an arbitrary URL proxy.
-
-Cross-version PHPUnit metadata changes are confined to the test suite; they do not alter authentication, capability checks, protected URLs, MIME validation, or byte-range enforcement in production.
-
-## 1.1.32 RC security boundary
-
-The Moodle endpoint, not browser UI restrictions, is the security boundary. `protected.php` validates the authenticated session, course module, course, module context and `mod/videoplayer:view` capability before resolving the upstream Google resource. Upstream URLs and resource identifiers remain server-side.
-
-Legacy Google preview and generic iframe templates are removed from the production-candidate path. PDF-compatible resources are rendered with local PDF.js and videos with HTML5/Plyr. Browser controls such as disabled context menus and hidden download actions are defense-in-depth UX measures only; they do not make browser-delivered content cryptographically non-extractable.
-
-Precise progress payloads are bounded and normalized server-side before persistence. Privacy export/deletion and Backup/Restore include the exact viewer state.
-
-## Google Drive confirmation hardening
-
-Drive confirmation HTML is treated as untrusted upstream input. Form actions are accepted only over HTTPS and only for `drive.usercontent.google.com`, `drive.google.com` or `docs.google.com`. Only the `id`, `export`, `confirm`, `uuid` and `resourcekey` parameters are replayed, with strict character filtering.
-
-Confirmation cookies are retained only inside the server-side cURL flow. They are never emitted to the learner, stored in Moodle tables or logged with their values. Warning HTML capture is bounded to avoid using an upstream error page as an unbounded memory sink.
-
-## Runtime configuration and viewer consistency
-
-Authorization remains enforced by `require_login()`, module context and `mod/videoplayer:view` before any upstream request. Resource-type fallback changes only viewer selection; it does not bypass access control or expose the Google file ID/URL.
-
-Missing site configuration is not treated as an authorization decision. In particular, an absent `protectedmode` record uses the documented enabled default; only an explicit stored `0` disables that path. Upgrade logic seeds missing defaults so behavior is deterministic across fresh installs and long-lived Moodle upgrades.
-## Upgrade schema integrity
-
-Database upgrade failures must not encourage administrators to bypass Moodle's XMLDB layer or manually remove production indexes. RC7 performs the indexed `videoplayer.type` migration through Moodle's database manager and restores `type_idx` even when the field alteration throws. The change does not relax authentication, capability checks, protected delivery, or modify learner progress data.
-
-## RC8 Drive confirmation hardening
-
-Google confirmation HTML is untrusted. RC8 accepts only a bounded allow-list of download query fields, validates values, and continues to restrict confirmation targets to approved HTTPS Google hosts. Escaped embedded `downloadUrl` values are decoded as JSON before validation; they are never emitted to learner HTML.
-
-
-Both protected proxy and cache-warming cURL paths restrict origin and redirect protocols to HTTPS when the installed cURL runtime exposes the protocol controls. TLS peer and host verification remain mandatory.
-
-The legacy-compatible `drive.google.com/uc` starting route does not weaken the boundary: it is constructed exclusively from a validated Drive file ID and optional sanitized resource key, is never sent to the browser, and may redirect only through HTTPS. Any confirmation continuation is still constrained by the Google-host and parameter allow-lists.
-
-Codec incompatibility is a presentation/runtime concern, not an authorization fallback. The plugin must never bypass `require_login()`, capability checks or the protected proxy just because the browser cannot decode the original media.
+- HTTPS must be enabled;
+- Moodle cron must run;
+- PHP cURL TLS verification must remain enabled;
+- `$CFG->localcachedir` must not be web-accessible;
+- Moodle developer debugging should show no new warnings;
+- protected HTML must be inspected for identifier/URL leakage;
+- unauthenticated and unauthorized `protected.php` requests must fail;
+- backup/privacy behavior must be tested;
+- Google Drive video playback must be tested on physical mobile devices where possible.

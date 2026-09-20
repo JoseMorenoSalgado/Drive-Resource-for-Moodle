@@ -15,12 +15,12 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Restore task for the Drive Resource activity.
+ * Restore task for the videoplayer module.
  *
- * @package    mod_videoplayer
- * @category   backup
- * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package   mod_videoplayer
+ * @category  backup
+ * @copyright 2025 Jose Erasmo Moreno Salgado
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -28,49 +28,50 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->dirroot . '/mod/videoplayer/backup/moodle2/restore_videoplayer_stepslib.php');
 
 /**
- * Defines the restore task for a Drive Resource activity.
+ * Restore task implementation for Drive Resource.
  */
 class restore_videoplayer_activity_task extends restore_activity_task {
     /**
-     * Define activity-specific restore settings.
+     * Define module-specific restore settings.
+     *
+     * @return void
      */
-    protected function define_my_settings(): void {
-        // No activity-specific settings are required.
+    protected function define_my_settings() {
+        // No specific settings for this module.
     }
 
     /**
-     * Define activity-specific restore steps.
+     * Define the restore execution steps.
+     *
+     * @return void
      */
-    protected function define_my_steps(): void {
-        $this->add_step(new restore_videoplayer_activity_structure_step(
-            'videoplayer_structure',
-            'videoplayer.xml'
-        ));
+    protected function define_my_steps() {
+        $this->add_step(new restore_videoplayer_activity_structure_step('videoplayer_structure', 'videoplayer.xml'));
     }
 
     /**
-     * Define content fields that need link decoding during restore.
+     * Define content fields that Moodle must decode during restore.
      *
      * @return restore_decode_content[]
      */
-    public static function define_decode_contents(): array {
-        return [
-            new restore_decode_content('videoplayer', ['intro'], 'videoplayer'),
-        ];
+    public static function define_decode_contents() {
+        $contents = [];
+
+        $contents[] = new restore_decode_content('videoplayer', ['intro'], 'videoplayer');
+
+        return $contents;
     }
 
     /**
-     * Define portable Drive Resource URL decoding rules.
+     * Define link decoding rules for restored activities.
      *
      * @return restore_decode_rule[]
      */
-    public static function define_decode_rules(): array {
-        return [
-            new restore_decode_rule(
-                'VIDEOPLAYERVIEWBYID',
-                '/mod/videoplayer/view.php?id=$1',
-                'course_module'
-            ),
-        ];
+    public static function define_decode_rules() {
+        $rules = [];
+
+        $rules[] = new restore_decode_rule('VIDEOPLAYERVIEWBYID', '/mod/videoplayer/view.php?id=$1', 'course_module');
+
+        return $rules;
     }
 }

@@ -45,19 +45,9 @@
 }
 
 .mod-videoplayer-pdfjs-viewer:fullscreen .mod-videoplayer-pdfjs-canvas-wrap {
-    display: flex !important;
-    align-items: flex-start !important;
-    justify-content: flex-start !important;
     height: 100vh !important;
-    height: 100dvh !important;
     min-height: 100vh !important;
-    min-height: 100dvh !important;
-    max-height: 100dvh !important;
-    padding: max(.75rem, env(safe-area-inset-top, 0px))
-        max(.75rem, env(safe-area-inset-right, 0px))
-        max(.75rem, env(safe-area-inset-bottom, 0px))
-        max(.75rem, env(safe-area-inset-left, 0px)) !important;
-    overflow: auto !important;
+    padding: .75rem !important;
     background: #0f172a !important;
 }
 
@@ -95,7 +85,9 @@
     }
 
     .mod-videoplayer-resume {
-        display: none !important;
+        margin-bottom: .45rem;
+        padding: .5rem .65rem;
+        font-size: .85rem;
     }
 
     .mod-videoplayer-pdfjs-viewer {
@@ -107,44 +99,35 @@
     }
 
     .mod-videoplayer-pdfjs-canvas-wrap {
-        display: flex !important;
+        min-height: 80svh !important;
+        height: 80svh !important;
+        padding: .25rem !important;
         align-items: flex-start !important;
-        justify-content: flex-start !important;
-        min-height: 22rem !important;
-        height: auto !important;
-        max-height: none !important;
-        padding: .35rem !important;
+        justify-content: center !important;
         overflow: auto !important;
         overscroll-behavior: contain;
         -webkit-overflow-scrolling: touch;
         touch-action: pan-x pan-y;
-        background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%) !important;
+        background: #f1f5f9 !important;
         scrollbar-width: thin;
-    }
-
-    .mod-videoplayer-pdfjs-canvas-stage {
-        position: relative;
-        flex: 0 0 auto;
-        width: max-content;
-        max-width: none;
-        height: max-content;
-        margin: auto !important;
     }
 
     .mod-videoplayer-pdfjs-canvas {
         display: block !important;
-        max-width: none !important;
+        max-width: 100% !important;
         width: auto !important;
         height: auto !important;
-        margin: 0 !important;
+        margin: 0 auto !important;
         border-radius: 8px !important;
         box-shadow: 0 8px 18px rgba(15, 23, 42, .18) !important;
     }
 
     .mod-videoplayer-pdfjs-overlay {
-        position: absolute !important;
-        inset: 0 !important;
-        height: auto !important;
+        position: sticky !important;
+        top: .25rem !important;
+        left: 0 !important;
+        right: 0 !important;
+        height: 0 !important;
         z-index: 25 !important;
         pointer-events: none;
     }
@@ -156,10 +139,9 @@
         min-width: 46px !important;
         min-height: 46px !important;
         padding: 0 !important;
-        border: 1px solid rgba(15, 23, 42, .08) !important;
         border-radius: 999px !important;
         font-size: 1.25rem !important;
-        background: rgba(255, 255, 255, .95) !important;
+        background: rgba(255, 255, 255, .94) !important;
         color: #0f172a !important;
         box-shadow: 0 10px 26px rgba(15, 23, 42, .18) !important;
         backdrop-filter: blur(12px);
@@ -208,7 +190,6 @@
         left: 50% !important;
         min-width: 64px !important;
         padding: .45rem .65rem !important;
-        border: 1px solid rgba(15, 23, 42, .08);
         font-size: .9rem !important;
         line-height: 1.1;
         background: rgba(255, 255, 255, .96) !important;
@@ -235,45 +216,9 @@
 
     .is-fallback-fullscreen .mod-videoplayer-pdfjs-canvas-wrap,
     .mod-videoplayer-pdfjs-viewer:fullscreen .mod-videoplayer-pdfjs-canvas-wrap {
-        display: flex !important;
-        align-items: flex-start !important;
-        justify-content: flex-start !important;
         min-height: 100svh !important;
         height: 100svh !important;
-        max-height: 100svh !important;
-        padding: calc(env(safe-area-inset-top, 0px) + .75rem)
-            calc(env(safe-area-inset-right, 0px) + .5rem)
-            calc(env(safe-area-inset-bottom, 0px) + .75rem)
-            calc(env(safe-area-inset-left, 0px) + .5rem) !important;
-        overflow: auto !important;
-        scroll-padding: 4.5rem 3.75rem !important;
-        background: #0f172a !important;
-    }
-
-    .is-fallback-fullscreen .mod-videoplayer-pdfjs-canvas-stage,
-    .mod-videoplayer-pdfjs-viewer:fullscreen .mod-videoplayer-pdfjs-canvas-stage {
-        margin: auto !important;
-    }
-
-    .is-fallback-fullscreen .mod-videoplayer-pdfjs-control-prev,
-    .is-fallback-fullscreen .mod-videoplayer-pdfjs-control-next,
-    .mod-videoplayer-pdfjs-viewer:fullscreen .mod-videoplayer-pdfjs-control-prev,
-    .mod-videoplayer-pdfjs-viewer:fullscreen .mod-videoplayer-pdfjs-control-next {
-        top: 50% !important;
-        transform: translateY(-50%) !important;
-    }
-
-    .is-fallback-fullscreen .mod-videoplayer-pdfjs-control-zoomout,
-    .is-fallback-fullscreen .mod-videoplayer-pdfjs-control-zoomin,
-    .is-fallback-fullscreen .mod-videoplayer-pdfjs-control-fit,
-    .is-fallback-fullscreen .mod-videoplayer-pdfjs-control-fullscreen,
-    .is-fallback-fullscreen .mod-videoplayer-pdfjs-page-status,
-    .mod-videoplayer-pdfjs-viewer:fullscreen .mod-videoplayer-pdfjs-control-zoomout,
-    .mod-videoplayer-pdfjs-viewer:fullscreen .mod-videoplayer-pdfjs-control-zoomin,
-    .mod-videoplayer-pdfjs-viewer:fullscreen .mod-videoplayer-pdfjs-control-fit,
-    .mod-videoplayer-pdfjs-viewer:fullscreen .mod-videoplayer-pdfjs-control-fullscreen,
-    .mod-videoplayer-pdfjs-viewer:fullscreen .mod-videoplayer-pdfjs-page-status {
-        top: calc(env(safe-area-inset-top, 0px) + .75rem) !important;
+        padding: calc(env(safe-area-inset-top, 0px) + .45rem) .25rem calc(env(safe-area-inset-bottom, 0px) + .45rem) !important;
     }
 }
 

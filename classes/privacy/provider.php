@@ -18,11 +18,11 @@ namespace mod_videoplayer\privacy;
 
 use core_privacy\local\metadata\collection;
 use core_privacy\local\request\approved_contextlist;
-use core_privacy\local\request\approved_userlist;
 use core_privacy\local\request\contextlist;
 use core_privacy\local\request\helper;
-use core_privacy\local\request\transform;
 use core_privacy\local\request\userlist;
+use core_privacy\local\request\approved_userlist;
+use core_privacy\local\request\transform;
 use core_privacy\local\request\writer;
 
 /**
@@ -51,11 +51,9 @@ class provider implements
             'completionpercentage' => 'privacy:metadata:videoplayer_views:completionpercentage',
             'lastpage' => 'privacy:metadata:videoplayer_views:lastpage',
             'totalpages' => 'privacy:metadata:videoplayer_views:totalpages',
-            'visitedpages' => 'privacy:metadata:videoplayer_views:visitedpages',
-            'lastsecond' => 'privacy:metadata:videoplayer_views:lastsecond',
-            'totalseconds' => 'privacy:metadata:videoplayer_views:totalseconds',
-            'watchedranges' => 'privacy:metadata:videoplayer_views:watchedranges',
             'timespent' => 'privacy:metadata:videoplayer_views:timespent',
+            'lastposition' => 'privacy:metadata:videoplayer_views:lastposition',
+            'duration' => 'privacy:metadata:videoplayer_views:duration',
             'points' => 'privacy:metadata:videoplayer_views:points',
             'timecreated' => 'privacy:metadata:videoplayer_views:timecreated',
             'timemodified' => 'privacy:metadata:videoplayer_views:timemodified',
@@ -134,11 +132,9 @@ class provider implements
                     'completionpercentage' => $record->completionpercentage,
                     'lastpage' => $record->lastpage ?? 0,
                     'totalpages' => $record->totalpages ?? 0,
-                    'visitedpages' => $record->visitedpages ?? null,
-                    'lastsecond' => $record->lastsecond ?? 0,
-                    'totalseconds' => $record->totalseconds ?? 0,
-                    'watchedranges' => $record->watchedranges ?? null,
                     'timespent' => $record->timespent ?? 0,
+                    'lastposition' => $record->lastposition ?? 0,
+                    'duration' => $record->duration ?? 0,
                     'points' => $record->points ?? 0,
                     'timecreated' => transform::datetime($record->timecreated),
                     'timemodified' => transform::datetime($record->timemodified),
@@ -271,17 +267,14 @@ class provider implements
             return;
         }
 
-        [$insql, $params] = $DB->get_in_or_equal($userlist->get_userids(), SQL_PARAMS_NAMED);
+        $userids = $userlist->get_userids();
+        if (!$userids) {
+            return;
+        }
+
+        [$insql, $params] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
         $params['videoplayerid'] = $cm->instance;
-        $DB->delete_records_select(
-            'videoplayer_rewards',
-            "videoplayerid = :videoplayerid AND userid {$insql}",
-            $params
-        );
-        $DB->delete_records_select(
-            'videoplayer_views',
-            "videoplayerid = :videoplayerid AND userid {$insql}",
-            $params
-        );
+        $DB->delete_records_select('videoplayer_rewards', "videoplayerid = :videoplayerid AND userid {$insql}", $params);
+        $DB->delete_records_select('videoplayer_views', "videoplayerid = :videoplayerid AND userid {$insql}", $params);
     }
 }

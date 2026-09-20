@@ -23,6 +23,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+
 /**
  * Defines the complete backup structure for the videoplayer activity.
  */
@@ -73,11 +74,9 @@ class backup_videoplayer_activity_structure_step extends backup_activity_structu
             'completionpercentage',
             'lastpage',
             'totalpages',
-            'visitedpages',
-            'lastsecond',
-            'totalseconds',
-            'watchedranges',
             'timespent',
+            'lastposition',
+            'duration',
             'points',
         ]);
 

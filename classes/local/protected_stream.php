@@ -16,6 +16,8 @@
 
 namespace mod_videoplayer\local;
 
+use mod_videoplayer\local\stream\upstream_url_policy;
+
 /**
  * Local protected streaming and PDF cache service for Drive Resource.
  *
@@ -85,6 +87,20 @@ final class protected_stream {
      */
     public static function cache_file_for(string $fileid, string $type): string {
         return self::pdf_cache_dir() . '/' . self::cache_key($fileid, $type) . '.pdf';
+    }
+
+    /**
+     * Invalidate one cached Google Drive PDF representation.
+     *
+     * @param string $fileid Google Drive file id.
+     * @param string $type Resource type.
+     * @return void
+     */
+    public static function invalidate_pdf_cache(string $fileid, string $type): void {
+        if ($fileid === '') {
+            return;
+        }
+        self::delete_if_file(self::cache_file_for($fileid, $type));
     }
 
     /**
@@ -250,6 +266,11 @@ final class protected_stream {
      * @return bool Whether a valid PDF was cached.
      */
     public static function warm_drive_pdf_cache(string $url, string $cachefile): bool {
+        if (!upstream_url_policy::is_allowed($url)) {
+            debugging('Drive Resource PDF cache rejected a non-allowlisted upstream URL.', DEBUG_DEVELOPER);
+            return false;
+        }
+
         $cachedir = dirname($cachefile);
         if (!is_dir($cachedir)) {
             make_writable_directory($cachedir);
@@ -521,12 +542,6 @@ final class protected_stream {
             CURLOPT_COOKIEFILE => $cookiejar,
             CURLOPT_FILE => $handle,
         ]);
-        if (defined('CURLOPT_PROTOCOLS') && defined('CURLPROTO_HTTPS')) {
-            curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTPS);
-        }
-        if (defined('CURLOPT_REDIR_PROTOCOLS') && defined('CURLPROTO_HTTPS')) {
-            curl_setopt($ch, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTPS);
-        }
 
         $result = curl_exec($ch);
         $curlerror = curl_error($ch);

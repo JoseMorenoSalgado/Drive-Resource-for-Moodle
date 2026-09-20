@@ -7,15 +7,6 @@
         <license>Apache</license>
         <licenseversion>2.0</licenseversion>
         <repository>https://github.com/mozilla/pdf.js</repository>
-        <description>Local PDF rendering engine used by the Drive Resource protected PDF viewer.</description>
-    </library>
-    <library>
-        <location>thirdpartylibs/plyr</location>
-        <name>Plyr</name>
-        <version>Bundled local build</version>
-        <license>MIT</license>
-        <licenseversion></licenseversion>
-        <repository>https://github.com/sampotts/plyr</repository>
-        <description>Local HTML5 media player used by Drive Resource protected video playback.</description>
+        <description>Local PDF rendering engine used by Drive Resource for PDF, document, spreadsheet and presentation viewing.</description>
     </library>
 </thirdpartylibs>

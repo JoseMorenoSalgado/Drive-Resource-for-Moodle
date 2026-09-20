@@ -17,7 +17,7 @@
 namespace mod_videoplayer\output;
 
 /**
- * Output renderer for mod_videoplayer.
+ * Output renderer for Drive Resource.
  *
  * @package    mod_videoplayer
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
@@ -25,7 +25,21 @@ namespace mod_videoplayer\output;
  */
 class renderer extends \plugin_renderer_base {
     /**
-     * Render an invalid resource URL message.
+     * Render a learner resource view using the type-specific template selected
+     * by the view model.
+     *
+     * @param resource_view $view
+     * @return string
+     */
+    public function render_resource_view(resource_view $view): string {
+        return $this->render_from_template(
+            $view->template_name(),
+            $view->export_for_template($this)
+        );
+    }
+
+    /**
+     * Render an invalid resource message.
      *
      * @return string
      */

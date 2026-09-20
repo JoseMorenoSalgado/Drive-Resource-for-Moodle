@@ -1,5 +1,5 @@
 <?php
-// This file is part of Moodle - https://moodle.org/
+// This file is part of Moodle - http://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,26 +15,21 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Local library placeholder for Drive Resource.
+ * Cache definitions for Drive Resource.
  *
  * @package    mod_videoplayer
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-/**
- * Return the production-safe PDF display mode.
- *
- * Legacy PageFlip and book modes are normalised to the locally bundled
- * PDF.js viewer. This prevents JavaScript assets from being exposed as
- * document content and keeps mobile and desktop rendering deterministic.
- *
- * @param string|null $requestedmode Requested or legacy database value.
- * @return string Always returns the supported PDF.js mode.
- */
-function videoplayer_get_safe_pdf_displaymode(?string $requestedmode): string {
-    $requestedmode = clean_param((string) $requestedmode, PARAM_ALPHANUMEXT);
-    $supportedmodes = ['pdfjs'];
+defined('MOODLE_INTERNAL') || die();
 
-    return in_array($requestedmode, $supportedmodes, true) ? $requestedmode : 'pdfjs';
-}
+$definitions = [
+    'drivestream' => [
+        'mode' => cache_store::MODE_APPLICATION,
+        'simplekeys' => true,
+        'simpledata' => true,
+        'staticacceleration' => true,
+        'ttl' => 300,
+    ],
+];

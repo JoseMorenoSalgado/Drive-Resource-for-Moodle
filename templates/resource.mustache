@@ -1,0 +1,34 @@
+{{!
+    Generic protected resource. The browser receives only a Moodle URL; no
+    Google Drive URL or file id is rendered in the page.
+}}
+{{!
+    @template mod_videoplayer/resource
+
+    Generic protected resource card.
+
+    Example context (json):
+    {
+        "type": "file",
+        "cmid": 42,
+        "disablecontextmenu": true,
+        "showresourcetype": true,
+        "resourcetype": "File",
+        "title": "Protected course resource",
+        "protectedurl": "/mod/videoplayer/protected.php?id=42"
+    }
+}}
+<div class="mod-videoplayer-container" data-resource-type="{{type}}" data-cmid="{{cmid}}" data-protected-ui data-disable-context-menu="{{#disablecontextmenu}}1{{/disablecontextmenu}}{{^disablecontextmenu}}0{{/disablecontextmenu}}">
+    <div class="mod-videoplayer-meta mb-2">
+        {{#showresourcetype}}<span class="mod-videoplayer-meta-item">{{resourcetype}}</span>{{/showresourcetype}}
+        <span class="mod-videoplayer-meta-item">{{#str}} protectedresource, mod_videoplayer {{/str}}</span>
+    </div>
+
+    <div class="mod-videoplayer-generic-card">
+        <h3 class="h5 mb-2">{{title}}</h3>
+        <p class="text-muted mb-3">{{#str}} genericresourcehelp, mod_videoplayer {{/str}}</p>
+        <a class="btn btn-primary" href="{{protectedurl}}" target="_blank" rel="noopener noreferrer">
+            {{#str}} openprotectedresource, mod_videoplayer {{/str}}
+        </a>
+    </div>
+</div>

@@ -25,7 +25,6 @@
 defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/course/moodleform_mod.php');
-require_once(__DIR__ . '/locallib.php');
 
 use mod_videoplayer\local\drive;
 
@@ -66,6 +65,7 @@ class mod_videoplayer_mod_form extends moodleform_mod {
         $types = [
             'auto' => get_string('typeauto', 'mod_videoplayer'),
             'video' => get_string('typevideo', 'mod_videoplayer'),
+            'audio' => get_string('typeaudio', 'mod_videoplayer'),
             'pdf' => get_string('typepdf', 'mod_videoplayer'),
             'image' => get_string('typeimage', 'mod_videoplayer'),
             'document' => get_string('typedocument', 'mod_videoplayer'),
@@ -74,12 +74,12 @@ class mod_videoplayer_mod_form extends moodleform_mod {
             'file' => get_string('typefile', 'mod_videoplayer'),
         ];
         $mform->addElement('select', 'type', get_string('resourcetype', 'mod_videoplayer'), $types);
-        $mform->addHelpButton('type', 'resourcetype', 'mod_videoplayer');
-        $mform->setDefault('type', 'video');
+        $mform->setDefault('type', 'auto');
         $mform->disabledIf('type', 'source', 'eq', 'localpdf');
 
-        $mform->addElement('hidden', 'displaymode', 'pdfjs');
+        $mform->addElement('hidden', 'displaymode', 'standard');
         $mform->setType('displaymode', PARAM_ALPHANUMEXT);
+        $mform->setDefault('displaymode', 'standard');
 
         $mform->addElement('advcheckbox', 'disabledownload', get_string('disabledownload', 'mod_videoplayer'));
         $mform->setDefault('disabledownload', 1);
@@ -93,8 +93,8 @@ class mod_videoplayer_mod_form extends moodleform_mod {
 
         $mform->addElement('text', 'completionpercentage', get_string('completionpercentage', 'mod_videoplayer'), ['size' => 5]);
         $mform->setType('completionpercentage', PARAM_INT);
-        $defaultcompletion = get_config('mod_videoplayer', 'defaultcompletionpercentage');
-        $defaultcompletion = $defaultcompletion === false ? 80 : max(0, min(100, (int) $defaultcompletion));
+        $defaultcompletion = (int)get_config('mod_videoplayer', 'defaultcompletionpercentage');
+        $defaultcompletion = $defaultcompletion > 0 ? max(1, min(100, $defaultcompletion)) : 80;
         $mform->setDefault('completionpercentage', $defaultcompletion);
         $mform->addRule('completionpercentage', null, 'numeric', null, 'client');
         $mform->addHelpButton('completionpercentage', 'completionpercentage', 'mod_videoplayer');
@@ -122,10 +122,7 @@ class mod_videoplayer_mod_form extends moodleform_mod {
             );
             $defaultvalues['localpdffile'] = $draftitemid;
         }
-
-        $defaultvalues['displaymode'] = videoplayer_get_safe_pdf_displaymode(
-            $defaultvalues['displaymode'] ?? null
-        );
+        $defaultvalues['displaymode'] = 'standard';
     }
 
     /**
@@ -161,7 +158,7 @@ class mod_videoplayer_mod_form extends moodleform_mod {
             }
         }
 
-        if (isset($data['completionpercentage']) && ($data['completionpercentage'] < 0 || $data['completionpercentage'] > 100)) {
+        if (isset($data['completionpercentage']) && ($data['completionpercentage'] < 1 || $data['completionpercentage'] > 100)) {
             $errors['completionpercentage'] = get_string('invalidcompletionpercentage', 'mod_videoplayer');
         }
 
