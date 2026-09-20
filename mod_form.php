@@ -79,15 +79,6 @@ class mod_videoplayer_mod_form extends moodleform_mod {
         $mform->addElement('advcheckbox', 'enablewatermark', get_string('enablewatermark', 'mod_videoplayer'));
         $mform->setDefault('enablewatermark', 1);
 
-        $mform->addElement('text', 'completionpercentage', get_string('completionpercentage', 'mod_videoplayer'), ['size' => 5]);
-        $mform->setType('completionpercentage', PARAM_INT);
-        $mform->setDefault(
-            'completionpercentage',
-            plugin_config::default_completion_percentage()
-        );
-        $mform->addRule('completionpercentage', null, 'numeric', null, 'client');
-        $mform->addHelpButton('completionpercentage', 'completionpercentage', 'mod_videoplayer');
-
         $this->standard_intro_elements();
         $this->standard_coursemodule_elements();
         $this->add_action_buttons();
@@ -111,6 +102,113 @@ class mod_videoplayer_mod_form extends moodleform_mod {
             );
             $defaultvalues['localpdffile'] = $draftitemid;
         }
+
+        $enabledname = $this->get_suffixed_name('completionprogressenabled');
+        $percentname = $this->get_suffixed_name('completionpercentage');
+        $defaultvalues[$enabledname] = !empty(
+            $defaultvalues[$enabledname] ?? $defaultvalues['completionprogressenabled'] ?? 1
+        ) ? 1 : 0;
+
+        $percentage = (int)(
+            $defaultvalues[$percentname]
+            ?? $defaultvalues['completionpercentage']
+            ?? plugin_config::default_completion_percentage()
+        );
+        $defaultvalues[$percentname] = $percentage > 0
+            ? max(1, min(100, $percentage))
+            : plugin_config::default_completion_percentage();
+    }
+
+    /**
+     * Normalise custom completion controls after Moodle has processed the form.
+     *
+     * @param stdClass $data Submitted form data.
+     * @return void
+     */
+    public function data_postprocessing($data): void {
+        parent::data_postprocessing($data);
+
+        if (empty($data->completionunlocked)) {
+            return;
+        }
+
+        $completionname = $this->get_suffixed_name('completion');
+        $enabledname = $this->get_suffixed_name('completionprogressenabled');
+        $autocompletion = !empty($data->{$completionname})
+            && (int)$data->{$completionname} === COMPLETION_TRACKING_AUTOMATIC;
+
+        if (!$autocompletion || empty($data->{$enabledname})) {
+            $data->{$enabledname} = 0;
+        }
+    }
+
+    /**
+     * Add Drive Resource custom completion controls.
+     *
+     * @category completion
+     * @return array List of top-level form element names.
+     */
+    public function add_completion_rules(): array {
+        $mform = $this->_form;
+        $enabledname = $this->get_suffixed_name('completionprogressenabled');
+        $percentname = $this->get_suffixed_name('completionpercentage');
+        $groupname = $this->get_suffixed_name('completionprogressgroup');
+
+        $group = [
+            $mform->createElement(
+                'checkbox',
+                $enabledname,
+                '',
+                get_string('completionprogressenabled', 'mod_videoplayer')
+            ),
+            $mform->createElement(
+                'text',
+                $percentname,
+                '',
+                ['size' => 4]
+            ),
+            $mform->createElement(
+                'static',
+                $this->get_suffixed_name('completionprogresssuffix'),
+                '',
+                '%'
+            ),
+        ];
+
+        $mform->addGroup(
+            $group,
+            $groupname,
+            get_string('completionprogressgroup', 'mod_videoplayer'),
+            [' '],
+            false
+        );
+        $mform->addHelpButton(
+            $groupname,
+            'completionprogressgroup',
+            'mod_videoplayer'
+        );
+        $mform->setType($percentname, PARAM_INT);
+        $mform->setDefault($enabledname, 1);
+        $mform->setDefault($percentname, plugin_config::default_completion_percentage());
+        $mform->disabledIf($percentname, $enabledname, 'notchecked');
+
+        return [$groupname];
+    }
+
+    /**
+     * Whether the custom progress completion rule is enabled.
+     *
+     * @param array $data Submitted form data.
+     * @return bool
+     */
+    public function completion_rule_enabled($data): bool {
+        $enabledname = $this->get_suffixed_name('completionprogressenabled');
+        $percentname = $this->get_suffixed_name('completionpercentage');
+
+        return !empty($data[$enabledname])
+            && !empty($data[$percentname])
+            && (int)$data[$percentname] >= 1
+            && (int)$data[$percentname] <= 100;
     }
 
     /**
@@ -146,8 +244,12 @@ class mod_videoplayer_mod_form extends moodleform_mod {
             }
         }
 
-        if (isset($data['completionpercentage']) && ($data['completionpercentage'] < 1 || $data['completionpercentage'] > 100)) {
-            $errors['completionpercentage'] = get_string('invalidcompletionpercentage', 'mod_videoplayer');
+        $percentname = $this->get_suffixed_name('completionpercentage');
+        if (
+            isset($data[$percentname])
+            && ((int)$data[$percentname] < 1 || (int)$data[$percentname] > 100)
+        ) {
+            $errors[$percentname] = get_string('invalidcompletionpercentage', 'mod_videoplayer');
         }
 
         return $errors;
