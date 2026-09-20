@@ -40,9 +40,15 @@ final class protected_resource_service {
      * @param resource_descriptor $resource
      * @param \stdClass $instance
      * @param string $streammode Video stream mode: auto, transcoded or source.
+     * @param bool $forcerefresh Bypass the short-lived resolved stream cache.
      * @return never
      */
-    public function send(resource_descriptor $resource, \stdClass $instance, string $streammode = 'auto'): never {
+    public function send(
+        resource_descriptor $resource,
+        \stdClass $instance,
+        string $streammode = 'auto',
+        bool $forcerefresh = false
+    ): never {
         if (!$resource->is_available()) {
             throw new \moodle_exception('protectedresourceunavailable', 'mod_videoplayer');
         }
@@ -60,7 +66,7 @@ final class protected_resource_service {
             throw new \moodle_exception('invaliddriveurl', 'mod_videoplayer');
         }
 
-        $url = $this->resolve_upstream_url($resource, $instance, $streammode);
+        $url = $this->resolve_upstream_url($resource, $instance, $streammode, $forcerefresh);
         if ($url === null) {
             if ($resource->is_video() && $streammode === 'transcoded') {
                 $this->send_stream_unavailable();
@@ -94,12 +100,14 @@ final class protected_resource_service {
      * @param resource_descriptor $resource
      * @param \stdClass $instance
      * @param string $streammode
+     * @param bool $forcerefresh
      * @return string|null
      */
     private function resolve_upstream_url(
         resource_descriptor $resource,
         \stdClass $instance,
-        string $streammode
+        string $streammode,
+        bool $forcerefresh
     ): ?string {
         $fileid = $resource->fileid();
         if (!$fileid) {
@@ -108,7 +116,7 @@ final class protected_resource_service {
 
         $streammode = in_array($streammode, ['auto', 'transcoded', 'source'], true) ? $streammode : 'auto';
         if ($resource->is_video() && $streammode !== 'source') {
-            $resolved = drive_stream_resolver::resolve($fileid);
+            $resolved = drive_stream_resolver::resolve($fileid, $forcerefresh);
             if ($resolved !== null) {
                 return $resolved;
             }
