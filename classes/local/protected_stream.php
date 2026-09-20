@@ -226,6 +226,7 @@ final class protected_stream {
         header('Vary: Range');
         self::send_private_cache_headers($etag, $lastmodified);
         self::send_cache_status($cachestatus);
+        header('X-Drive-Resource-Status: MEDIA');
 
         if ($status === 206) {
             header('Content-Range: bytes ' . $start . '-' . $end . '/' . $size);
@@ -308,7 +309,7 @@ final class protected_stream {
     }
 
     /**
-     * Remove expired PDF cache, temporary and cookie files.
+     * Remove expired PDF cache and temporary files.
      *
      * @return void
      */
@@ -338,9 +339,7 @@ final class protected_stream {
             $basename = basename($file);
             $isexpiredpdf = preg_match('/\.pdf$/', $basename) && $modified + $ttl < $now;
             $isstaletmp = strpos($basename, '.tmp.') !== false && $modified + self::STALE_TMP_TTL < $now;
-            $isstalecookie = strpos($basename, '.cookies.') !== false && $modified + self::STALE_TMP_TTL < $now;
-
-            if ($isexpiredpdf || $isstaletmp || $isstalecookie) {
+            if ($isexpiredpdf || $isstaletmp) {
                 self::delete_if_file($file);
             }
         }
@@ -470,106 +469,6 @@ final class protected_stream {
      */
     private static function send_cache_status(string $status): void {
         header('X-Drive-Resource-Cache: ' . preg_replace('/[^A-Z_-]/', '', strtoupper($status)));
-    }
-
-    /**
-     * Download an upstream URL to a file using a cookie jar.
-     *
-     * @param string $url Download URL.
-     * @param string $targetpath Target file path.
-     * @param string $cookiejar Cookie jar path.
-     * @return array{ok:bool,httpcode:int,error:string,contenttype:string}
-     */
-    private static function download_to_file(string $url, string $targetpath, string $cookiejar): array {
-        $handle = fopen($targetpath, 'wb');
-        if ($handle === false) {
-            return ['ok' => false, 'httpcode' => 0, 'error' => 'target_not_writable', 'contenttype' => ''];
-        }
-
-        $ch = curl_init($url);
-        if ($ch === false) {
-            fclose($handle);
-            return ['ok' => false, 'httpcode' => 0, 'error' => 'curl_init_failed', 'contenttype' => ''];
-        }
-
-        curl_setopt_array($ch, [
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_MAXREDIRS => 5,
-            CURLOPT_CONNECTTIMEOUT => 15,
-            CURLOPT_TIMEOUT => 0,
-            CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_SSL_VERIFYHOST => 2,
-            CURLOPT_BUFFERSIZE => self::STREAM_CHUNK_SIZE,
-            CURLOPT_HTTPHEADER => ['Accept-Encoding: identity'],
-            CURLOPT_USERAGENT => 'DriveResourceMoodleProxy/1.1',
-            CURLOPT_COOKIEJAR => $cookiejar,
-            CURLOPT_COOKIEFILE => $cookiejar,
-            CURLOPT_FILE => $handle,
-        ]);
-        if (defined('CURLOPT_PROTOCOLS') && defined('CURLPROTO_HTTPS')) {
-            curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTPS);
-        }
-        if (defined('CURLOPT_REDIR_PROTOCOLS') && defined('CURLPROTO_HTTPS')) {
-            curl_setopt($ch, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTPS);
-        }
-
-        $result = curl_exec($ch);
-        $curlerror = curl_error($ch);
-        $curlcode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $contenttype = (string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-        curl_close($ch);
-        fclose($handle);
-
-        return [
-            'ok' => $result !== false && $curlcode >= 200 && $curlcode < 300,
-            'httpcode' => $curlcode,
-            'error' => $curlerror,
-            'contenttype' => $contenttype,
-        ];
-    }
-
-    /**
-     * Extract the Google Drive download confirmation token from a warning page.
-     *
-     * @param string $path HTML response path.
-     * @return string|null Confirmation token.
-     */
-    private static function extract_drive_confirm_token(string $path): ?string {
-        if (!is_readable($path)) {
-            return null;
-        }
-
-        $html = file_get_contents($path, false, null, 0, 1048576);
-        if (!is_string($html) || $html === '') {
-            return null;
-        }
-
-        $html = html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $patterns = [
-            '/[?&]confirm=([0-9A-Za-z_\-]+)/',
-            '/name=["\']confirm["\'][^>]*value=["\']([^"\']+)["\']/i',
-            '/confirm=([0-9A-Za-z_\-]+)/',
-        ];
-
-        foreach ($patterns as $pattern) {
-            if (preg_match($pattern, $html, $matches)) {
-                return clean_param($matches[1], PARAM_ALPHANUMEXT);
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Append a Google Drive confirmation token to a download URL.
-     *
-     * @param string $url Download URL.
-     * @param string $token Confirmation token.
-     * @return string URL with confirmation token.
-     */
-    private static function add_drive_confirm_token(string $url, string $token): string {
-        $separator = strpos($url, '?') === false ? '?' : '&';
-        return $url . $separator . 'confirm=' . rawurlencode($token);
     }
 
     /**
