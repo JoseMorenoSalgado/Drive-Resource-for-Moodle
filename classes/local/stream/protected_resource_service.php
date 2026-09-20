@@ -125,7 +125,11 @@ final class protected_resource_service {
             }
         }
 
-        return drive::protected_content_url($fileid, $resource->type());
+        return drive::protected_content_url(
+            (string)($instance->videourl ?? ''),
+            $fileid,
+            $resource->type()
+        );
     }
 
     /**

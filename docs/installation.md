@@ -96,3 +96,9 @@ Cache diagnostics may include `X-Drive-Resource-Cache` values such as `HIT`, `MI
 ## Rollback
 
 Before upgrading a commercial production site, take a database backup and code backup. If a regression is found, restore both database and code from the same pre-upgrade point; do not simply downgrade plugin code after a schema upgrade and assume the database is compatible.
+
+## Hardening validation before production promotion
+
+For a commercial production rollout, installation success is necessary but not sufficient. Execute the complete gate in `docs/hardening-validation.md` on staging, including physical mobile-device playback, network interruption/recovery, byte-range protocol checks, long-play soak, PDF/document export paths, Privacy/Backup/Completion verification and production-like concurrency measurements.
+
+Record the tested commit SHA and environment. Do not promote an RC build while any release-blocking hardening criterion remains unresolved.

@@ -59,7 +59,7 @@ class precache_pdf extends \core\task\adhoc_task {
             return;
         }
 
-        $url = drive::protected_content_url($fileid, $type);
+        $url = drive::protected_content_url((string)$record->videourl, $fileid, $type);
         if (!$url) {
             return;
         }

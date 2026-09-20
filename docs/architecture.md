@@ -138,3 +138,9 @@ Some legacy activity columns are retained in the schema and backup format to mak
 ## Third-party dependencies
 
 Only PDF.js is required by the learner viewer and is bundled locally. Video/audio have no player-library dependency. No CDN is used.
+
+## Hardening gate
+
+The architecture is guarded by `.github/scripts/release-invariants.sh` and `.github/workflows/hardening.yml`. These checks intentionally encode non-negotiable product invariants: browser-facing presentation must remain Moodle-only, Google viewer/iframe paths must not reappear, protected delivery must retain the centralized access boundary, and the HTTP proxy/player must retain byte-range and bounded stall-recovery behavior.
+
+The complete promotion criteria are maintained in `docs/hardening-validation.md`.

@@ -1,5 +1,7 @@
 # Drive Resource 1.1.33-rc17 manual release gate
 
+This checklist is the execution record for the broader commercial hardening phase defined in `docs/hardening-validation.md`.
+
 Run on a staging Moodle 4.5 site before merging to `main` or tagging a stable release.
 
 ## Installation/upgrade
@@ -139,3 +141,7 @@ For a cold Drive PDF:
 ## Final gate
 
 Do not merge/tag if the known-working Drive video regresses, any protected URL leaks a Drive identifier/upstream URL, range seeking fails on target devices, or upgrade produces database errors.
+
+## Hardening evidence header
+
+Before signing off this checklist, record the commit SHA, Moodle/PHP/database versions, web server/reverse proxy, browser/device versions, tested resource sizes, and any load-test concurrency/duration/error-rate figures. A pass without reproducible environment evidence is not sufficient for stable promotion.
