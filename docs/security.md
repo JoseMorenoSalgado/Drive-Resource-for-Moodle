@@ -73,6 +73,8 @@ The progressive video resolver uses a public browser API key associated with the
 
 Because this endpoint is not a stable contractual API for third-party Moodle plugins, source-file fallback is retained and changes must be regression-tested.
 
+The protected endpoint accepts a boolean `refresh` hint only after the normal Moodle access boundary has succeeded. The hint invalidates/bypasses the server-side cached signed playback URL for recovery; it does not accept, expose or redirect to an arbitrary upstream URL. This keeps buffering recovery inside the same authorization and SSRF boundary as ordinary playback.
+
 ## Production checklist
 
 Before release:
