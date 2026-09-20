@@ -171,3 +171,9 @@ The Moodle endpoint, not browser UI restrictions, is the security boundary. `pro
 Legacy Google preview and generic iframe templates are removed from the production-candidate path. PDF-compatible resources are rendered with local PDF.js and videos with HTML5/Plyr. Browser controls such as disabled context menus and hidden download actions are defense-in-depth UX measures only; they do not make browser-delivered content cryptographically non-extractable.
 
 Precise progress payloads are bounded and normalized server-side before persistence. Privacy export/deletion and Backup/Restore include the exact viewer state.
+
+## Google Drive confirmation hardening
+
+Drive confirmation HTML is treated as untrusted upstream input. Form actions are accepted only over HTTPS and only for `drive.usercontent.google.com`, `drive.google.com` or `docs.google.com`. Only the `id`, `export`, `confirm`, `uuid` and `resourcekey` parameters are replayed, with strict character filtering.
+
+Confirmation cookies are retained only inside the server-side cURL flow. They are never emitted to the learner, stored in Moodle tables or logged with their values. Warning HTML capture is bounded to avoid using an upstream error page as an unbounded memory sink.
