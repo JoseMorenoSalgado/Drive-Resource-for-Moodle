@@ -34,6 +34,12 @@ final class http_range_proxy {
     /** @var int Private browser cache lifetime for authorised resources. */
     private const PRIVATE_CACHE_SECONDS = 300;
 
+    /** @var int Maximum Drive warning HTML captured for confirmation parsing. */
+    private const MAX_WARNING_HTML_BYTES = 131072;
+
+    /** @var int Maximum number of server-side Drive confirmation hops. */
+    private const MAX_CONFIRMATION_HOPS = 2;
+
     /** @var string No Range header is required. */
     private const RANGE_MODE_NONE = 'none';
 
@@ -70,46 +76,79 @@ final class http_range_proxy {
         $range = self::request_range_header();
         $ishead = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'HEAD';
         $validator = self::stable_validator($url);
-        $rangemodes = $range === ''
-            ? [self::RANGE_MODE_NONE]
-            : [self::RANGE_MODE_CURL, self::RANGE_MODE_HEADER, self::RANGE_MODE_SYNTHETIC];
+        $currenturl = $url;
+        $requestcookies = '';
+        $confirmationhops = 0;
         $lastresponse = null;
 
-        foreach ($rangemodes as $rangemode) {
-            $lastresponse = self::execute_attempt(
-                $url,
-                $filename,
-                $fallbacktype,
-                $cachestatus,
-                $validator,
-                $range,
-                $rangemode,
-                $ishead
-            );
+        while (true) {
+            $rangemodes = $range === ''
+                ? [self::RANGE_MODE_NONE]
+                : [self::RANGE_MODE_CURL, self::RANGE_MODE_HEADER, self::RANGE_MODE_SYNTHETIC];
+            $resolvedwarning = false;
 
-            if ($lastresponse['sent']) {
-                die;
-            }
-            if ($lastresponse['invalidcontent']) {
-                debugging(
-                    'Drive Resource proxy rejected an incompatible upstream content type for ' . $fallbacktype . '.',
-                    DEBUG_DEVELOPER
+            foreach ($rangemodes as $rangemode) {
+                $lastresponse = self::execute_attempt(
+                    $currenturl,
+                    $filename,
+                    $fallbacktype,
+                    $cachestatus,
+                    $validator,
+                    $range,
+                    $rangemode,
+                    $ishead,
+                    $requestcookies
                 );
-                self::send_bad_gateway('UPSTREAM_CONTENT_REJECTED');
-            }
-            if ($lastresponse['status'] === 416) {
-                self::send_range_not_satisfiable($lastresponse['headers'], $cachestatus);
+
+                if ($lastresponse['sent']) {
+                    die;
+                }
+
+                $requestcookies = self::merge_cookie_headers(
+                    $requestcookies,
+                    (string) ($lastresponse['cookies'] ?? '')
+                );
+
+                if ($lastresponse['invalidcontent']) {
+                    $followupurl = drive::resolve_download_warning_url(
+                        (string) ($lastresponse['warningbody'] ?? ''),
+                        (string) ($lastresponse['effectiveurl'] ?? $currenturl)
+                    );
+
+                    if ($followupurl !== null && $confirmationhops < self::MAX_CONFIRMATION_HOPS) {
+                        $currenturl = $followupurl;
+                        $confirmationhops++;
+                        $resolvedwarning = true;
+                        break;
+                    }
+
+                    debugging(
+                        'Drive Resource proxy rejected an incompatible upstream content type for ' . $fallbacktype . '.',
+                        DEBUG_DEVELOPER
+                    );
+                    self::send_bad_gateway('UPSTREAM_CONTENT_REJECTED');
+                }
+
+                if ($lastresponse['status'] === 416) {
+                    self::send_range_not_satisfiable($lastresponse['headers'], $cachestatus);
+                }
+
+                // A 200 response to a Range request must not reach the media element.
+                // Retry with strategies that preserve the requested byte window.
+                if ($range !== '' && $lastresponse['status'] === 200) {
+                    continue;
+                }
+
+                if ($lastresponse['result'] === false || $lastresponse['status'] >= 400) {
+                    break;
+                }
             }
 
-            // A 200 response to a Range request must not reach the media element.
-            // Retry once with an explicit Range header that survives redirects.
-            if ($range !== '' && $lastresponse['status'] === 200) {
+            if ($resolvedwarning) {
                 continue;
             }
 
-            if ($lastresponse['result'] === false || $lastresponse['status'] >= 400) {
-                break;
-            }
+            break;
         }
 
         $status = (int) ($lastresponse['status'] ?? 0);
@@ -133,7 +172,18 @@ final class http_range_proxy {
      * @param string $range Validated browser Range header.
      * @param string $rangemode Range transmission strategy.
      * @param bool $ishead Whether this is a HEAD request.
-     * @return array{sent: bool, result: bool, status: int, error: string, headers: array, invalidcontent: bool}
+     * @param string $requestcookies Cookies obtained from a Drive confirmation response.
+     * @return array{
+     *     sent: bool,
+     *     result: bool,
+     *     status: int,
+     *     error: string,
+     *     headers: array,
+     *     invalidcontent: bool,
+     *     warningbody: string,
+     *     effectiveurl: string,
+     *     cookies: string
+     * }
      */
     private static function execute_attempt(
         string $url,
@@ -143,7 +193,8 @@ final class http_range_proxy {
         string $validator,
         string $range,
         string $rangemode,
-        bool $ishead
+        bool $ishead,
+        string $requestcookies = ''
     ): array {
         $requestheaders = [
             'Accept: */*',
@@ -158,6 +209,7 @@ final class http_range_proxy {
         $headerssent = false;
         $discardbody = false;
         $invalidcontent = false;
+        $warningbody = '';
         $syntheticwindow = null;
         $syntheticposition = 0;
         $syntheticrangeinvalid = false;
@@ -169,6 +221,7 @@ final class http_range_proxy {
             &$responseheaders,
             &$discardbody,
             &$invalidcontent,
+            &$warningbody,
             &$syntheticwindow,
             &$syntheticrangeinvalid,
             $fallbacktype,
@@ -213,6 +266,7 @@ final class http_range_proxy {
             if (preg_match('/^HTTP\/\S+\s+(\d+)/i', $trimmed, $matches)) {
                 $status = (int) $matches[1];
                 $responseheaders = ['status' => $status];
+                $warningbody = '';
                 if ($rangemode === self::RANGE_MODE_SYNTHETIC && $range !== '') {
                     $discardbody = $status >= 400 || !in_array($status, [200, 206], true);
                 } else {
@@ -229,6 +283,7 @@ final class http_range_proxy {
                 'content-type' => '/^Content-Type:\s*(.+)$/i',
                 'content-range' => '/^Content-Range:\s*(.+)$/i',
                 'accept-ranges' => '/^Accept-Ranges:\s*(.+)$/i',
+                'content-disposition' => '/^Content-Disposition:\s*(.+)$/i',
             ];
 
             foreach ($patterns as $key => $pattern) {
@@ -250,6 +305,9 @@ final class http_range_proxy {
                 'error' => 'CURL_INIT_FAILED',
                 'headers' => [],
                 'invalidcontent' => false,
+                'warningbody' => '',
+                'effectiveurl' => $url,
+                'cookies' => '',
             ];
         }
 
@@ -264,7 +322,8 @@ final class http_range_proxy {
             CURLOPT_BUFFERSIZE => self::STREAM_BUFFER_SIZE,
             CURLOPT_HTTPHEADER => $requestheaders,
             CURLOPT_HEADERFUNCTION => $headercallback,
-            CURLOPT_USERAGENT => 'DriveResourceMoodleProxy/1.1.31',
+            CURLOPT_USERAGENT => 'DriveResourceMoodleProxy/1.1.32',
+            CURLOPT_COOKIEFILE => '',
             CURLOPT_WRITEFUNCTION => static function (
                 $curl,
                 string $data
@@ -272,6 +331,8 @@ final class http_range_proxy {
                 &$headerssent,
                 &$responseheaders,
                 &$discardbody,
+                &$invalidcontent,
+                &$warningbody,
                 &$syntheticwindow,
                 &$syntheticposition,
                 $fallbacktype,
@@ -282,6 +343,13 @@ final class http_range_proxy {
                 $rangemode
             ): int {
                 $datalength = strlen($data);
+                if ($invalidcontent) {
+                    $remaining = self::MAX_WARNING_HTML_BYTES - strlen($warningbody);
+                    if ($remaining > 0) {
+                        $warningbody .= substr($data, 0, $remaining);
+                    }
+                    return $datalength;
+                }
                 if ($discardbody) {
                     return $datalength;
                 }
@@ -359,6 +427,9 @@ final class http_range_proxy {
             },
         ];
 
+        if ($requestcookies !== '') {
+            $options[CURLOPT_COOKIE] = $requestcookies;
+        }
         if (defined('CURL_HTTP_VERSION_2TLS')) {
             $options[CURLOPT_HTTP_VERSION] = CURL_HTTP_VERSION_2TLS;
         }
@@ -376,6 +447,9 @@ final class http_range_proxy {
         $result = curl_exec($ch);
         $curlerror = curl_error($ch);
         $curlcode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $effectiveurl = (string) curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
+        $cookielist = defined('CURLINFO_COOKIELIST') ? curl_getinfo($ch, CURLINFO_COOKIELIST) : [];
+        $responsecookies = is_array($cookielist) ? self::cookie_header_from_curl_list($cookielist) : '';
         curl_close($ch);
 
         if (
@@ -430,6 +504,9 @@ final class http_range_proxy {
             'error' => $curlerror,
             'headers' => $responseheaders,
             'invalidcontent' => $invalidcontent,
+            'warningbody' => $warningbody,
+            'effectiveurl' => $effectiveurl !== '' ? $effectiveurl : $url,
+            'cookies' => $responsecookies,
         ];
     }
 
@@ -585,7 +662,11 @@ final class http_range_proxy {
         string $validator
     ): void {
         $status = (int) ($headers['status'] ?? 200) === 206 ? 206 : 200;
-        $contenttype = self::safe_content_type((string) ($headers['content-type'] ?? ''), $fallbacktype);
+        $contenttype = self::resolve_content_type(
+            (string) ($headers['content-type'] ?? ''),
+            $fallbacktype,
+            (string) ($headers['content-disposition'] ?? '')
+        );
         $safefilename = str_replace(["\r", "\n", '"'], '', $filename);
 
         http_response_code($status);
@@ -656,10 +737,18 @@ final class http_range_proxy {
      * @param string $fallback Fallback MIME type.
      * @return string
      */
-    private static function safe_content_type(string $candidate, string $fallback): string {
+    public static function resolve_content_type(
+        string $candidate,
+        string $fallback,
+        string $contentdisposition = ''
+    ): string {
         $candidate = trim(str_replace(["\r", "\n"], '', $candidate));
         $basetype = strtolower(trim(explode(';', $candidate, 2)[0]));
         if (in_array($basetype, ['', 'application/octet-stream', 'binary/octet-stream'], true)) {
+            $inferred = self::content_type_from_disposition($contentdisposition);
+            if ($inferred !== null && self::is_compatible_content_type($inferred, $fallback)) {
+                return $inferred;
+            }
             return $fallback;
         }
 
@@ -673,6 +762,102 @@ final class http_range_proxy {
         }
 
         return $fallback;
+    }
+
+    /**
+     * Infer a browser-safe media MIME type from an upstream filename.
+     *
+     * @param string $contentdisposition Upstream Content-Disposition header.
+     * @return string|null MIME type or null when the filename is not informative.
+     */
+    private static function content_type_from_disposition(string $contentdisposition): ?string {
+        $contentdisposition = str_replace(["\r", "\n"], '', $contentdisposition);
+        $filename = '';
+
+        if (preg_match("/filename\\*=UTF-8''([^;]+)/i", $contentdisposition, $matches)) {
+            $filename = rawurldecode(trim($matches[1], " \t\"'"));
+        } else if (preg_match('/filename="?([^";]+)"?/i', $contentdisposition, $matches)) {
+            $filename = trim($matches[1]);
+        }
+
+        $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        $types = [
+            'mp4' => 'video/mp4',
+            'm4v' => 'video/mp4',
+            'webm' => 'video/webm',
+            'mov' => 'video/quicktime',
+            'mp3' => 'audio/mpeg',
+            'm4a' => 'audio/mp4',
+            'ogg' => 'audio/ogg',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+            'pdf' => 'application/pdf',
+        ];
+
+        return $types[$extension] ?? null;
+    }
+
+    /**
+     * Convert libcurl cookie-list entries into a request Cookie header.
+     *
+     * @param array $cookielist CURLINFO_COOKIELIST entries.
+     * @return string Cookie header value.
+     */
+    private static function cookie_header_from_curl_list(array $cookielist): string {
+        $cookies = [];
+        foreach ($cookielist as $line) {
+            $parts = explode("\t", (string) $line);
+            if (count($parts) < 7) {
+                continue;
+            }
+
+            $name = preg_replace('/[^a-zA-Z0-9._-]/', '', (string) $parts[5]);
+            $value = preg_replace('/[^a-zA-Z0-9._%+\/-]/', '', (string) $parts[6]);
+            if ($name !== '' && $value !== '') {
+                $cookies[$name] = $value;
+            }
+        }
+
+        $pairs = [];
+        foreach ($cookies as $name => $value) {
+            $pairs[] = $name . '=' . $value;
+        }
+        return implode('; ', $pairs);
+    }
+
+    /**
+     * Merge two Cookie header values without duplicating cookie names.
+     *
+     * @param string $existing Existing Cookie header value.
+     * @param string $incoming New Cookie header value.
+     * @return string Merged Cookie header.
+     */
+    private static function merge_cookie_headers(string $existing, string $incoming): string {
+        $cookies = [];
+        foreach ([$existing, $incoming] as $header) {
+            foreach (explode(';', $header) as $pair) {
+                $pair = trim($pair);
+                if ($pair === '' || strpos($pair, '=') === false) {
+                    continue;
+                }
+
+                [$name, $value] = explode('=', $pair, 2);
+                $name = preg_replace('/[^a-zA-Z0-9._-]/', '', trim($name));
+                $value = preg_replace('/[^a-zA-Z0-9._%+\/-]/', '', trim($value));
+                if ($name !== '' && $value !== '') {
+                    $cookies[$name] = $value;
+                }
+            }
+        }
+
+        $pairs = [];
+        foreach ($cookies as $name => $value) {
+            $pairs[] = $name . '=' . $value;
+        }
+        return implode('; ', $pairs);
     }
 
     /**
