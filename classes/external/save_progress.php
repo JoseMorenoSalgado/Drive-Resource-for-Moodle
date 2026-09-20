@@ -97,6 +97,10 @@ final class save_progress extends external_api {
             throw new \moodle_exception('guestsarenotallowed', 'error');
         }
 
+        if ((string)get_config('mod_videoplayer', 'enabletracking') === '0') {
+            throw new \moodle_exception('trackingdisabled', 'mod_videoplayer');
+        }
+
         return (new progress_service())->save_progress(
             $activity->cm(),
             $activity->course(),
