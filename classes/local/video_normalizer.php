@@ -109,12 +109,12 @@ final class video_normalizer {
      * @return string|null
      */
     public static function cache_key_for(object $record): ?string {
-        $fileid = drive::extract_file_id((string)($record->videourl ?? ''));
+        $fileid = drive::extract_file_id((string) ($record->videourl ?? ''));
         if ($fileid === null) {
             return null;
         }
 
-        $resourcekey = drive::extract_resource_key((string)($record->videourl ?? '')) ?? '';
+        $resourcekey = drive::extract_resource_key((string) ($record->videourl ?? '')) ?? '';
         return hash('sha256', $fileid . ':video:' . $resourcekey);
     }
 
@@ -320,7 +320,7 @@ final class video_normalizer {
      */
     public static function probe_is_web_compatible(array $probe): bool {
         $streams = $probe['streams'] ?? null;
-        $formatname = strtolower((string)($probe['format']['format_name'] ?? ''));
+        $formatname = strtolower((string) ($probe['format']['format_name'] ?? ''));
         if (!is_array($streams) || $formatname === '') {
             return false;
         }
@@ -347,16 +347,16 @@ final class video_normalizer {
             }
         }
 
-        if (!is_array($video) || strtolower((string)($video['codec_name'] ?? '')) !== 'h264') {
+        if (!is_array($video) || strtolower((string) ($video['codec_name'] ?? '')) !== 'h264') {
             return false;
         }
 
-        $pixfmt = strtolower((string)($video['pix_fmt'] ?? ''));
+        $pixfmt = strtolower((string) ($video['pix_fmt'] ?? ''));
         if ($pixfmt !== 'yuv420p') {
             return false;
         }
 
-        return $audio === null || strtolower((string)($audio['codec_name'] ?? '')) === 'aac';
+        return $audio === null || strtolower((string) ($audio['codec_name'] ?? '')) === 'aac';
     }
 
     /**
