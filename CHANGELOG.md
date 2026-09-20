@@ -8,6 +8,7 @@
 - Preserved bounded current Google download confirmation fields and supported escaped embedded `downloadUrl` responses while keeping the host allow-list intact.
 - Hardened `Content-Range` validation so a mismatched upstream `206` response cannot be forwarded as if it satisfied the browser request.
 - Added safe in-player diagnostics that distinguish Drive/proxy failures from browser codec incompatibility.
+- Restricted cURL origin and redirect protocols to HTTPS where supported by the runtime.
 - Documented that direct byte-proxy playback requires browser-supported codecs; MP4 container files encoded with TSCC2 and similar desktop codecs require transcoding to a web codec such as H.264/AVC + AAC.
 
 ### Changed
