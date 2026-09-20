@@ -113,7 +113,6 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
         const container = root.closest('.mod-videoplayer-container') || document;
         const pointsNode = container.querySelector('[data-region="pdfjs-points"]');
         const progressNode = container.querySelector('[data-region="pdfjs-progress"]');
-        const achievementsNode = container.querySelector('[data-region="pdfjs-achievements"]');
         const searchInput = root.querySelector('[data-region="pdfjs-search-input"]');
         const searchButton = root.querySelector('[data-action="search-pdf"]');
         const searchNext = root.querySelector('[data-action="search-next"]');
@@ -266,9 +265,11 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
 
         const prefetch = function(num) {
             if (!pdfDocument || num < 1 || num > pdfDocument.numPages) {
-                return;
+                return null;
             }
-            pdfDocument.getPage(num).catch(function() {});
+            return pdfDocument.getPage(num).catch(function() {
+                return null;
+            });
         };
 
         const restoreScrollPosition = function(oldWidth, oldHeight, oldScrollLeft, oldScrollTop) {
@@ -311,7 +312,10 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
                 const appliedZoom = autoFit ? 1 : zoomFactor;
                 const cssScale = clamp(baseScale * appliedZoom, baseScale * MIN_ZOOM, baseScale * MAX_ZOOM);
                 const viewport = page.getViewport({scale: cssScale});
-                const outputScale = isFullscreen() ? Math.min(window.devicePixelRatio || 1, 3) : Math.min(window.devicePixelRatio || 1, 2.25);
+                const pixelRatio = window.devicePixelRatio || 1;
+                const outputScale = isFullscreen()
+                    ? Math.min(pixelRatio, 3)
+                    : Math.min(pixelRatio, 2.25);
                 canvas.width = Math.floor(viewport.width * outputScale);
                 canvas.height = Math.floor(viewport.height * outputScale);
                 canvas.style.width = Math.floor(viewport.width) + 'px';
@@ -332,16 +336,17 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
                 updateButtons();
                 prefetch(pageNumber + 1);
                 prefetch(pageNumber - 1);
-                saveProgress(false);
                 if (pendingPage !== null) {
                     const nextPage = pendingPage;
                     pendingPage = null;
                     renderPage(nextPage);
                 }
+                return saveProgress(false);
             }).catch(function(error) {
                 rendering = false;
                 Notification.exception(error);
                 showError(root, error);
+                return null;
             });
         };
 
@@ -392,10 +397,32 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
             updateSearchStatus();
         };
 
+        const searchPageForQuery = function(page, query, token) {
+            if (token !== searchToken || !pdfDocument) {
+                return Promise.resolve(null);
+            }
+
+            return pdfDocument.getPage(page)
+                .then(function(pdfPage) {
+                    return pdfPage.getTextContent();
+                })
+                .then(function(content) {
+                    if (token !== searchToken) {
+                        return null;
+                    }
+                    const text = content.items.map(function(item) {
+                        return item.str || '';
+                    }).join(' ').toLocaleLowerCase();
+
+                    return text.indexOf(query) !== -1 ? page : null;
+                });
+        };
+
         const searchPdf = function() {
             if (!pdfDocument || !searchInput) {
-                return;
+                return Promise.resolve(null);
             }
+
             const query = searchInput.value.trim().toLocaleLowerCase();
             searchMatches = [];
             searchIndex = -1;
@@ -404,42 +431,31 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
             }
             if (!query) {
                 updateSearchStatus();
-                return;
+                return Promise.resolve([]);
             }
 
             const token = ++searchToken;
-            let chain = Promise.resolve();
+            const tasks = [];
             for (let page = 1; page <= pdfDocument.numPages; page++) {
-                chain = chain.then(function() {
-                    if (token !== searchToken) {
-                        return null;
-                    }
-                    return pdfDocument.getPage(page).then(function(pdfPage) {
-                        return pdfPage.getTextContent().then(function(content) {
-                            if (token !== searchToken) {
-                                return;
-                            }
-                            const text = content.items.map(function(item) {
-                                return item.str || '';
-                            }).join(' ').toLocaleLowerCase();
-                            if (text.indexOf(query) !== -1) {
-                                searchMatches.push(page);
-                            }
-                        });
-                    });
-                });
+                tasks.push(searchPageForQuery(page, query, token));
             }
 
             if (searchStatus) {
                 searchStatus.textContent = searchingText;
             }
-            chain.then(function() {
+
+            return Promise.all(tasks).then(function(matches) {
                 if (token !== searchToken) {
-                    return;
+                    return null;
                 }
+
+                searchMatches = matches.filter(function(page) {
+                    return page !== null;
+                });
                 searchMatches.sort(function(a, b) {
                     return a - b;
                 });
+
                 if (searchNext) {
                     searchNext.disabled = searchMatches.length === 0;
                 }
@@ -448,7 +464,12 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
                 } else {
                     updateSearchStatus();
                 }
-            }).catch(Notification.exception);
+
+                return searchMatches;
+            }).catch(function(error) {
+                Notification.exception(error);
+                return null;
+            });
         };
 
         if (searchButton) {
@@ -597,9 +618,11 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
             pageNumber = Math.min(pageNumber, pdfDocument.numPages);
             updateButtons();
             renderPage(pageNumber);
+            return pdf;
         }).catch(function(error) {
             Notification.exception(error);
             showError(root, error);
+            return null;
         });
     };
 
@@ -612,11 +635,13 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
             viewers.forEach(function(root) {
                 initViewer(root, pdfjsLib);
             });
+            return pdfjsLib;
         }).catch(function(error) {
             Notification.exception(error);
             viewers.forEach(function(root) {
                 showError(root, error);
             });
+            return null;
         });
     };
 
