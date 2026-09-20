@@ -34,4 +34,13 @@ $tasks = [
         'month' => '*',
         'dayofweek' => '*',
     ],
+    [
+        'classname' => '\\mod_videoplayer\\task\\cleanup_video_cache',
+        'blocking' => 0,
+        'minute' => '47',
+        'hour' => '*/6',
+        'day' => '*',
+        'month' => '*',
+        'dayofweek' => '*',
+    ],
 ];
