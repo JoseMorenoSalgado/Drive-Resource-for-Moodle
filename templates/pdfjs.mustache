@@ -41,7 +41,9 @@
      data-resource-type="{{type}}"
      data-cmid="{{trackingcmid}}">
     <div class="mod-videoplayer-meta mb-2">
-        <span class="mod-videoplayer-meta-item">{{resourcetype}}</span>
+        {{#showresourcetype}}
+            <span class="mod-videoplayer-meta-item">{{resourcetype}}</span>
+        {{/showresourcetype}}
         <span class="mod-videoplayer-meta-item">{{#str}} protectedresource, mod_videoplayer {{/str}}</span>
         {{#completionpercent}}
             <span class="mod-videoplayer-meta-item" data-region="pdfjs-progress">{{completionpercent}}%</span>

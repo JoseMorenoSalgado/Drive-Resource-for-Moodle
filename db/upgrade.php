@@ -677,5 +677,43 @@ function xmldb_videoplayer_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026091900, 'videoplayer');
     }
 
+    if ($oldversion < 2026092002) {
+        $table = new xmldb_table('videoplayer');
+        $typefield = new xmldb_field(
+            'type',
+            XMLDB_TYPE_CHAR,
+            '32',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            'video',
+            'videourl'
+        );
+
+        if ($dbman->table_exists($table) && $dbman->field_exists($table, $typefield)) {
+            $dbman->change_field_default($table, $typefield);
+        }
+
+        $configdefaults = [
+            'enabletracking' => 1,
+            'defaultrequiredseconds' => 300,
+            'defaultcompletionpercentage' => 80,
+            'protectedmode' => 1,
+            'showresourcetype' => 1,
+            'playercolormode' => 'theme',
+            'playercolor' => '#3b82f6',
+            'pdfcacheenabled' => 1,
+            'pdfcachettl' => 2592000,
+        ];
+
+        foreach ($configdefaults as $name => $value) {
+            if (get_config('mod_videoplayer', $name) === false) {
+                set_config($name, $value, 'mod_videoplayer');
+            }
+        }
+
+        upgrade_mod_savepoint(true, 2026092002, 'videoplayer');
+    }
+
     return true;
 }

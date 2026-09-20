@@ -181,6 +181,66 @@ final class drive_test extends \advanced_testcase {
     }
 
     /**
+     * Standard Drive share URLs in automatic mode must keep video compatibility.
+     *
+     * @covers ::resolve_record_type
+     */
+    public function test_auto_standard_drive_link_falls_back_to_video(): void {
+        $record = (object) [
+            'source' => 'googledrive',
+            'type' => 'auto',
+            'videourl' => 'https://drive.google.com/file/d/1AbC_def-123/view?usp=sharing',
+        ];
+
+        $this->assertSame('video', drive::resolve_record_type($record));
+    }
+
+    /**
+     * Explicit resource types must override the opaque Drive URL fallback.
+     *
+     * @covers ::resolve_record_type
+     */
+    public function test_explicit_type_is_preserved_for_standard_drive_link(): void {
+        $record = (object) [
+            'source' => 'googledrive',
+            'type' => 'pdf',
+            'videourl' => 'https://drive.google.com/file/d/1AbC_def-123/view?usp=sharing',
+        ];
+
+        $this->assertSame('pdf', drive::resolve_record_type($record));
+    }
+
+    /**
+     * Google Workspace URLs remain automatically detectable.
+     *
+     * @covers ::resolve_record_type
+     */
+    public function test_auto_workspace_link_keeps_detected_type(): void {
+        $record = (object) [
+            'source' => 'googledrive',
+            'type' => 'auto',
+            'videourl' => 'https://docs.google.com/presentation/d/1AbC_def-123/edit',
+        ];
+
+        $this->assertSame('presentation', drive::resolve_record_type($record));
+    }
+
+    /**
+     * Local protected PDFs must never depend on Drive URL detection.
+     *
+     * @covers ::resolve_record_type
+     */
+    public function test_local_pdf_always_resolves_to_pdf(): void {
+        $record = (object) [
+            'source' => 'localpdf',
+            'type' => 'auto',
+            'videourl' => '',
+        ];
+
+        $this->assertSame('pdf', drive::resolve_record_type($record));
+    }
+
+    /**
      * Resource detection must stay deterministic for typed Workspace URLs.
      *
      * @covers ::detect_type

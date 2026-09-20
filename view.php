@@ -90,9 +90,7 @@ if ($source === 'localpdf') {
         exit;
     }
 
-    $type = empty($videoplayer->type) || $videoplayer->type === 'auto'
-        ? drive::detect_type($videoplayer->videourl)
-        : clean_param($videoplayer->type, PARAM_ALPHANUMEXT);
+    $type = drive::resolve_record_type($videoplayer);
 }
 
 $ispdfcompatible = drive::is_pdf_type($type);
@@ -116,8 +114,12 @@ if (!isguestuser() && $trackingenabled) {
 $initialprogress = $progressrecord ? (float) $progressrecord->progress : 0;
 $initialtimespent = $progressrecord ? (int) ($progressrecord->timespent ?? 0) : 0;
 $completed = $progressrecord ? (bool) $progressrecord->completed : false;
-$requiredseconds = max(60, ((int) ($videoplayer->completionpercentage ?? 80)) * 6);
+$configuredrequiredseconds = get_config('mod_videoplayer', 'defaultrequiredseconds');
+$requiredseconds = $configuredrequiredseconds === false
+    ? 300
+    : max(60, (int) $configuredrequiredseconds);
 $displaymode = videoplayer_get_safe_pdf_displaymode($videoplayer->displaymode ?? null);
+$showresourcetype = (string) get_config('mod_videoplayer', 'showresourcetype') !== '0';
 
 if (!isguestuser() && $trackingenabled && !$ispdfcompatible && !$isvideo) {
     $PAGE->requires->js_call_amd('mod_videoplayer/progress', 'init', [[
@@ -171,6 +173,7 @@ $templatecontext = [
     'trackingcmid' => $trackingenabled && !isguestuser() ? $cm->id : 0,
     'trackingenabled' => $trackingenabled,
     'resourcetype' => get_string('resourcetype', 'mod_videoplayer') . ': ' . $typestring,
+    'showresourcetype' => $showresourcetype,
     'pdfurl' => $protectedurl->out(false),
     'videourl' => $protectedurl->out(false),
     'imageurl' => $protectedurl->out(false),

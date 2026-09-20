@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.1.32-rc6 - 2026-09-20
+
+### Fixed
+
+- Fixed standard Google Drive `/file/d/.../view` video activities saved as `type=auto`; opaque Drive links now preserve backward-compatible video behavior instead of resolving to an unsupported generic file.
+- Centralized resource-type resolution across the learner view, protected stream, progress service, reports and PDF precache task.
+- Fixed upgraded installations where a missing `protectedmode` config value was incorrectly interpreted as disabled and blocked every non-PDF protected resource.
+- Seeded missing plugin configuration defaults during upgrade and aligned clean installs/restores with the Video default.
+- Stopped downloading and discarding a complete upstream video on each failed Range strategy before the synthetic partial-content fallback.
+- Removed a dead renderer path that referenced the already-removed generic `resource.mustache` template.
+- Restored the admin defaults for completion percentage, required active time and resource-type visibility.
+
 ## v1.1.32-rc5 - 2026-09-20
 
 ### Fixed

@@ -343,6 +343,8 @@ final class http_range_proxy {
                 $rangemode
             ): int {
                 $datalength = strlen($data);
+                $status = (int) ($responseheaders['status'] ?? 0);
+
                 if ($invalidcontent) {
                     $remaining = self::MAX_WARNING_HTML_BYTES - strlen($warningbody);
                     if ($remaining > 0) {
@@ -350,11 +352,20 @@ final class http_range_proxy {
                     }
                     return $datalength;
                 }
+
                 if ($discardbody) {
+                    if (
+                        $range !== '' &&
+                        $status === 200 &&
+                        $rangemode !== self::RANGE_MODE_SYNTHETIC
+                    ) {
+                        // Stop immediately. Retrying a refused Range must not
+                        // download the entire video just to discard its body.
+                        return 0;
+                    }
                     return $datalength;
                 }
 
-                $status = (int) ($responseheaders['status'] ?? 0);
                 if (
                     $rangemode === self::RANGE_MODE_SYNTHETIC &&
                     $range !== '' &&

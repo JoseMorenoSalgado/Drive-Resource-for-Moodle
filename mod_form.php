@@ -74,7 +74,8 @@ class mod_videoplayer_mod_form extends moodleform_mod {
             'file' => get_string('typefile', 'mod_videoplayer'),
         ];
         $mform->addElement('select', 'type', get_string('resourcetype', 'mod_videoplayer'), $types);
-        $mform->setDefault('type', 'auto');
+        $mform->addHelpButton('type', 'resourcetype', 'mod_videoplayer');
+        $mform->setDefault('type', 'video');
         $mform->disabledIf('type', 'source', 'eq', 'localpdf');
 
         $mform->addElement('hidden', 'displaymode', 'pdfjs');
@@ -92,7 +93,9 @@ class mod_videoplayer_mod_form extends moodleform_mod {
 
         $mform->addElement('text', 'completionpercentage', get_string('completionpercentage', 'mod_videoplayer'), ['size' => 5]);
         $mform->setType('completionpercentage', PARAM_INT);
-        $mform->setDefault('completionpercentage', 80);
+        $defaultcompletion = get_config('mod_videoplayer', 'defaultcompletionpercentage');
+        $defaultcompletion = $defaultcompletion === false ? 80 : max(0, min(100, (int) $defaultcompletion));
+        $mform->setDefault('completionpercentage', $defaultcompletion);
         $mform->addRule('completionpercentage', null, 'numeric', null, 'client');
         $mform->addHelpButton('completionpercentage', 'completionpercentage', 'mod_videoplayer');
 

@@ -22,6 +22,8 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+use mod_videoplayer\local\drive;
+
 /** Moodle File API area for locally protected PDF files. */
 const VIDEOPLAYER_LOCALPDF_FILEAREA = 'localpdf';
 
@@ -56,8 +58,17 @@ function videoplayer_supports($feature) {
 function videoplayer_queue_pdf_precache(int $instanceid): void {
     global $DB;
 
-    $instance = $DB->get_record('videoplayer', ['id' => $instanceid], 'id, source, type', IGNORE_MISSING);
-    if (!$instance || ($instance->source ?? 'googledrive') !== 'googledrive') {
+    $instance = $DB->get_record(
+        'videoplayer',
+        ['id' => $instanceid],
+        'id, source, type, videourl',
+        IGNORE_MISSING
+    );
+    if (
+        !$instance ||
+        ($instance->source ?? drive::SOURCE_GOOGLEDRIVE) !== drive::SOURCE_GOOGLEDRIVE ||
+        !drive::is_pdf_type(drive::resolve_record_type($instance))
+    ) {
         return;
     }
 
@@ -74,23 +85,22 @@ function videoplayer_queue_pdf_precache(int $instanceid): void {
  * @return stdClass
  */
 function videoplayer_normalise_instance_data(stdClass $data): stdClass {
-    $data->source = clean_param($data->source ?? 'googledrive', PARAM_ALPHANUMEXT);
+    $source = clean_param((string) ($data->source ?? drive::SOURCE_GOOGLEDRIVE), PARAM_ALPHANUMEXT);
+    $data->source = in_array($source, [drive::SOURCE_GOOGLEDRIVE, 'localpdf'], true)
+        ? $source
+        : drive::SOURCE_GOOGLEDRIVE;
 
-    $displaymode = clean_param($data->displaymode ?? 'ebook', PARAM_ALPHANUMEXT);
-    if ($displaymode === 'standard') {
-        $displaymode = 'ebook';
-    }
-    if (!in_array($displaymode, ['ebook', 'pdfjs', 'book'], true)) {
-        $displaymode = 'ebook';
-    }
-    $data->displaymode = $displaymode;
+    // PDF.js is the only production PDF renderer.
+    $data->displaymode = 'pdfjs';
 
     if ($data->source === 'localpdf') {
         $data->type = 'pdf';
         $data->videourl = '';
         $data->disabledownload = 1;
     } else {
-        $data->videourl = trim((string)($data->videourl ?? ''));
+        $data->videourl = trim((string) ($data->videourl ?? ''));
+        $type = clean_param((string) ($data->type ?? drive::TYPE_VIDEO), PARAM_ALPHANUMEXT);
+        $data->type = drive::is_supported_configured_type($type) ? $type : drive::TYPE_VIDEO;
     }
 
     $data->disabledownload = empty($data->disabledownload) ? 0 : 1;

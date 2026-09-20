@@ -237,3 +237,9 @@ Progress is content-aware. PDF state persists visited pages and last page. Video
 Large public videos may return an HTML confirmation page instead of media bytes. The protected proxy now captures only a bounded warning body, parses the Google Drive download form, validates the form action against an HTTPS Google host allow-list, replays the generated confirmation parameters, preserves response cookies server-side, and then retries the original byte-range request.
 
 The browser continues to see only `protected.php`. Google file identifiers, confirmation UUIDs, cookies, redirect URLs and final download URLs remain server-side. The proxy never buffers the full video in PHP memory; successful media responses are streamed incrementally and browser Range semantics remain authoritative.
+
+## Deterministic resource-type resolution
+
+The activity record is now the single source of truth for viewer selection. `drive::resolve_record_type()` is used by `view.php`, `protected.php`, progress persistence, reports and PDF precache. Explicit resource types take precedence. Google Workspace URLs and URLs with visible extensions remain detectable. An opaque standard Google Drive `/file/d/{id}/view` URL stored as `auto` falls back to Video because the original `mod_videoplayer` product accepted only videos and historical records were migrated to `auto`.
+
+New activities and clean-install XMLDB defaults use `video` explicitly. This removes viewer/proxy disagreement where the page selected a generic unsupported resource while the protected endpoint could otherwise stream valid video bytes.

@@ -177,3 +177,9 @@ Precise progress payloads are bounded and normalized server-side before persiste
 Drive confirmation HTML is treated as untrusted upstream input. Form actions are accepted only over HTTPS and only for `drive.usercontent.google.com`, `drive.google.com` or `docs.google.com`. Only the `id`, `export`, `confirm`, `uuid` and `resourcekey` parameters are replayed, with strict character filtering.
 
 Confirmation cookies are retained only inside the server-side cURL flow. They are never emitted to the learner, stored in Moodle tables or logged with their values. Warning HTML capture is bounded to avoid using an upstream error page as an unbounded memory sink.
+
+## Runtime configuration and viewer consistency
+
+Authorization remains enforced by `require_login()`, module context and `mod/videoplayer:view` before any upstream request. Resource-type fallback changes only viewer selection; it does not bypass access control or expose the Google file ID/URL.
+
+Missing site configuration is not treated as an authorization decision. In particular, an absent `protectedmode` record uses the documented enabled default; only an explicit stored `0` disables that path. Upgrade logic seeds missing defaults so behavior is deterministic across fresh installs and long-lived Moodle upgrades.
