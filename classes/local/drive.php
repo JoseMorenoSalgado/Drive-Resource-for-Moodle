@@ -235,7 +235,16 @@ class drive {
      * @return string|null Confirmed Google Drive URL, or null when the HTML is not a valid warning form.
      */
     public static function resolve_download_warning_url(string $html, string $fallbackurl): ?string {
-        if ($html === '' || stripos($html, '<form') === false || !class_exists('DOMDocument')) {
+        if ($html === '') {
+            return null;
+        }
+
+        $embeddedurl = self::resolve_embedded_download_url($html, $fallbackurl);
+        if ($embeddedurl !== null) {
+            return $embeddedurl;
+        }
+
+        if (stripos($html, '<form') === false || !class_exists('DOMDocument')) {
             return null;
         }
 
@@ -380,6 +389,69 @@ class drive {
         }
 
         return null;
+    }
+
+    /**
+     * Resolve a Drive downloadUrl embedded in warning HTML/JSON.
+     *
+     * Google can return the confirmation target as an escaped downloadUrl
+     * instead of a form. The URL is decoded, restricted to trusted Google
+     * download hosts and rebuilt from a strict query allow-list.
+     *
+     * @param string $html Warning response body.
+     * @param string $fallbackurl Trusted current URL.
+     * @return string|null Safe confirmed URL or null.
+     */
+    private static function resolve_embedded_download_url(string $html, string $fallbackurl): ?string {
+        if (!preg_match('/"downloadUrl"\s*:\s*"([^"]+)"/', $html, $matches)) {
+            return null;
+        }
+
+        $candidate = stripcslashes($matches[1]);
+        $candidate = str_replace(
+            ['\\u003d', '\\u0026', '\\u002f', '&amp;'],
+            ['=', '&', '/', '&'],
+            $candidate
+        );
+
+        $actionurl = self::normalize_download_action($candidate, $fallbackurl);
+        if ($actionurl === null) {
+            return null;
+        }
+
+        $query = (string) parse_url($candidate, PHP_URL_QUERY);
+        $params = [];
+        if ($query !== '') {
+            parse_str($query, $params);
+        }
+
+        $fallbackquery = (string) parse_url($fallbackurl, PHP_URL_QUERY);
+        $fallbackparams = [];
+        if ($fallbackquery !== '') {
+            parse_str($fallbackquery, $fallbackparams);
+        }
+
+        $safeparams = [];
+        foreach (self::DOWNLOAD_CONFIRMATION_PARAMS as $name) {
+            $rawvalue = $params[$name] ?? $fallbackparams[$name] ?? null;
+            if ($rawvalue === null || is_array($rawvalue)) {
+                continue;
+            }
+
+            $value = self::sanitize_confirmation_param($name, (string) $rawvalue);
+            if ($value !== null) {
+                $safeparams[$name] = $value;
+            }
+        }
+
+        if (empty($safeparams['id']) || empty($safeparams['confirm'])) {
+            return null;
+        }
+        if (empty($safeparams['export'])) {
+            $safeparams['export'] = 'download';
+        }
+
+        return $actionurl . '?' . http_build_query($safeparams, '', '&', PHP_QUERY_RFC3986);
     }
 
     /**
