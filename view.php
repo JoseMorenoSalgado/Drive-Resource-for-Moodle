@@ -90,9 +90,7 @@ if ($source === 'localpdf') {
         exit;
     }
 
-    $type = empty($videoplayer->type) || $videoplayer->type === 'auto'
-        ? drive::detect_type($videoplayer->videourl)
-        : clean_param($videoplayer->type, PARAM_ALPHANUMEXT);
+    $type = drive::resolve_record_type($videoplayer);
 }
 
 $ispdfcompatible = drive::is_pdf_type($type);
