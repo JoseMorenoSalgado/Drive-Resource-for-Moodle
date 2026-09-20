@@ -677,7 +677,7 @@ function xmldb_videoplayer_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026091900, 'videoplayer');
     }
 
-    if ($oldversion < 2026092002) {
+    if ($oldversion < 2026092003) {
         $table = new xmldb_table('videoplayer');
         $typefield = new xmldb_field(
             'type',
@@ -690,8 +690,25 @@ function xmldb_videoplayer_upgrade($oldversion) {
             'videourl'
         );
 
-        if ($dbman->table_exists($table) && $dbman->field_exists($table, $typefield)) {
-            $dbman->change_field_default($table, $typefield);
+        $typeindex = new xmldb_index('type_idx', XMLDB_INDEX_NOTUNIQUE, ['type']);
+        if ($dbman->table_exists($table) && $dbman->index_exists($table, $typeindex)) {
+            $dbman->drop_index($table, $typeindex);
+        }
+
+        try {
+            if ($dbman->table_exists($table) && $dbman->field_exists($table, $typefield)) {
+                $dbman->change_field_default($table, $typefield);
+            }
+        } finally {
+            // Moodle refuses to alter an indexed field on some databases.
+            // Restore the logical XMLDB index even when the DDL change fails.
+            if (
+                $dbman->table_exists($table) &&
+                $dbman->field_exists($table, $typefield) &&
+                !$dbman->index_exists($table, $typeindex)
+            ) {
+                $dbman->add_index($table, $typeindex);
+            }
         }
 
         $configdefaults = [
@@ -712,7 +729,7 @@ function xmldb_videoplayer_upgrade($oldversion) {
             }
         }
 
-        upgrade_mod_savepoint(true, 2026092002, 'videoplayer');
+        upgrade_mod_savepoint(true, 2026092003, 'videoplayer');
     }
 
     return true;
