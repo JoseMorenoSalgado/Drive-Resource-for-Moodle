@@ -26,6 +26,10 @@ defined('MOODLE_INTERNAL') || die();
 
 $string['audionotsupported'] = 'Su navegador no puede reproducir este audio.';
 $string['backtoresource'] = 'Volver al recurso';
+$string['completionprogressdesc'] = 'Alcanzar al menos el {$a}% de progreso';
+$string['completionprogressenabled'] = 'Requerir porcentaje de progreso';
+$string['completionprogressgroup'] = 'Progreso requerido';
+$string['completionprogressgroup_help'] = 'Cuando la finalización automática está activada, exige que el estudiante alcance este porcentaje del recurso. Video y audio usan la posición de reproducción, los PDF usan el avance por páginas y los recursos genéricos usan el tiempo activo de visualización.';
 $string['completionpercentage'] = 'Porcentaje requerido de finalización';
 $string['completionpercentage_help'] = 'Porcentaje necesario para considerar este recurso como completado.';
 $string['disablecontextmenu'] = 'Desactivar clic derecho y acciones básicas de copia';
