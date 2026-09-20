@@ -1,6 +1,6 @@
 # Drive Resource installation and upgrade
 
-## Supported platform for 1.1.33-rc17-m45
+## Supported platform for 1.1.33-rc19-m45
 
 - Moodle 4.5 LTS
 - PHP 8.1+
@@ -66,7 +66,7 @@ Paste a normal supported Drive/Docs sharing URL into the activity. The learner m
 
 ## Post-upgrade validation
 
-After installing rc17:
+After installing rc19:
 
 1. purge Moodle caches;
 2. hard-refresh the browser;
@@ -108,3 +108,8 @@ Record the tested commit SHA and environment. Do not promote an RC build while a
 When upgrading from RC17, no schema change is required for the canonical type-resolution cleanup. Purge Moodle caches after deploying the updated code and verify at least one existing activity stored as `type=auto` with a normal `drive.google.com/file/d/.../view` URL. It must resolve consistently in the course index and learner view.
 
 Legacy `displaymode` and `disabledownload` columns remain in the database for restore compatibility; administrators should not manually remove them.
+
+
+## RC19 completion-form hotfix validation
+
+RC19 is a code/API compatibility hotfix with no schema change. After deployment and cache purge, create a new Drive Resource activity and edit an existing one in a course with completion tracking enabled. The settings form must open normally, automatic completion must expose the progress-percentage rule, and saving the activity must not raise `get_suffixed_name()` errors.
