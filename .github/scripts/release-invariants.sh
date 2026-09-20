@@ -45,6 +45,14 @@ if grep -nE 'required_param\([^,]+,[[:space:]]*PARAM_URL|optional_param\([^,]+,[
     fail "protected.php accepts a browser-supplied arbitrary URL."
 fi
 
+echo "Checking upstream redirect confinement..."
+if grep -n "CURLOPT_FOLLOWLOCATION => true" \
+    classes/local/http_range_proxy.php \
+    classes/local/protected_stream.php \
+    classes/local/drive_stream_resolver.php; then
+    fail "Automatic cURL redirect following bypasses per-hop upstream allow-list validation."
+fi
+
 echo "Checking byte-range and stall-resilience invariants..."
 grep -q 'CURLOPT_RANGE' classes/local/http_range_proxy.php     || fail "HTTP proxy no longer forwards byte ranges with CURLOPT_RANGE."
 grep -q "Accept-Ranges: bytes" classes/local/http_range_proxy.php     || fail "HTTP proxy no longer exposes byte-range support."
