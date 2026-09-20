@@ -227,6 +227,13 @@ jobs:
           grep -q 'CURLINFO_COOKIELIST' plugin/classes/local/http_range_proxy.php
           grep -q 'resolve_content_type' plugin/classes/local/http_range_proxy.php
           grep -q 'resolve_download_warning_url' plugin/classes/local/drive.php
+          grep -q 'resolve_embedded_download_url' plugin/classes/local/drive.php
+          grep -q "'authuser'" plugin/classes/local/drive.php
+          grep -q "'at'" plugin/classes/local/drive.php
+          grep -q 'usp=drivesdk' plugin/tests/drive_test.php
+          grep -q 'diagnoseVideoError' plugin/amd/src/plyr.js
+          grep -q 'diagnoseVideoError' plugin/amd/build/plyr.min.js
+          grep -q 'data-region="video-error"' plugin/templates/video.mustache
           grep -q 'resolve_record_type' plugin/classes/local/drive.php
           grep -q 'resolve_record_type' plugin/view.php
           grep -q 'resolve_record_type' plugin/protected.php
@@ -249,7 +256,7 @@ jobs:
           fi
           grep -Fq "\$mform->setDefault('type', 'video')" plugin/mod_form.php
           grep -q 'DEFAULT="video"' plugin/db/install.xml
-          grep -q '2026092003' plugin/db/upgrade.php
+          grep -q '2026092004' plugin/db/upgrade.php
           grep -Fq "new xmldb_index('type_idx', XMLDB_INDEX_NOTUNIQUE, ['type'])" plugin/db/upgrade.php
           grep -Fq '$dbman->drop_index($table, $typeindex);' plugin/db/upgrade.php
           grep -Fq '$dbman->add_index($table, $typeindex);' plugin/db/upgrade.php
