@@ -736,6 +736,7 @@ final class http_range_proxy {
      *
      * @param string $candidate Upstream Content-Type value.
      * @param string $fallback Fallback MIME type.
+     * @param string $contentdisposition Upstream Content-Disposition header.
      * @return string
      */
     public static function resolve_content_type(
