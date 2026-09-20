@@ -167,9 +167,9 @@ define([], function() {
         var diagnose = function(mediaCode, fallbackType) {
             var generation = ++state.probeGeneration;
 
-            probeTransport(node).then(function(diagnostic) {
+            return probeTransport(node).then(function(diagnostic) {
                 if (generation !== state.probeGeneration) {
-                    return;
+                    return null;
                 }
 
                 var type = classifyFailure(mediaCode, diagnostic);
@@ -179,6 +179,7 @@ define([], function() {
 
                 var recoverable = type !== 'codec' && state.retries < MAX_RETRIES;
                 showStatus(elements, type, recoverable);
+                return null;
             });
         };
 
