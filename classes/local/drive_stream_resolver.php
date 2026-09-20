@@ -1,5 +1,18 @@
 <?php
 // This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace mod_videoplayer\local;
 
@@ -20,7 +33,6 @@ defined('MOODLE_INTERNAL') || die();
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class drive_stream_resolver {
-
     /** Public browser API key used by the Google Drive web playback client. */
     private const WORKSPACE_VIDEO_API_KEY = 'AIzaSyDVQw45DwoYh632gvsP5vPDqEKvb-Ywnb8';
 
@@ -284,7 +296,7 @@ final class drive_stream_resolver {
             return null;
         }
 
-        usort($candidates, static function(array $a, array $b): int {
+        usort($candidates, static function (array $a, array $b): int {
             $arank = self::quality_rank((int)($a['height'] ?? 0));
             $brank = self::quality_rank((int)($b['height'] ?? 0));
             if ($arank !== $brank) {
@@ -349,5 +361,4 @@ final class drive_stream_resolver {
 
         return upstream_url_policy::is_allowed($value) ? $value : null;
     }
-
 }

@@ -28,7 +28,6 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->dirroot . '/mod/videoplayer/backup/moodle2/restore_videoplayer_stepslib.php');
 
 class restore_videoplayer_activity_task extends restore_activity_task {
-
     protected function define_my_settings() {
         // No specific settings for this module.
     }
@@ -37,7 +36,7 @@ class restore_videoplayer_activity_task extends restore_activity_task {
         $this->add_step(new restore_videoplayer_activity_structure_step('videoplayer_structure', 'videoplayer.xml'));
     }
 
-    static public function define_decode_contents() {
+    public static function define_decode_contents() {
         $contents = [];
 
         $contents[] = new restore_decode_content('videoplayer', ['intro'], 'videoplayer');
@@ -45,7 +44,7 @@ class restore_videoplayer_activity_task extends restore_activity_task {
         return $contents;
     }
 
-    static public function define_decode_rules() {
+    public static function define_decode_rules() {
         $rules = [];
 
         $rules[] = new restore_decode_rule('VIDEOPLAYERVIEWBYID', '/mod/videoplayer/view.php?id=$1', 'course_module');

@@ -28,7 +28,6 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->dirroot . '/mod/videoplayer/backup/moodle2/backup_videoplayer_stepslib.php');
 
 class backup_videoplayer_activity_task extends backup_activity_task {
-
     protected function define_my_settings() {
         // No specific settings for this module.
     }
@@ -37,7 +36,7 @@ class backup_videoplayer_activity_task extends backup_activity_task {
         $this->add_step(new backup_videoplayer_activity_structure_step('videoplayer_structure', 'videoplayer.xml'));
     }
 
-    static public function encode_content_links($content) {
+    public static function encode_content_links($content) {
         global $CFG;
 
         $base = preg_quote($CFG->wwwroot, "/");

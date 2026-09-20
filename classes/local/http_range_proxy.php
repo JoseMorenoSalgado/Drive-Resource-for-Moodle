@@ -1,5 +1,18 @@
 <?php
 // This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace mod_videoplayer\local;
 
@@ -19,7 +32,6 @@ defined('MOODLE_INTERNAL') || die();
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class http_range_proxy {
-
     /** @var int cURL streaming buffer size in bytes. */
     private const STREAM_BUFFER_SIZE = 262144;
 
@@ -65,7 +77,10 @@ final class http_range_proxy {
         $invalidcontent = false;
         $ishead = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'HEAD';
 
-        $headercallback = static function($curl, string $header) use (
+        $headercallback = static function (
+            $curl,
+            string $header
+        ) use (
             &$responseheaders,
             &$discardbody,
             &$invalidcontent,
@@ -96,9 +111,11 @@ final class http_range_proxy {
             foreach ($patterns as $key => $pattern) {
                 if (preg_match($pattern, $trimmed, $matches)) {
                     $responseheaders[$key] = trim($matches[1]);
-                    if ($key === 'content-type'
+                    if (
+                        $key === 'content-type'
                             && str_starts_with(strtolower($fallbacktype), 'video/')
-                            && preg_match('~^(?:text/html|application/xhtml\+xml)~i', trim($matches[1]))) {
+                            && preg_match('~^(?:text/html|application/xhtml\+xml)~i', trim($matches[1]))
+                    ) {
                         // Drive may answer a download request with a confirmation
                         // or quota HTML page. Never pass that to <video> as MP4.
                         $invalidcontent = true;
@@ -129,7 +146,10 @@ final class http_range_proxy {
             CURLOPT_HEADERFUNCTION => $headercallback,
             CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
                 . '(KHTML, like Gecko) Chrome/128.0 Safari/537.36',
-            CURLOPT_WRITEFUNCTION => static function($curl, string $data) use (
+            CURLOPT_WRITEFUNCTION => static function (
+                $curl,
+                string $data
+            ) use (
                 &$headerssent,
                 &$responseheaders,
                 &$discardbody,
