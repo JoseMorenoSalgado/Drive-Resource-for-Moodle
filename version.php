@@ -26,8 +26,8 @@ defined('MOODLE_INTERNAL') || die();
 
 $plugin = new stdClass();
 $plugin->component = 'mod_videoplayer';
-$plugin->version = 2026092004;
-$plugin->release = '1.1.32-rc8';
+$plugin->version = 2026092005;
+$plugin->release = '1.1.32-rc9';
 $plugin->requires = 2024100700;
 $plugin->supported = [405, 502];
 $plugin->maturity = MATURITY_RC;
