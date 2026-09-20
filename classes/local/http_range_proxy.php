@@ -37,6 +37,12 @@ final class http_range_proxy {
     /** @var int Private browser cache lifetime for authorised resources. */
     private const PRIVATE_CACHE_SECONDS = 300;
 
+    /** @var int Abort an upstream media transfer that remains effectively stalled. */
+    private const LOW_SPEED_LIMIT = 1024;
+
+    /** @var int Seconds below LOW_SPEED_LIMIT before cURL aborts the upstream transfer. */
+    private const LOW_SPEED_TIME = 20;
+
     /**
      * Stream an upstream resource through Moodle.
      *
@@ -141,6 +147,8 @@ final class http_range_proxy {
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_BUFFERSIZE => self::STREAM_BUFFER_SIZE,
+            CURLOPT_LOW_SPEED_LIMIT => self::LOW_SPEED_LIMIT,
+            CURLOPT_LOW_SPEED_TIME => self::LOW_SPEED_TIME,
             CURLOPT_HTTPHEADER => $requestheaders,
             CURLOPT_HEADERFUNCTION => $headercallback,
             CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
@@ -158,6 +166,12 @@ final class http_range_proxy {
             ): int {
                 if ($discardbody) {
                     return strlen($data);
+                }
+
+                // Stop consuming Google bandwidth as soon as the browser has
+                // abandoned this protected range request (seek, retry, navigation).
+                if (connection_aborted()) {
+                    return 0;
                 }
 
                 $status = (int)($responseheaders['status'] ?? 0);
