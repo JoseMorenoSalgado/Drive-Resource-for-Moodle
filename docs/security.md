@@ -63,6 +63,14 @@ Protected responses use:
 
 Valid ranges preserve `206`. Unsatisfiable ranges return `416` without leaking upstream details. HTML login/error responses must never be returned as successful PDF or media bytes.
 
+## Video diagnostic safety
+
+The browser-side health monitor performs diagnostics only against the Moodle-owned `protected.php` URL. It must never receive a raw Drive ID, confirmation token, cookie, direct download URL or redirect destination.
+
+The diagnostic request is same-origin and bounded to `Range: bytes=0-1`. Client code may use only safe response metadata such as HTTP status, validated `Content-Type` and `X-Drive-Resource-Status`. Upstream error bodies and effective URLs remain server-side.
+
+A retry reloads the existing protected Moodle source. It must not weaken `require_login`, enrolment/capability checks, host validation, MIME validation or Range validation.
+
 ## Stable PDF asset boundary
 
 PDF.js and its worker are local, same-origin ES modules:
