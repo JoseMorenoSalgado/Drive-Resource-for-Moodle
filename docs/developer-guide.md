@@ -7,7 +7,7 @@ The Moodle component remains `mod_videoplayer`. Do not rename it: installed site
 ## Supported development target
 
 - Moodle 4.5–5.2.
-- Compatibility baselines `MOODLE_405_STABLE` and `MOODLE_500_STABLE`.
+- Compatibility baselines `MOODLE_405_STABLE`, `MOODLE_500_STABLE`, `MOODLE_501_STABLE` and `MOODLE_502_STABLE`.
 - Minimum Moodle version `2024100700`.
 - PHP 8.2 and 8.3 for Moodle 4.5/5.0; Moodle 5.2 CI uses PHP 8.3.
 - CI databases MariaDB 10.11 and PostgreSQL 16.
@@ -256,7 +256,7 @@ Production changes must preserve these invariants:
 - Changes to persisted progress fields must be reflected in XMLDB upgrade/install definitions, External API, Privacy API, Backup/Restore, reporting and language strings.
 - AMD source and production bundles must be regenerated together for release packaging.
 
-The supported CI matrix covers Moodle 4.5, 5.0 and 5.2, PHP 8.2/8.3, MariaDB and PostgreSQL. Do not promote `MATURITY_RC` to `MATURITY_STABLE` until the manual staging/device release gate passes.
+The supported CI matrix covers Moodle 4.5, 5.0, 5.1 and 5.2, PHP 8.2/8.3, MariaDB and PostgreSQL. Do not promote `MATURITY_RC` to `MATURITY_STABLE` until the manual staging/device release gate passes.
 
 ## Debugging Google Drive videos that stay at 0:00
 
