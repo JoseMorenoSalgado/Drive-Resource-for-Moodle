@@ -1,0 +1,38 @@
+name: Drive Resource Hardening Gate
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 4 * * 1'
+  push:
+    branches:
+      - 'hardening/**'
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: drive-resource-hardening-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-invariants:
+    name: Release invariants
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate protected-delivery invariants
+        run: bash .github/scripts/release-invariants.sh
+
+      - name: Record bundled PDF.js integrity
+        run: |
+          sha256sum thirdpartylibs/pdfjs/pdf.min.mjs
+          sha256sum thirdpartylibs/pdfjs/pdf.worker.min.mjs
+          sha256sum amd/build/nativevideo.min.js
+          sha256sum amd/build/pdfviewer.min.js
