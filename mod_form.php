@@ -72,10 +72,6 @@ class mod_videoplayer_mod_form extends moodleform_mod {
         $mform->setDefault('type', drive::TYPE_AUTO);
         $mform->disabledIf('type', 'source', 'eq', drive::SOURCE_LOCALPDF);
 
-        $mform->addElement('hidden', 'displaymode', 'standard');
-        $mform->setType('displaymode', PARAM_ALPHANUMEXT);
-        $mform->setDefault('displaymode', 'standard');
-
         $mform->addElement('advcheckbox', 'disablecontextmenu', get_string('disablecontextmenu', 'mod_videoplayer'));
         $mform->setDefault('disablecontextmenu', 1);
 
@@ -113,7 +109,6 @@ class mod_videoplayer_mod_form extends moodleform_mod {
             );
             $defaultvalues['localpdffile'] = $draftitemid;
         }
-        $defaultvalues['displaymode'] = 'standard';
     }
 
     /**
