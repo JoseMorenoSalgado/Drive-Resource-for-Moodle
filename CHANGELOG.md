@@ -21,6 +21,7 @@ All notable changes to Drive Resource are documented here. The Moodle component 
 - Preserved protected source-file fallback without rendering Google Drive controls.
 - Added native HTML5 audio playback and resume/progress tracking.
 - Fixed responsive video orientation class application and hardened fullscreen handling across browser implementations.
+- Added resilient buffering recovery: delayed loading UI, persistent-stall detection, position-preserving stream reload, signed-URL refresh and protected source fallback.
 
 ### PDF and resources
 
@@ -42,6 +43,7 @@ All notable changes to Drive Resource are documented here. The Moodle component 
 - Protected delivery is now mandatory; the legacy administrator opt-out was removed from active settings.
 - Raw Google file IDs, direct download URLs and temporary playback URLs are not rendered by plugin-owned viewers.
 - Maintained streaming without whole-file PHP buffering, including `Range`, `206`, `416`, `If-Range` and `HEAD` behavior.
+- Added low-speed upstream termination and immediate cancellation of abandoned range requests to avoid hung PHP workers during Drive/network stalls.
 - Maintained asynchronous PDF cache warming and local cache delivery.
 - Removed obsolete iframe/Google Drive viewer styling and dead player assets.
 
