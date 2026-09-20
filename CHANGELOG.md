@@ -4,6 +4,9 @@ All notable changes to Drive Resource are documented here. The Moodle component 
 
 ## Unreleased - commercial hardening and validation
 
+- Fixed a production playback regression discovered during ASPETEN validation: the refactor had dropped Google Drive `resourcekey` propagation and large-file confirmation-page/cookie handling from the protected source fallback.
+- Restored the previously proven server-side Drive confirmation transport while retaining the refactored authorization boundary, bounded video recovery, low-speed termination and abandoned-range cancellation.
+- Restored regression coverage for Drive confirmation forms, embedded download URLs, resource keys, MIME validation and byte-range negotiation.
 - Added `docs/hardening-validation.md` with release-blocker definitions, security/streaming/device/PDF/Moodle API/performance/packaging workstreams and evidence requirements.
 - Added a scheduled/manual `Drive Resource Hardening Gate` for release-critical architecture invariants.
 - Added a repository release-invariant script that detects browser-facing Google hosts, iframe/preview regressions, removed CDN/player dependencies, protected-endpoint boundary regressions, missing Range/stall controls and missing production assets.
