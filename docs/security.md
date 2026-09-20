@@ -183,3 +183,7 @@ Confirmation cookies are retained only inside the server-side cURL flow. They ar
 Authorization remains enforced by `require_login()`, module context and `mod/videoplayer:view` before any upstream request. Resource-type fallback changes only viewer selection; it does not bypass access control or expose the Google file ID/URL.
 
 Missing site configuration is not treated as an authorization decision. In particular, an absent `protectedmode` record uses the documented enabled default; only an explicit stored `0` disables that path. Upgrade logic seeds missing defaults so behavior is deterministic across fresh installs and long-lived Moodle upgrades.
+## Upgrade schema integrity
+
+Database upgrade failures must not encourage administrators to bypass Moodle's XMLDB layer or manually remove production indexes. RC7 performs the indexed `videoplayer.type` migration through Moodle's database manager and restores `type_idx` even when the field alteration throws. The change does not relax authentication, capability checks, protected delivery, or modify learner progress data.
+
