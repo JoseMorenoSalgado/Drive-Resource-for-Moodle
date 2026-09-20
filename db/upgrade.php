@@ -333,5 +333,26 @@ function xmldb_videoplayer_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026092013, 'videoplayer');
     }
 
+    // Empty-string defaults on CHAR NOT NULL fields are invalid in XMLDB.
+    // Existing values are preserved; only the database-level default is removed.
+    if ($oldversion < 2026092014) {
+        $table = new xmldb_table('videoplayer');
+        $videourlfield = new xmldb_field(
+            'videourl',
+            XMLDB_TYPE_CHAR,
+            '1024',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            null,
+            'source'
+        );
+        if ($dbman->table_exists($table) && $dbman->field_exists($table, $videourlfield)) {
+            $dbman->change_field_default($table, $videourlfield);
+        }
+
+        upgrade_mod_savepoint(true, 2026092014, 'videoplayer');
+    }
+
     return true;
 }
