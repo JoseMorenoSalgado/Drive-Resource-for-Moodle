@@ -27,6 +27,7 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->dirroot . '/course/moodleform_mod.php');
 
 use mod_videoplayer\local\drive;
+use mod_videoplayer\local\plugin_config;
 
 /**
  * Activity settings form.
@@ -80,9 +81,10 @@ class mod_videoplayer_mod_form extends moodleform_mod {
 
         $mform->addElement('text', 'completionpercentage', get_string('completionpercentage', 'mod_videoplayer'), ['size' => 5]);
         $mform->setType('completionpercentage', PARAM_INT);
-        $defaultcompletion = (int)get_config('mod_videoplayer', 'defaultcompletionpercentage');
-        $defaultcompletion = $defaultcompletion > 0 ? max(1, min(100, $defaultcompletion)) : 80;
-        $mform->setDefault('completionpercentage', $defaultcompletion);
+        $mform->setDefault(
+            'completionpercentage',
+            plugin_config::default_completion_percentage()
+        );
         $mform->addRule('completionpercentage', null, 'numeric', null, 'client');
         $mform->addHelpButton('completionpercentage', 'completionpercentage', 'mod_videoplayer');
 
