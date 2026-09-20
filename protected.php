@@ -104,7 +104,7 @@ if ($type === drive::TYPE_VIDEO) {
 }
 
 $cachestatus = 'BYPASS';
-$pdfcache = drive::is_pdf_type($type) && (string)get_config('mod_videoplayer', 'pdfcacheenabled') !== '0';
+$pdfcache = drive::is_pdf_type($type) && (string) get_config('mod_videoplayer', 'pdfcacheenabled') !== '0';
 if ($pdfcache) {
     $cachekey = protected_stream::cache_key($fileid, $type);
     $cachefile = protected_stream::cache_file_for($fileid, $type);
@@ -127,7 +127,7 @@ if ($pdfcache) {
     try {
         $task = new precache_pdf();
         $task->set_component('mod_videoplayer');
-        $task->set_custom_data(['instanceid' => (int)$videoplayer->id]);
+        $task->set_custom_data(['instanceid' => (int) $videoplayer->id]);
         \core\task\manager::queue_adhoc_task($task, true);
         $cachestatus = 'MISS_QUEUED';
     } catch (Throwable $exception) {
