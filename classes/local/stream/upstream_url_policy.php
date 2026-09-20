@@ -89,6 +89,7 @@ final class upstream_url_policy {
             'drive.google.com',
             'docs.google.com',
             'drive.usercontent.google.com',
+            'content-workspacevideo-pa.googleapis.com',
         ];
         if (in_array($host, $exact, true)) {
             return true;
