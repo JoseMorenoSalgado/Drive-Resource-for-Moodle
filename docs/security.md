@@ -100,3 +100,8 @@ The SSRF regression suite also covers lookalike Google suffixes, loopback target
 The learner delivery model is not optional. The historical `disabledownload` column is retained only for database/backup compatibility and is pinned by normalization; the current activity form no longer presents it as an effective security control. Authorization and URL confidentiality are provided by the Moodle protected endpoint, not by a checkbox.
 
 Resource typing is also centralized before protected URL construction so different controllers cannot disagree about how an opaque Drive sharing URL should be handled.
+
+
+## Completion-form hotfix security impact
+
+RC19 changes only the Moodle form field-name suffix API used by custom completion controls. It does not weaken authorization, protected streaming, URL confidentiality or SSRF controls. Completion thresholds remain server-validated and continue to feed Moodle Completion API through the existing progress service.
