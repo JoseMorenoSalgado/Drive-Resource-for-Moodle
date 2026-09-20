@@ -25,16 +25,6 @@ namespace mod_videoplayer\output;
  */
 class renderer extends \plugin_renderer_base {
     /**
-     * Render the embedded Drive Resource view.
-     *
-     * @param array $data Template data.
-     * @return string
-     */
-    public function render_resource(array $data): string {
-        return $this->render_from_template('mod_videoplayer/resource', $data);
-    }
-
-    /**
      * Render an invalid resource URL message.
      *
      * @return string
