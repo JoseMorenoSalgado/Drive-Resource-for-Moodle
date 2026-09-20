@@ -31,8 +31,8 @@ thirdpartylibs/pdfjs/         local PDF.js distribution
 
 ## Adding or changing a resource type
 
-1. Add the canonical type to `resource_descriptor::SUPPORTED_TYPES`.
-2. Add detection/resolution logic to `drive` only if needed.
+1. Add the canonical type to `drive::RESOURCE_TYPES`.
+2. Add detection/resolution logic to `drive` only if needed; runtime callers must use `drive::resolve_record_type()`.
 3. Add a descriptor predicate when the behavior warrants it.
 4. Add a dedicated Mustache template/AMD module if the browser interaction differs materially.
 5. Keep upstream URLs out of `export_for_template()`.
@@ -141,3 +141,9 @@ bash .github/scripts/release-invariants.sh
 ```
 
 Do not weaken an invariant simply to make the gate pass. If the architecture legitimately changes, update the implementation, security model, tests and `docs/hardening-validation.md` together, then document why the invariant changed.
+
+### Type-resolution rule
+
+Do not duplicate the `type=auto` decision in controllers, tasks, render models or lifecycle callbacks. The hardening gate intentionally fails if `drive::detect_type()` is called directly from those runtime paths. Direct detection belongs inside `drive` and tests only.
+
+Legacy schema fields such as `displaymode` and `disabledownload` remain for upgrade/backup compatibility, but they are not active presentation switches. The commercial architecture is protected-only and does not expose a direct-download mode.
