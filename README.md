@@ -24,6 +24,7 @@ The internal Moodle component remains `mod_videoplayer` for upgrade, capability,
 - Memory-bounded streaming with `HEAD`, `Range`, `If-Range`, `206 Partial Content` and `416` support.
 - Local PDF.js rendering with zoom, fit, previous/next navigation, fullscreen and mobile swipe navigation.
 - Local Plyr enhancement over native HTML5 video with iPhone/iPad inline playback and seeking.
+- Same-origin video health monitor that distinguishes protected transport failures from browser codec/decoding failures and provides bounded user-triggered recovery.
 - Fast-first-byte PDF proxying with deduplicated asynchronous cache warming.
 - Progress, completion, Moodle events, Privacy API and Backup/Restore integration.
 - Activity-only CSS isolation that does not modify themes or third-party course formats.
@@ -51,6 +52,7 @@ styles_activity.css
 styles_pdf_mobile.css
 amd/build/pdfjsloader.min.js
 amd/build/pdfviewer.min.js
+amd/build/videohealth.min.js
 thirdpartylibs/pdfjs/pdf.min.mjs
 thirdpartylibs/pdfjs/pdf.worker.min.mjs
 thirdpartylibs/plyr/plyr.css
@@ -65,6 +67,12 @@ php admin/cli/purge_caches.php
 ```
 
 After deployment, reset PHP OPcache and invalidate Cloudflare, NGINX or other reverse-proxy caches for `/mod/videoplayer/`.
+
+## Release 1.1.32-rc9
+
+Release `1.1.32-rc9` adds a playback-health layer around the protected HTML5 video path. Media errors are classified separately from Moodle transport failures. When playback fails, the browser performs only a same-origin `bytes=0-1` diagnostic request to `protected.php`, reads the safe `X-Drive-Resource-Status` response and never receives an upstream Google Drive URL.
+
+Network/protected-source failures can be retried from the player with a bounded recovery path that preserves the current playback position when metadata becomes available again. Decode/source errors with a healthy protected transport are presented as codec compatibility failures instead of an unexplained `00:00` player.
 
 ## Release 1.1.27-beta
 
