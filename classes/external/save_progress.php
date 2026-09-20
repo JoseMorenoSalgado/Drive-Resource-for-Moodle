@@ -22,6 +22,7 @@ use core_external\external_multiple_structure;
 use core_external\external_single_structure;
 use core_external\external_value;
 use mod_videoplayer\local\access\activity_context;
+use mod_videoplayer\local\plugin_config;
 use mod_videoplayer\local\progress\progress_service;
 
 /**
@@ -97,7 +98,7 @@ final class save_progress extends external_api {
             throw new \moodle_exception('guestsarenotallowed', 'error');
         }
 
-        if ((string)get_config('mod_videoplayer', 'enabletracking') === '0') {
+        if (!plugin_config::tracking_enabled()) {
             throw new \moodle_exception('trackingdisabled', 'mod_videoplayer');
         }
 
