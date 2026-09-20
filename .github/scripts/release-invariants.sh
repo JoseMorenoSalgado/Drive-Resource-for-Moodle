@@ -53,6 +53,11 @@ grep -q 'connection_aborted()' classes/local/http_range_proxy.php     || fail "H
 grep -q 'MAX_RECOVERY_ATTEMPTS' amd/src/nativevideo.js     || fail "Video recovery is no longer bounded."
 grep -q "searchParams.set('refresh', '1')" amd/src/nativevideo.js     || fail "Video recovery no longer refreshes the protected signed stream."
 
+echo "Checking canonical resource type resolution..."
+if grep -nE 'drive::detect_type\(' lib.php index.php classes/local/resource/resource_descriptor.php classes/task/precache_pdf.php; then
+    fail "Runtime code bypasses drive::resolve_record_type() and duplicates resource type resolution."
+fi
+
 echo "Checking release metadata..."
 grep -q "\$plugin->supported = \[405, 405\]" version.php     || fail "Moodle 4.5 support declaration changed unexpectedly."
 grep -q 'MATURITY_RC' version.php     || fail "Hardening branch must remain release-candidate maturity until all exit gates pass."
