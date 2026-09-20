@@ -45,45 +45,36 @@ class mod_videoplayer_mod_form extends moodleform_mod {
         $mform->addRule('name', null, 'required', null, 'client');
 
         $sources = [
-            'googledrive' => get_string('sourcegoogledrive', 'mod_videoplayer'),
-            'localpdf' => get_string('sourcelocalpdf', 'mod_videoplayer'),
+            drive::SOURCE_GOOGLEDRIVE => get_string('sourcegoogledrive', 'mod_videoplayer'),
+            drive::SOURCE_LOCALPDF => get_string('sourcelocalpdf', 'mod_videoplayer'),
         ];
         $mform->addElement('select', 'source', get_string('resourcesource', 'mod_videoplayer'), $sources);
-        $mform->setDefault('source', 'googledrive');
+        $mform->setDefault('source', drive::SOURCE_GOOGLEDRIVE);
 
         $mform->addElement('text', 'videourl', get_string('driveurl', 'mod_videoplayer'), ['size' => 90]);
         $mform->setType('videourl', PARAM_URL);
         $mform->addHelpButton('videourl', 'driveurl', 'mod_videoplayer');
-        $mform->hideIf('videourl', 'source', 'eq', 'localpdf');
-        $mform->disabledIf('videourl', 'source', 'eq', 'localpdf');
+        $mform->hideIf('videourl', 'source', 'eq', drive::SOURCE_LOCALPDF);
+        $mform->disabledIf('videourl', 'source', 'eq', drive::SOURCE_LOCALPDF);
 
         $filemanageroptions = $this->get_localpdf_filemanager_options();
         $mform->addElement('filemanager', 'localpdffile', get_string('localpdffile', 'mod_videoplayer'), null, $filemanageroptions);
         $mform->addHelpButton('localpdffile', 'localpdffile', 'mod_videoplayer');
-        $mform->hideIf('localpdffile', 'source', 'eq', 'googledrive');
+        $mform->hideIf('localpdffile', 'source', 'eq', drive::SOURCE_GOOGLEDRIVE);
 
         $types = [
-            'auto' => get_string('typeauto', 'mod_videoplayer'),
-            'video' => get_string('typevideo', 'mod_videoplayer'),
-            'audio' => get_string('typeaudio', 'mod_videoplayer'),
-            'pdf' => get_string('typepdf', 'mod_videoplayer'),
-            'image' => get_string('typeimage', 'mod_videoplayer'),
-            'document' => get_string('typedocument', 'mod_videoplayer'),
-            'spreadsheet' => get_string('typespreadsheet', 'mod_videoplayer'),
-            'presentation' => get_string('typepresentation', 'mod_videoplayer'),
-            'file' => get_string('typefile', 'mod_videoplayer'),
+            drive::TYPE_AUTO => get_string('typeauto', 'mod_videoplayer'),
         ];
+        foreach (drive::RESOURCE_TYPES as $resourcetype) {
+            $types[$resourcetype] = get_string('type' . $resourcetype, 'mod_videoplayer');
+        }
         $mform->addElement('select', 'type', get_string('resourcetype', 'mod_videoplayer'), $types);
-        $mform->setDefault('type', 'auto');
-        $mform->disabledIf('type', 'source', 'eq', 'localpdf');
+        $mform->setDefault('type', drive::TYPE_AUTO);
+        $mform->disabledIf('type', 'source', 'eq', drive::SOURCE_LOCALPDF);
 
         $mform->addElement('hidden', 'displaymode', 'standard');
         $mform->setType('displaymode', PARAM_ALPHANUMEXT);
         $mform->setDefault('displaymode', 'standard');
-
-        $mform->addElement('advcheckbox', 'disabledownload', get_string('disabledownload', 'mod_videoplayer'));
-        $mform->setDefault('disabledownload', 1);
-        $mform->addHelpButton('disabledownload', 'disabledownload', 'mod_videoplayer');
 
         $mform->addElement('advcheckbox', 'disablecontextmenu', get_string('disablecontextmenu', 'mod_videoplayer'));
         $mform->setDefault('disablecontextmenu', 1);
@@ -116,7 +107,7 @@ class mod_videoplayer_mod_form extends moodleform_mod {
                 $draftitemid,
                 $this->context->id,
                 'mod_videoplayer',
-                'localpdf',
+                drive::SOURCE_LOCALPDF,
                 0,
                 $this->get_localpdf_filemanager_options()
             );
@@ -136,13 +127,13 @@ class mod_videoplayer_mod_form extends moodleform_mod {
         global $USER;
 
         $errors = parent::validation($data, $files);
-        $source = $data['source'] ?? 'googledrive';
+        $source = $data['source'] ?? drive::SOURCE_GOOGLEDRIVE;
 
-        if ($source === 'googledrive' && (empty($data['videourl']) || !drive::is_supported_url($data['videourl']))) {
+        if ($source === drive::SOURCE_GOOGLEDRIVE && (empty($data['videourl']) || !drive::is_supported_url($data['videourl']))) {
             $errors['videourl'] = get_string('invaliddriveurl', 'mod_videoplayer');
         }
 
-        if ($source === 'localpdf') {
+        if ($source === drive::SOURCE_LOCALPDF) {
             $draftitemid = (int)($data['localpdffile'] ?? 0);
             $fs = get_file_storage();
             $context = context_user::instance($USER->id);
