@@ -174,7 +174,12 @@ $templatecontext = [
     'pdfurl' => $protectedurl->out(false),
     'videourl' => $protectedurl->out(false),
     'imageurl' => $protectedurl->out(false),
-    'videomimetype' => drive::default_mimetype($type),
+    // Do not declare a guessed MIME type on the HTML source. Google Drive can
+    // store MP4, WebM, MOV and M4V resources under the same activity type.
+    // protected.php validates and relays the actual upstream Content-Type, so
+    // the browser must negotiate against that response instead of trusting an
+    // incorrect hard-coded video/mp4 hint.
+    'videomimetype' => '',
     'title' => format_string($videoplayer->name),
     'playerstyle' => $playerstyle,
     'displaymode' => $displaymode,
