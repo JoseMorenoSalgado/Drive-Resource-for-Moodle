@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.1.32-rc9 - 2026-09-19
+
+### Added
+
+- Added a dedicated same-origin video health monitor independent of Plyr so native HTML5 playback failures remain diagnosable.
+- Added explicit handling for media network, decode and unsupported-source failures with a learner-facing recovery state.
+- Added a bounded user-triggered retry path that reloads only the Moodle protected URL and attempts to restore the previous playback position.
+- Added a two-byte protected transport probe using `Range: bytes=0-1` and the safe `X-Drive-Resource-Status` header to separate proxy/source failures from browser codec failures.
+- Expanded the CI matrix to explicitly validate Moodle 5.1 on PHP 8.2/8.3 with MariaDB and PostgreSQL.
+
+### Changed
+
+- Bumped Drive Resource to `1.1.32-rc9` / `2026092005`.
+- Aligned release, security, architecture and installation documentation with the real Moodle 4.5–5.2 CI matrix.
+
+
 ## v1.1.32-rc8 - 2026-09-19
 
 ### Fixed
