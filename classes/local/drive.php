@@ -208,16 +208,20 @@ class drive {
             return self::google_docs_export_url($fileid, $type, $resourcekey);
         }
 
+        // Keep the legacy /uc endpoint as the initial transport. Existing
+        // installations used this route successfully and Google preserves
+        // byte-range behaviour for public shared media more consistently here.
+        // Large-file warning forms are still resolved server-side to the
+        // allow-listed drive.usercontent.google.com endpoint when required.
         $params = [
-            'id' => $fileid,
             'export' => 'download',
-            'confirm' => 't',
+            'id' => $fileid,
         ];
         if ($resourcekey !== null) {
             $params['resourcekey'] = $resourcekey;
         }
 
-        return 'https://drive.usercontent.google.com/download?' . http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+        return 'https://drive.google.com/uc?' . http_build_query($params, '', '&', PHP_QUERY_RFC3986);
     }
 
     /**
