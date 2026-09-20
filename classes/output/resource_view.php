@@ -93,7 +93,8 @@ final class resource_view implements \renderable, \templatable {
         $fallbackvideourl = $this->resource->is_video()
             ? $this->resource->protected_url($cmid, 'source')->out(false)
             : '';
-        $config = get_config('mod_videoplayer');
+        $config = (object)get_config('mod_videoplayer');
+        $isguest = isguestuser();
 
         $typestringkey = 'type' . $type;
         $typestring = get_string_manager()->string_exists($typestringkey, 'mod_videoplayer')
@@ -117,7 +118,7 @@ final class resource_view implements \renderable, \templatable {
         $points = max(0, (int)($this->progress->points ?? 0));
 
         $watermark = '';
-        if (!empty($instance->enablewatermark) && !isguestuser()) {
+        if (!empty($instance->enablewatermark) && !$isguest) {
             $watermark = fullname($USER) . ' · '
                 . userdate(time(), get_string('strftimedatetimeshort', 'langconfig'));
         }
@@ -127,7 +128,7 @@ final class resource_view implements \renderable, \templatable {
             'cmid' => $cmid,
             'title' => format_string($instance->name, true, ['context' => $this->activity->context()]),
             'showresourcetype' => (string)($config->showresourcetype ?? '1') !== '0',
-            'trackprogress' => !isguestuser() && (string)($config->enabletracking ?? '1') !== '0',
+            'trackprogress' => !$isguest && (string)($config->enabletracking ?? '1') !== '0',
             'resourcetype' => get_string('resourcetype', 'mod_videoplayer') . ': ' . $typestring,
             'protectedurl' => $protectedurl->out(false),
             'pdfurl' => $protectedurl->out(false),
