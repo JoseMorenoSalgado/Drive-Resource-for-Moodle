@@ -71,7 +71,7 @@ final class drive_downloader {
 
                 $status = (int) $last['httpcode'];
                 if ($status >= 300 && $status < 400) {
-                    $location = (string)($last['location'] ?? '');
+                    $location = (string) ($last['location'] ?? '');
                     $nexturl = drive::resolve_trusted_download_url($location, $currenturl);
                     if ($nexturl === null || ++$redirects > self::MAX_REDIRECTS) {
                         self::delete_if_file($targetpath);
@@ -189,7 +189,7 @@ final class drive_downloader {
         $result = curl_exec($ch);
         $error = curl_error($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $contenttype = (string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        $contenttype = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
         curl_close($ch);
         fclose($handle);
 
@@ -203,7 +203,7 @@ final class drive_downloader {
             'error' => $error,
             'contenttype' => $contenttype,
             'effectiveurl' => $url,
-            'location' => (string)($headers['location'] ?? ''),
+            'location' => (string) ($headers['location'] ?? ''),
         ];
     }
 
