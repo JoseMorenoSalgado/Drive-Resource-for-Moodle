@@ -504,6 +504,66 @@ class drive {
     }
 
     /**
+     * Validate a server-side Google Drive download URL.
+     *
+     * This allow-list is intentionally narrower than arbitrary Google hosts.
+     * It is used for redirects followed by background download jobs and never
+     * exposes the URL to the learner browser.
+     *
+     * @param string $url Candidate URL.
+     * @return bool
+     */
+    public static function is_trusted_download_url(string $url): bool {
+        if (!filter_var($url, FILTER_VALIDATE_URL)) {
+            return false;
+        }
+
+        $scheme = strtolower((string)parse_url($url, PHP_URL_SCHEME));
+        $host = strtolower((string)parse_url($url, PHP_URL_HOST));
+        $port = parse_url($url, PHP_URL_PORT);
+        $user = parse_url($url, PHP_URL_USER);
+        $pass = parse_url($url, PHP_URL_PASS);
+        $path = (string)parse_url($url, PHP_URL_PATH);
+
+        if ($scheme !== 'https' || $host === '' || $path === '' || $user !== null || $pass !== null) {
+            return false;
+        }
+        if ($port !== null && (int)$port !== 443) {
+            return false;
+        }
+
+        return in_array($host, ['drive.google.com', 'docs.google.com', 'drive.usercontent.google.com'], true)
+            || $host === 'googleusercontent.com'
+            || substr($host, -22) === '.googleusercontent.com';
+    }
+
+    /**
+     * Resolve and validate one trusted Drive redirect target.
+     *
+     * @param string $candidate Redirect Location value.
+     * @param string $baseurl Current trusted URL.
+     * @return string|null Absolute trusted URL or null.
+     */
+    public static function resolve_trusted_download_url(string $candidate, string $baseurl): ?string {
+        $candidate = trim(html_entity_decode($candidate, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        if ($candidate === '') {
+            return null;
+        }
+
+        if (strpos($candidate, '//') === 0) {
+            $candidate = 'https:' . $candidate;
+        } else if (strpos($candidate, '/') === 0) {
+            $host = (string)parse_url($baseurl, PHP_URL_HOST);
+            if ($host === '') {
+                return null;
+            }
+            $candidate = 'https://' . $host . $candidate;
+        }
+
+        return self::is_trusted_download_url($candidate) ? $candidate : null;
+    }
+
+    /**
      * Return the default MIME type for a resource type.
      *
      * @param string $type Resource type.
