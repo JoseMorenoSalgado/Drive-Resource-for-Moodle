@@ -9,7 +9,7 @@ The Moodle component remains `mod_videoplayer`. Do not rename it: installed site
 - Moodle 4.5–5.2.
 - Compatibility baselines `MOODLE_405_STABLE`, `MOODLE_500_STABLE`, `MOODLE_501_STABLE` and `MOODLE_502_STABLE`.
 - Minimum Moodle version `2024100700`.
-- PHP 8.2 and 8.3 for Moodle 4.5/5.0; Moodle 5.2 CI uses PHP 8.3.
+- PHP 8.2 and 8.3 for Moodle 4.5/5.0/5.1; Moodle 5.2 CI uses PHP 8.3.
 - CI databases MariaDB 10.11 and PostgreSQL 16.
 
 Moodle 4.5 is supported from the shared release branch. Older Moodle 4.x branches remain unsupported.
@@ -64,6 +64,16 @@ required activity id
 Never return raw Google Drive IDs, direct download URLs, preview URLs or upstream error bodies.
 
 `protected_stream` owns Moodle-private/cache files. `http_range_proxy` owns upstream HTTP streaming. Do not send both a manually constructed `Range` header and `CURLOPT_RANGE` for the same upstream request.
+
+## Video playback health contract
+
+The native `<video>` element is the playback authority; Plyr is presentation enhancement only. `mod_videoplayer/videohealth` must remain usable even when Plyr fails to load.
+
+The health module may probe only the already-authorised Moodle `protected.php` URL. Keep the diagnostic request bounded to a minimal byte range and same-origin credentials. Use the safe `X-Drive-Resource-Status` header to distinguish protected delivery failures from browser decode/source errors.
+
+Do not attempt to infer a codec from the MP4 container extension or MIME type. A transport-success + media decode/source error must be treated as a compatibility failure. Arbitrary codec support requires a real transcoding subsystem.
+
+Recovery must be user-triggered, bounded and preserve the last usable playback second when possible. Never retry by exposing, redirecting the browser to, or reconstructing a Google Drive URL.
 
 ## PDF renderer contract
 
