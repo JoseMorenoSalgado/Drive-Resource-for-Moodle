@@ -275,3 +275,13 @@ When a browser Range request receives upstream HTTP 200, retry strategies must n
 
 Never call `change_field_type()`, `change_field_default()` or related field-altering XMLDB methods on a field that still has an index/key dependency. Define the dependency with `xmldb_index`/`xmldb_key`, drop it through Moodle's database manager, perform the alteration, then restore it. For critical upgrades use `try/finally` so an exception does not leave the site with a missing index. RC7 applies this rule to `videoplayer.type` and `type_idx`.
 
+## Video failure diagnostics
+
+Do not treat a black player or `00:00 / 00:00` as a single failure class. RC8 adds an error probe against the same Moodle-owned protected URL using `Range: bytes=0-1`.
+
+- HTTP `200/206` with `X-Drive-Resource-Status: MEDIA` means the protected transport succeeded; a subsequent HTML5 media error is most likely a format/codec problem.
+- A non-success protected response means the failure belongs to Drive resolution, access, MIME validation or Range handling.
+
+The browser must never receive the raw Drive URL as part of this diagnostic. Keep all upstream identifiers server-side.
+
+When adding media support, remember that `.mp4` identifies a container, not the codec. Do not claim arbitrary MP4 compatibility unless a real transcoding layer exists.
