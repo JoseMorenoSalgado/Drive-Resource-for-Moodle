@@ -295,5 +295,5 @@ Test on a physical iPhone:
 - Confirm the protected endpoint returns `X-Drive-Resource-Status: MEDIA` for a compatible public/shared source.
 - Seek near the beginning, middle and end and confirm returned `Content-Range` values match the requested browser ranges.
 - Test one H.264/AAC MP4 on Android Chrome and iPhone Safari.
-- Test one known browser-incompatible codec and confirm the learner sees the codec diagnostic instead of a silent `00:00 / 00:00` player.
-- Test a Drive file that is not link-accessible and confirm the learner sees the Drive/protected-stream diagnostic without any upstream URL leakage.
+- Test one known browser-incompatible codec, confirm protected transport separately, and record the expected browser decode failure without misclassifying it as a proxy defect.
+- Test a Drive file that is not link-accessible and confirm the protected endpoint fails safely without any upstream URL or token leakage.
