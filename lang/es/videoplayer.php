@@ -90,6 +90,7 @@ $string['privacy:metadata:videoplayer_views:timespent'] = 'Tiempo activo de lect
 $string['privacy:metadata:videoplayer_views:totalpages'] = 'Total de páginas detectadas.';
 $string['privacy:metadata:videoplayer_views:userid'] = 'ID del usuario.';
 $string['privacy:metadata:videoplayer_views:videoplayerid'] = 'ID de la instancia.';
+$string['progresslocktimeout'] = 'No se pudo guardar el progreso porque todavía se está procesando otra actualización. Inténtelo nuevamente.';
 $string['progress'] = 'Progreso';
 $string['progressreport'] = 'Reporte de progreso';
 $string['protectedresource'] = 'Recurso protegido';
