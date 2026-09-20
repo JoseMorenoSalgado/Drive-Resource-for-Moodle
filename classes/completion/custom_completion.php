@@ -42,8 +42,9 @@ final class custom_completion extends activity_custom_completion {
 
         $this->validate_rule($rule);
 
+        $customdata = (array)$this->cm->get_custom_data();
         $threshold = (int)(
-            $this->cm->customdata['customcompletionrules'][self::RULE_PROGRESS] ?? 0
+            $customdata['customcompletionrules'][self::RULE_PROGRESS] ?? 0
         );
         if ($threshold <= 0) {
             return COMPLETION_INCOMPLETE;
@@ -78,8 +79,9 @@ final class custom_completion extends activity_custom_completion {
      * @return array
      */
     public function get_custom_rule_descriptions(): array {
+        $customdata = (array)$this->cm->get_custom_data();
         $threshold = (int)(
-            $this->cm->customdata['customcompletionrules'][self::RULE_PROGRESS] ?? 0
+            $customdata['customcompletionrules'][self::RULE_PROGRESS] ?? 0
         );
 
         return [
