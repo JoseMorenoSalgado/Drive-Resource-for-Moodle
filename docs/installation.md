@@ -150,7 +150,7 @@ Cron must process ad-hoc tasks frequently. The PHP/web user must be able to crea
 
 After installation or upgrade, verify:
 
-1. Administration reports Drive Resource `1.1.32-rc3` and version `2026091902`.
+1. Administration reports Drive Resource `1.1.32-rc9` and version `2026092005`.
 2. A teacher can create and edit a Drive Resource.
 3. The saved `displaymode` is `pdfjs`.
 4. An enrolled learner can open the activity.
