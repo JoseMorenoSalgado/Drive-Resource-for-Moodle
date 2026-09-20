@@ -1,0 +1,48 @@
+name: Apply RC17 refactor payload
+
+on:
+  push:
+    branches:
+      - refactor/html5-core-1.1.33-rc17
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply refactor payload when complete
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f .rc17/chunk_19 ]; then
+            echo "RC17 payload is not complete yet."
+            exit 0
+          fi
+          cat .rc17/chunk_* > /tmp/rc17.b64
+          base64 -d /tmp/rc17.b64 > /tmp/rc17.zip
+          unzip -t /tmp/rc17.zip
+          unzip -o /tmp/rc17.zip -d /tmp/rc17
+          if [ -f /tmp/rc17/.rc17-delete.txt ]; then
+            while IFS= read -r path; do
+              [ -z "$path" ] && continue
+              rm -rf -- "$path"
+            done < /tmp/rc17/.rc17-delete.txt
+          fi
+          rsync -a --exclude='.rc17-delete.txt' /tmp/rc17/ ./
+          rm -rf .rc17
+          rm -f .github/workflows/rc17-apply.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "refactor: apply HTML5 core 1.1.33-rc17"
+          git push
