@@ -732,5 +732,11 @@ function xmldb_videoplayer_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026092003, 'videoplayer');
     }
 
+    if ($oldversion < 2026092004) {
+        // No schema change is required. This savepoint records the protected
+        // media runtime hardening and browser diagnostics shipped in RC8.
+        upgrade_mod_savepoint(true, 2026092004, 'videoplayer');
+    }
+
     return true;
 }
