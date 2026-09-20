@@ -45,14 +45,7 @@ $PAGE->set_context($context);
 $PAGE->navbar->add(format_string($videoplayer->name), new moodle_url('/mod/videoplayer/view.php', ['id' => $cm->id]));
 $PAGE->navbar->add(get_string('progressreport', 'mod_videoplayer'));
 
-$source = $videoplayer->source ?? 'googledrive';
-if ($source === 'localpdf') {
-    $type = 'pdf';
-} else if (empty($videoplayer->type) || $videoplayer->type === drive::TYPE_AUTO) {
-    $type = drive::detect_type((string) ($videoplayer->videourl ?? ''));
-} else {
-    $type = clean_param($videoplayer->type, PARAM_ALPHANUMEXT);
-}
+$type = drive::resolve_record_type($videoplayer);
 
 $ispdf = drive::is_pdf_type($type);
 $isvideo = $type === 'video';
