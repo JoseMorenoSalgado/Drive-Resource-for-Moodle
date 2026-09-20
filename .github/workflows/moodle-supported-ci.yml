@@ -266,12 +266,37 @@ jobs:
           grep -q 'Retrying a refused Range must not' plugin/classes/local/http_range_proxy.php
           grep -q 'X-Accel-Buffering: no' plugin/classes/local/http_range_proxy.php
           grep -q 'CURLPROTO_HTTPS' plugin/classes/local/http_range_proxy.php
-          grep -q 'CURLPROTO_HTTPS' plugin/classes/local/protected_stream.php
+          grep -q 'CURLPROTO_HTTPS' plugin/classes/local/drive_downloader.php
           grep -q 'max-width: none !important' plugin/styles_pdf_mobile.css
           grep -q 'mod-videoplayer-pdfjs-canvas-stage' plugin/templates/pdfjs.mustache
           grep -q 'mod-videoplayer-pdfjs-canvas-stage' plugin/styles_pdf_overlay.css
           grep -q 'margin: auto !important' plugin/styles_pdf_mobile.css
           grep -q 'justify-content: flex-start !important' plugin/styles_pdf_mobile.css
+
+      - name: Video normalization production contract
+        run: |
+          test -f plugin/classes/local/drive_downloader.php
+          test -f plugin/classes/local/video_normalizer.php
+          test -f plugin/classes/task/normalize_video.php
+          test -f plugin/classes/task/cleanup_video_cache.php
+          grep -q 'is_trusted_download_url' plugin/classes/local/drive.php
+          grep -q 'resolve_trusted_download_url' plugin/classes/local/drive.php
+          grep -q 'resolve_download_warning_url' plugin/classes/local/drive_downloader.php
+          grep -q 'CURLOPT_FOLLOWLOCATION => false' plugin/classes/local/drive_downloader.php
+          grep -q 'CURLPROTO_HTTPS' plugin/classes/local/drive_downloader.php
+          grep -q 'probe_is_web_compatible' plugin/classes/local/video_normalizer.php
+          grep -q "'libx264'" plugin/classes/local/video_normalizer.php
+          grep -q "'yuv420p'" plugin/classes/local/video_normalizer.php
+          grep -q "'aac'" plugin/classes/local/video_normalizer.php
+          grep -q 'proc_open' plugin/classes/local/video_normalizer.php
+          grep -q 'VIDEO_NORMALIZED' plugin/protected.php
+          grep -q 'queue_if_needed' plugin/view.php
+          grep -q 'videonormalizationenabled' plugin/settings.php
+          grep -q 'admin_setting_configexecutable' plugin/settings.php
+          grep -q '2026092007' plugin/db/upgrade.php
+          grep -q "2026092007" plugin/version.php
+          grep -q "1.1.32-rc11" plugin/version.php
+          grep -q 'tscc2' plugin/tests/video_normalizer_test.php
 
       - name: Protected viewer and precise progress contract
         run: |
