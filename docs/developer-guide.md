@@ -61,9 +61,11 @@ When changing `http_range_proxy` or `protected_stream`:
 - do not relay unsafe upstream headers;
 - do not expose upstream errors/pages as successful media;
 - validate server-side upstream hosts;
-- test Safari/iOS seeking as well as Chromium.
+- test Safari/iOS seeking as well as Chromium;
+- preserve cancellation/low-speed handling so abandoned or stalled upstream cURL transfers do not occupy PHP workers indefinitely;
+- preserve the `refresh=1` recovery contract as a boolean server-side cache bypass only; never convert it into an arbitrary upstream URL parameter.
 
-The progressive Drive stream resolver is upstream-dependent. Keep it isolated and preserve source fallback. Any resolver change must be regression-tested with the exact Google Drive video that previously worked on rc15.
+The progressive Drive stream resolver is upstream-dependent. Keep it isolated and preserve source fallback. Any resolver change must be regression-tested with the exact Google Drive video that previously worked on rc15. Persistent `waiting`/`stalled` recovery must retain the current playback position and must not loop indefinitely; the AMD player caps recovery attempts and resets the counter only after stable playback.
 
 ## JavaScript
 
