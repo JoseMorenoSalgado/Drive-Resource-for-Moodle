@@ -29,18 +29,6 @@ use mod_videoplayer\local\drive;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class resource_descriptor {
-    /** Supported canonical resource types. */
-    public const SUPPORTED_TYPES = [
-        'video',
-        'audio',
-        'pdf',
-        'image',
-        'document',
-        'spreadsheet',
-        'presentation',
-        'file',
-    ];
-
     /** @var \stdClass Activity instance. */
     private \stdClass $instance;
 
@@ -95,19 +83,22 @@ final class resource_descriptor {
     public static function from_instance(\stdClass $instance, \context_module $context): self {
         $source = clean_param($instance->source ?? drive::SOURCE_GOOGLEDRIVE, PARAM_ALPHANUMEXT);
 
-        if ($source === 'localpdf') {
+        if ($source === drive::SOURCE_LOCALPDF) {
             $localfile = videoplayer_get_localpdf_file($context);
-            return new self($instance, $context, 'localpdf', 'pdf', null, $localfile ?: null);
+            return new self(
+                $instance,
+                $context,
+                drive::SOURCE_LOCALPDF,
+                'pdf',
+                null,
+                $localfile ?: null
+            );
         }
 
         $source = drive::SOURCE_GOOGLEDRIVE;
         $url = trim((string)($instance->videourl ?? ''));
-        $fileid = drive::extract_file_id($url);
-        $configuredtype = clean_param($instance->type ?? drive::TYPE_AUTO, PARAM_ALPHANUMEXT);
-        $type = $configuredtype === drive::TYPE_AUTO ? drive::detect_type($url) : $configuredtype;
-        if (!in_array($type, self::SUPPORTED_TYPES, true)) {
-            $type = 'file';
-        }
+        $fileid = drive::is_supported_url($url) ? drive::extract_file_id($url) : null;
+        $type = drive::resolve_record_type($instance);
 
         return new self($instance, $context, $source, $type, $fileid, null);
     }
@@ -192,7 +183,7 @@ final class resource_descriptor {
      * @return bool
      */
     public function is_available(): bool {
-        if ($this->source === 'localpdf') {
+        if ($this->source === drive::SOURCE_LOCALPDF) {
             return $this->localfile !== null;
         }
         return $this->fileid !== null && $this->fileid !== '';
