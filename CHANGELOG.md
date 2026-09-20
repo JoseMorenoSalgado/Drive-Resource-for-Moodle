@@ -51,8 +51,10 @@ All notable changes to Drive Resource are documented here. The Moodle component 
 - Updated Backup & Restore for the new progress fields while retaining compatibility with legacy instance fields.
 - Added unit tests for Google Drive URL parsing/type detection and upstream host policy.
 - Added Moodle 4.5 CI coverage for supported PHP/database combinations.
+- Rebuilt and synchronized all Moodle AMD production bundles and source maps so Grunt validation matches `amd/src`.
 - Updated README and architecture, developer, security, installation, database and regression-test documentation.
-- Removed the invalid empty-string database default from `videourl` and added an upgrade step that preserves existing values.\n- Version: `2026092014`; release: `1.1.33-rc17-m45`.
+- Removed the invalid empty-string database default from `videourl` and added an upgrade step that preserves existing values.
+- Version: `2026092014`; release: `1.1.33-rc17-m45`.
 
 ## 1.1.32-rc16-m45 - 2026-09-20
 
