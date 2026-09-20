@@ -230,6 +230,43 @@ final class drive_test extends \advanced_testcase {
     }
 
     /**
+     * Server-side download redirects must remain on trusted HTTPS hosts.
+     *
+     * @covers ::is_trusted_download_url
+     * @covers ::resolve_trusted_download_url
+     */
+    public function test_trusted_download_redirects_are_bounded(): void {
+        $this->assertTrue(drive::is_trusted_download_url(
+            'https://drive.usercontent.google.com/download?id=1AbC_def-123'
+        ));
+        $this->assertTrue(drive::is_trusted_download_url(
+            'https://doc-0k-7c-drive-data-export.googleusercontent.com/download/file.bin'
+        ));
+        $this->assertFalse(drive::is_trusted_download_url('http://drive.google.com/uc?id=1AbC_def-123'));
+        $this->assertFalse(drive::is_trusted_download_url('https://drive.google.com.evil.invalid/uc?id=x'));
+        $this->assertFalse(drive::is_trusted_download_url('https://drive.google.com:8443/uc?id=x'));
+
+        $this->assertSame(
+            'https://drive.usercontent.google.com/download?id=1AbC_def-123',
+            drive::resolve_trusted_download_url(
+                'https://drive.usercontent.google.com/download?id=1AbC_def-123',
+                'https://drive.google.com/uc?export=download&id=1AbC_def-123'
+            )
+        );
+        $this->assertSame(
+            'https://drive.google.com/uc?export=download&id=1AbC_def-123',
+            drive::resolve_trusted_download_url(
+                '/uc?export=download&id=1AbC_def-123',
+                'https://drive.google.com/file/d/1AbC_def-123/view'
+            )
+        );
+        $this->assertNull(drive::resolve_trusted_download_url(
+            'https://attacker.invalid/file',
+            'https://drive.google.com/uc?export=download&id=1AbC_def-123'
+        ));
+    }
+
+    /**
      * Standard Drive share URLs in automatic mode must keep video compatibility.
      *
      * @covers ::resolve_record_type
