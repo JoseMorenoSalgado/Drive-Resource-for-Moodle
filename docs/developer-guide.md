@@ -147,3 +147,8 @@ Do not weaken an invariant simply to make the gate pass. If the architecture leg
 Do not duplicate the `type=auto` decision in controllers, tasks, render models or lifecycle callbacks. The hardening gate intentionally fails if `drive::detect_type()` is called directly from those runtime paths. Direct detection belongs inside `drive` and tests only.
 
 Legacy schema fields such as `displaymode` and `disabledownload` remain for upgrade/backup compatibility, but they are not active presentation switches. The commercial architecture is protected-only and does not expose a direct-download mode.
+
+
+## Custom completion form compatibility
+
+Moodle 4.5 provides `get_suffix()` through the completion form trait. When adding plugin-specific completion controls, build field names as `<base name> . $this->get_suffix()` in every form lifecycle method. Do not introduce `get_suffixed_name()`; it is not part of the Moodle 4.5 `moodleform_mod` API and causes a fatal error while the activity form is constructed. The release-invariant gate enforces this rule.
