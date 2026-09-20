@@ -23,6 +23,7 @@
  */
 
 use mod_videoplayer\local\drive;
+use mod_videoplayer\local\video_normalizer;
 
 /** Moodle File API area for locally protected PDF files. */
 const VIDEOPLAYER_LOCALPDF_FILEAREA = 'localpdf';
@@ -76,6 +77,28 @@ function videoplayer_queue_pdf_precache(int $instanceid): void {
     $task->set_component('mod_videoplayer');
     $task->set_custom_data(['instanceid' => $instanceid]);
     \core\task\manager::queue_adhoc_task($task, true);
+}
+
+/**
+ * Queue browser-compatible video normalization when configured.
+ *
+ * @param int $instanceid Activity instance ID.
+ * @return void
+ */
+function videoplayer_queue_video_normalization(int $instanceid): void {
+    global $DB;
+
+    $instance = $DB->get_record(
+        'videoplayer',
+        ['id' => $instanceid],
+        'id, source, type, videourl',
+        IGNORE_MISSING
+    );
+    if (!$instance) {
+        return;
+    }
+
+    video_normalizer::queue_if_needed($instance);
 }
 
 /**
@@ -156,6 +179,7 @@ function videoplayer_add_instance($data, $mform = null) {
     $id = $DB->insert_record('videoplayer', $data);
     videoplayer_save_localpdf_file($data, (int)$id);
     videoplayer_queue_pdf_precache((int)$id);
+    videoplayer_queue_video_normalization((int)$id);
 
     return $id;
 }
@@ -178,6 +202,7 @@ function videoplayer_update_instance($data, $mform = null) {
     if ($result) {
         videoplayer_save_localpdf_file($data, (int)$data->id);
         videoplayer_queue_pdf_precache((int)$data->id);
+        videoplayer_queue_video_normalization((int)$data->id);
     }
 
     return $result;
@@ -202,6 +227,8 @@ function videoplayer_delete_instance($id) {
         $fs = get_file_storage();
         $fs->delete_area_files($context->id, 'mod_videoplayer', VIDEOPLAYER_LOCALPDF_FILEAREA);
     }
+
+    video_normalizer::purge($videoplayer);
 
     $DB->delete_records('videoplayer_rewards', ['videoplayerid' => $videoplayer->id]);
     $DB->delete_records('videoplayer_views', ['videoplayerid' => $videoplayer->id]);
