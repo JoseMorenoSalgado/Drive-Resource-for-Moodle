@@ -27,7 +27,6 @@
 }
 
 .mod-videoplayer-pdfjs-viewer,
-.mod-videoplayer-frame-wrapper,
 .mod-videoplayer-native-frame {
     border-color: var(--drive-resource-border);
 }
@@ -71,15 +70,7 @@
     border: 1px solid rgba(15, 23, 42, .12);
 }
 
-.mod-videoplayer-native .plyr {
-    overflow: hidden;
-}
 
-.mod-videoplayer-frame-wrapper {
-    border: 1px solid rgba(15, 23, 42, .12);
-    background:
-        linear-gradient(135deg, #0f172a, #111827);
-}
 
 @media (max-width: 767.98px) {
     .mod-videoplayer-container {

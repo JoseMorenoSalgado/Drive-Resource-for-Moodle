@@ -2,297 +2,130 @@
 
 ## Component identity
 
-The Moodle component remains `mod_videoplayer`. Do not rename it: installed sites depend on this identifier for upgrades, capabilities, database tables, files, Privacy API and Backup/Restore mappings.
+- Product: Drive Resource
+- Moodle component: `mod_videoplayer`
+- Target branch for this package: Moodle 4.5 LTS
+- PHP: 8.1+
 
-## Supported development target
+Do not rename the Moodle component without a separate migration project; existing database tables, capabilities, backups and installed-site upgrade paths depend on it.
 
-- Moodle 4.5–5.2.
-- Compatibility baselines `MOODLE_405_STABLE`, `MOODLE_500_STABLE`, `MOODLE_501_STABLE` and `MOODLE_502_STABLE`.
-- Minimum Moodle version `2024100700`.
-- PHP 8.2 and 8.3 for Moodle 4.5/5.0/5.1; Moodle 5.2 CI uses PHP 8.3.
-- CI databases MariaDB 10.11 and PostgreSQL 16.
-
-Moodle 4.5 is supported from the shared release branch. Older Moodle 4.x branches remain unsupported.
-
-## Engineering rules
-
-- Moodle Coding Style takes precedence.
-- Use Moodle APIs rather than direct filesystem or database shortcuts.
-- Keep public endpoints thin and delegate business logic.
-- Bundle browser libraries locally; runtime CDN dependencies are prohibited.
-- Keep streaming memory-bounded.
-- Keep functions cohesive and small.
-- Update AMD source and compiled production bundles together.
-- Review File API, Privacy API, Backup/Restore, Events and Completion for each data-model change.
-- Do not patch themes or course-format plugins to fix Drive Resource defects.
-
-## Main paths
+## Directory responsibilities
 
 ```text
-amd/src/                  AMD source
-amd/build/                production AMD bundles
-backup/moodle2/           Backup and Restore
-classes/event/            Moodle events
-classes/external/         AJAX/External API
-classes/local/            streaming and application services
-classes/privacy/          Privacy API
-db/                       XMLDB, capabilities, services and tasks
-tests/                    Moodle PHPUnit tests
-thirdpartylibs/pdfjs/      local PDF.js module and worker
-thirdpartylibs/plyr/       local media-player enhancement
-styles.css                intentionally presentation-free global stylesheet
-styles_activity.css       activity-only base presentation
-styles_pdf_mobile.css     mobile PDF presentation
+classes/local/access/        authorization/request context
+classes/local/resource/      normalized resource model
+classes/local/stream/        protected delivery orchestration/policy
+classes/local/progress/      progress/completion business logic
+classes/output/              renderer/template models/report tables
+classes/external/            AJAX/web-service API
+classes/event/               Moodle events
+classes/privacy/             Privacy API
+classes/task/                PDF cache tasks
+amd/src/                     JavaScript source
+amd/build/                   production AMD modules
+templates/                   Mustache presentation
+db/                          schema, services, cache, tasks, capabilities
+backup/moodle2/              Backup & Restore API
+thirdpartylibs/pdfjs/         local PDF.js distribution
 ```
 
-## Protected delivery contract
+## Adding or changing a resource type
 
-`protected.php` must execute this order:
+1. Add the canonical type to `resource_descriptor::SUPPORTED_TYPES`.
+2. Add detection/resolution logic to `drive` only if needed.
+3. Add a descriptor predicate when the behavior warrants it.
+4. Add a dedicated Mustache template/AMD module if the browser interaction differs materially.
+5. Keep upstream URLs out of `export_for_template()`.
+6. Add language strings, backup/privacy implications and tests.
+7. Update documentation and the manual regression checklist.
 
-```text
-required activity id
-→ course module
-→ course
-→ activity instance
-→ require_login
-→ context_module
-→ require_capability
-→ close session write lock
-→ protected_stream or http_range_proxy
-```
+## Protected endpoint rules
 
-Never return raw Google Drive IDs, direct download URLs, preview URLs or upstream error bodies.
+`protected.php` must remain a controller, not a business-logic container. It must:
 
-`protected_stream` owns Moodle-private/cache files. `http_range_proxy` owns upstream HTTP streaming. Do not send both a manually constructed `Range` header and `CURLOPT_RANGE` for the same upstream request.
+- load Moodle;
+- validate the course module through `activity_context`;
+- construct the resource descriptor;
+- release the PHP session lock before long streaming;
+- delegate to `protected_resource_service`.
 
-## Video playback health contract
+Do not add a direct URL parameter that accepts an arbitrary upstream URL.
 
-The native `<video>` element is the playback authority; Plyr is presentation enhancement only. `mod_videoplayer/videohealth` must remain usable even when Plyr fails to load.
+## Streaming rules
 
-The health module may probe only the already-authorised Moodle `protected.php` URL. Keep the diagnostic request bounded to a minimal byte range and same-origin credentials. Use the safe `X-Drive-Resource-Status` header to distinguish protected delivery failures from browser decode/source errors.
+When changing `http_range_proxy` or `protected_stream`:
 
-Do not attempt to infer a codec from the MP4 container extension or MIME type. A transport-success + media decode/source error must be treated as a compatibility failure. Arbitrary codec support requires a real transcoding subsystem.
+- never read a complete large file into memory;
+- preserve `Range`/`206` behavior;
+- handle `HEAD` without a body;
+- do not relay unsafe upstream headers;
+- do not expose upstream errors/pages as successful media;
+- validate server-side upstream hosts;
+- test Safari/iOS seeking as well as Chromium.
 
-Recovery must be user-triggered, bounded and preserve the last usable playback second when possible. Never retry by exposing, redirecting the browser to, or reconstructing a Google Drive URL.
+The progressive Drive stream resolver is upstream-dependent. Keep it isolated and preserve source fallback. Any resolver change must be regression-tested with the exact Google Drive video that previously worked on rc15.
 
-## PDF renderer contract
+## JavaScript
 
-Every production PDF must use:
+Video is implemented by `amd/src/nativevideo.js`; audio by `nativeaudio.js`; PDF by `pdfviewer.js`.
 
-```text
-mod_videoplayer/pdfviewer
-```
+There is no Plyr, Video.js or StPageFlip dependency.
 
-`view.php` must not load:
-
-```text
-mod_videoplayer/ebookviewer
-mod_videoplayer/bookviewer
-thirdpartylibs/pageflip/*
-```
-
-`videoplayer_get_safe_pdf_displaymode()` is the single runtime normalisation point. It currently returns only `pdfjs`. Historical values such as `standard`, `ebook` and `book` must remain safely migratable to `pdfjs`.
-
-Do not reintroduce an animated page-turn renderer directly into the learner path. A future experimental renderer would require all of the following before consideration:
-
-- an explicit disabled-by-default feature flag;
-- complete isolation from the stable PDF.js path;
-- deterministic PDF.js fallback;
-- physical iPhone and Android regression testing;
-- range, memory and accessibility validation;
-- CI coverage proving that JavaScript asset URLs cannot become document URLs;
-- product approval before enabling it on existing activities.
-
-## PDF.js module loading
-
-PDF.js is shipped locally as ES modules:
-
-```text
-thirdpartylibs/pdfjs/pdf.min.mjs
-thirdpartylibs/pdfjs/pdf.worker.min.mjs
-```
-
-Do not call `import(PDFJS_URL)` directly from AMD source. Moodle's Babel build can transform dynamic imports into RequireJS requests, but `.mjs` is not an AMD module.
-
-All protected PDF rendering must depend on:
-
-```text
-mod_videoplayer/pdfjsloader
-```
-
-The loader must:
-
-- create a same-origin `<script type="module">` for `pdf.min.mjs`;
-- validate `window.pdfjsLib.getDocument` and `GlobalWorkerOptions`;
-- configure only the bundled `pdf.worker.min.mjs`;
-- cache one loading promise per page;
-- remove/recover from a failed module element before retrying;
-- reject through a controlled Promise error;
-- never accept URLs from request data or activity configuration;
-- never use CDN, `eval`, arbitrary imports or unsafe runtime code generation.
-
-After changing `amd/src/pdfjsloader.js`, rebuild the production bundle with Moodle Grunt:
+After source changes, rebuild the Moodle AMD bundles in a Moodle development environment:
 
 ```bash
-npx grunt amd --root=mod/videoplayer
+npx grunt amd
 ```
 
-The generated `amd/build/pdfjsloader.min.js` must contain native module-script creation and must not contain `_systemImportTransformerGlobalIdentifier`.
+Commit both `amd/src/` and generated `amd/build/` artifacts expected by Moodle production deployments.
 
-## PDF viewer behavior
+### Progress ownership
 
-`amd/src/pdfviewer.js` must preserve:
+Do not attach multiple trackers to one resource:
 
-- idempotent initialization;
-- previous and next page controls;
-- current and total page display;
-- zoom boundaries and fit-to-screen;
-- fullscreen with a controlled CSS fallback;
-- touch-swipe navigation without blocking vertical scrolling;
-- responsive rendering on resize/orientation change;
-- bounded device-pixel-ratio scaling;
-- progress persistence;
-- adjacent-page prefetch only;
-- controlled error UI.
+- video -> `nativevideo.js`;
+- audio -> `nativeaudio.js`;
+- PDF-like -> `pdfviewer.js`;
+- image/generic -> `progress.js` when tracking is enabled.
 
-Do not render all pages into canvases. Render the active page and allow PDF.js to fetch only what is needed through the protected range endpoint.
+This avoids double-counted time and duplicate AJAX writes.
 
-## PDF performance
+## Progress API
 
-- Keep the first visible page on the critical path.
-- Use `rangeChunkSize` suitable for progressive PDF loading.
-- Prefetch only adjacent pages.
-- Preserve original PDF bytes.
-- Proxy cold ranges immediately.
-- Warm verified complete PDFs asynchronously through a deduplicated ad-hoc task.
-- Do not buffer complete PDFs in PHP memory.
-- Bound canvas backing dimensions through a device-pixel-ratio ceiling.
-- Re-render only after meaningful resize, zoom or fullscreen changes.
+`mod_videoplayer_save_progress` is AJAX-enabled and delegates all persistence to `progress_service`.
 
-## Video development
+The server, not the UI, decides the persisted completion transition. Do not directly update Moodle completion from JavaScript.
 
-- Keep native HTML5 controls as fallback.
-- Preserve `playsinline` and `webkit-playsinline`.
-- Use metadata preload unless profiling demonstrates a better safe option.
-- Preserve valid `206 Partial Content` metadata for Safari/iOS seeking.
-- Do not force a MIME type that conflicts with the protected response.
-- Avoid loading the complete video into PHP memory.
+When adding progress fields:
 
-## CSS isolation
-
-Root `styles.css` is global in Moodle and must not contain viewer presentation.
-
-Viewer rules must be loaded explicitly from activity-scoped CSS and use `mod-videoplayer` or `drive-resource` prefixes. Generic fullscreen, overlay, loading and active-state selectors are prohibited.
+1. update `db/install.xml`;
+2. add a monotonic version/savepoint to `db/upgrade.php`;
+3. update external parameters/returns;
+4. update Privacy API;
+5. update Backup & Restore;
+6. update reports/tests/docs.
 
 ## Database upgrades
 
-For schema or persisted-default changes:
+Never edit a historical savepoint to represent a new schema change. Add a new `$plugin->version` and a new guarded block in `db/upgrade.php`.
 
-1. update `db/install.xml`;
-2. add an idempotent `db/upgrade.php` step;
-3. migrate existing values safely;
-4. handle dependent indexes before changing indexed fields;
-5. update Backup/Restore and Privacy API when data shape changes;
-6. bump `version.php`;
-7. run Moodle savepoint validation.
+When changing an indexed field, explicitly account for XMLDB index/key dependencies before calling type/default change methods. This plugin previously encountered `ddldependencyerror`; regression-test upgrades from older installations.
 
-The `2026080600` upgrade changes `displaymode` to `pdfjs` for all existing records. Do not remove that compatibility step.
+## Moodle coding conventions
 
-## Automated tests
+Use Moodle Coding Style and PHPDoc. Keep classes final unless extension is a deliberate API. Prefer small single-purpose services and avoid accessing globals outside Moodle-facing infrastructure where practical.
 
-Current contracts include:
+## Testing
 
-- `tests/drive_test.php` for supported URLs, file IDs, resource detection and protected endpoints;
-- `tests/http_range_proxy_test.php` for byte-range behavior;
-- `tests/platform_compatibility_test.php` for Moodle 4.5–5.2 metadata and required APIs;
-- `tests/pdf_displaymode_test.php` for legacy display-mode normalisation and PDF.js-only routing.
+Static checks before packaging:
 
-The CI workflow must pass:
+```bash
+find . -name '*.php' -print0 | xargs -0 -n1 php -l
+node --check amd/src/nativevideo.js
+node --check amd/src/nativeaudio.js
+node --check amd/src/pdfviewer.js
+```
 
-- PHP lint;
-- Moodle Coding Style;
-- PHPDoc;
-- plugin validation;
-- XMLDB upgrade savepoints;
-- Mustache validation;
-- Grunt/AMD validation;
-- PDF.js native-ESM loader contract;
-- PDF.js-only production-path contract;
-- PHPUnit on the supported matrix.
+CI additionally runs Moodle Plugin CI checks and PHPUnit where a full Moodle environment is available.
 
-## Commercial release gate
-
-A release is not approved until CI passes and staging verifies:
-
-- fresh installation and upgrade from the previous release;
-- local and Google Drive PDF opening;
-- no PageFlip request in the browser network panel;
-- no JavaScript source displayed as PDF content;
-- PDF.js initialization on physical Android and iPhone browsers;
-- previous/next, zoom, fit, fullscreen and swipe navigation;
-- correct valid and invalid byte ranges;
-- video start, seek and resume on physical iPhone Safari;
-- progress and completion persistence;
-- Backup/Restore;
-- Privacy API export/delete;
-- no leaked Google Drive URLs;
-- normal operation with standard and third-party course formats;
-- no developer-debug warnings or browser console errors.
-
-## Mobile media regression rules
-
-Keep `amd/src/plyr.js` and `amd/build/plyr.min.js` synchronized through Moodle Grunt. Do not reload the video source to recover a seek. The client may retry the requested `currentTime` a bounded number of times, while `http_range_proxy` remains the authoritative fix. PDF templates must receive `initialpage = 1`; reading progress may still store `lastpage` for reporting.
-
-## Fullscreen PDF layout contract
-
-Keep PDF controls outside `.mod-videoplayer-pdfjs-canvas-wrap`. The canvas and watermark must remain inside `.mod-videoplayer-pdfjs-canvas-stage`. Do not centre an oversized canvas with `align-items: center` or transforms: doing so can create negative, unreachable scroll regions on mobile browsers. The stage owns centring through auto margins and the viewport owns scrolling.
-
-## Cross-version PHPUnit contract
-
-Moodle 4.5 uses PHPUnit 9 while Moodle 5.0 uses PHPUnit 11. Cross-version tests must use docblock metadata (`@dataProvider`, `@covers`, `@coversNothing`) that both generations can parse; do not add PHPUnit 10/11-only attributes to shared tests. Do not introduce a test-only dependency that prevents the same plugin package from being validated on both core branches.
-
-## Synthetic range fallback
-
-`http_range_proxy` must prefer native upstream range support. `RANGE_MODE_SYNTHETIC` is a last-resort compatibility path for Google responses that ignore `Range`. `resolve_range_window()` validates open, bounded and suffix ranges against a known total size. Do not replace this with full-file buffering or temporary whole-video downloads. For bounded requests, stop the cURL transfer after the requested window has been emitted.
-
-## 1.1.32 RC engineering invariants
-
-Production changes must preserve these invariants:
-
-- Never pass a Google Drive file ID, direct download URL or preview URL into learner-facing HTML/JavaScript.
-- Never reintroduce `templates/resource.mustache`, the legacy native PDF iframe template, or Google preview rendering.
-- Keep `protected.php` authorization and the Range/206 proxy as the only learner delivery boundary for remote binary content.
-- PDF completion is based on the union of observed pages; video completion is based on the union of normalized watched playback ranges.
-- Changes to persisted progress fields must be reflected in XMLDB upgrade/install definitions, External API, Privacy API, Backup/Restore, reporting and language strings.
-- AMD source and production bundles must be regenerated together for release packaging.
-
-The supported CI matrix covers Moodle 4.5, 5.0, 5.1 and 5.2, PHP 8.2/8.3, MariaDB and PostgreSQL. Do not promote `MATURITY_RC` to `MATURITY_STABLE` until the manual staging/device release gate passes.
-
-## Debugging Google Drive videos that stay at 0:00
-
-When a Drive video renders but metadata never loads, inspect the protected endpoint response rather than the Plyr UI first. A healthy initial request should return media with `Content-Type: video/*` (or an inferred safe video type), `Accept-Ranges: bytes`, and either HTTP 200 for a normal request or HTTP 206 with a valid `Content-Range` for a range request.
-
-The proxy recognizes Drive large-file confirmation HTML and automatically follows the validated confirmation form with its generated parameters and cookies. Tests for this behavior live in `tests/drive_test.php` and `tests/http_range_proxy_test.php`. Do not reintroduce direct Google URLs, iframe previews or client-side confirmation handling.
-
-The first binary-media request intentionally uses `drive.google.com/uc?export=download&id=...` for compatibility with previously working plugin releases. Do not replace it with `drive.usercontent.google.com` as an unconditional starting URL. The latter remains an accepted server-side continuation target when Google itself returns a validated confirmation form.
-
-## Video runtime invariants
-
-Do not implement resource-type detection independently in an entry point. Use `drive::resolve_record_type()` everywhere so rendering, streaming, progress and reporting agree on the same type.
-
-Plugin checkbox settings must distinguish an absent config value from an explicitly disabled value. Settings whose documented default is enabled should use `(string) $value === '0'` only to detect an explicit disable, or ensure the upgrade step seeds the default first.
-
-When a browser Range request receives upstream HTTP 200, retry strategies must not consume the complete response body. The first incompatible full-response chunk is intentionally aborted before the next strategy. The synthetic strategy remains the only path allowed to consume the upstream full stream for a requested byte window.
-## DDL dependency rule
-
-Never call `change_field_type()`, `change_field_default()` or related field-altering XMLDB methods on a field that still has an index/key dependency. Define the dependency with `xmldb_index`/`xmldb_key`, drop it through Moodle's database manager, perform the alteration, then restore it. For critical upgrades use `try/finally` so an exception does not leave the site with a missing index. RC7 applies this rule to `videoplayer.type` and `type_idx`.
-
-## Video failure diagnosis
-
-Treat a black player or `00:00 / 00:00` as a symptom, not a single failure class. Diagnose the protected transport independently from browser decoding.
-
-- A successful protected request returning HTTP `200/206` with `X-Drive-Resource-Status: MEDIA` means Moodle authorization and protected byte delivery succeeded.
-- A non-success protected response belongs to Drive resolution, permissions, MIME validation or byte-range handling.
-- If protected transport succeeds but the browser still raises a media decode error, inspect the source codec. An `.mp4` extension identifies a container, not guaranteed browser-compatible video.
-
-The browser must never receive the raw Drive URL as part of troubleshooting. Keep all upstream identifiers server-side. For broad direct playback compatibility, normalize source media to H.264/AVC video with AAC audio. Arbitrary codec support requires a real server-side transcoding layer rather than a frontend workaround.
+Manual release testing is mandatory because Google Drive playback is an external integration. Follow `docs/manual-test-checklist.md`.

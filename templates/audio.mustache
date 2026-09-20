@@ -1,0 +1,29 @@
+{{!
+    Protected HTML5 audio player.
+}}
+<div class="mod-videoplayer-container mod-videoplayer-audio" data-resource-type="{{type}}" data-cmid="{{cmid}}"{{#playerstyle}} style="{{playerstyle}}"{{/playerstyle}}>
+    <div class="mod-videoplayer-meta mb-2">
+        {{#showresourcetype}}<span class="mod-videoplayer-meta-item">{{resourcetype}}</span>{{/showresourcetype}}
+        <span class="mod-videoplayer-meta-item">{{#str}} protectedresource, mod_videoplayer {{/str}}</span>
+    </div>
+
+    <div class="mod-videoplayer-audio-card js-native-audio"
+         data-cmid="{{cmid}}"
+         data-initial-position="{{initialposition}}"
+         data-initial-duration="{{initialduration}}"
+         data-initial-timespent="{{initialtimespent}}"
+         data-tracking-enabled="{{#trackprogress}}1{{/trackprogress}}{{^trackprogress}}0{{/trackprogress}}"
+         data-disable-context-menu="{{#disablecontextmenu}}1{{/disablecontextmenu}}{{^disablecontextmenu}}0{{/disablecontextmenu}}">
+        <audio class="mod-videoplayer-native-audio js-drive-resource-audio"
+               src="{{audiourl}}"
+               controls
+               preload="metadata"
+               controlslist="nodownload"
+               {{#disabledownload}}disablepictureinpicture{{/disabledownload}}>
+            {{#str}} audionotsupported, mod_videoplayer {{/str}}
+        </audio>
+        {{#enablewatermark}}
+            <div class="mod-videoplayer-audio-watermark" aria-hidden="true">{{watermark}}</div>
+        {{/enablewatermark}}
+    </div>
+</div>

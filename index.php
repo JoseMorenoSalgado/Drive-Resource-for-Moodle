@@ -1,18 +1,5 @@
 <?php
 // This file is part of Moodle - http://moodle.org/
-//
-// Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Moodle is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
  * Course index page for mod_videoplayer.
@@ -24,6 +11,8 @@
 
 require(__DIR__ . '/../../config.php');
 require_once(__DIR__ . '/lib.php');
+
+use mod_videoplayer\local\drive;
 
 $id = required_param('id', PARAM_INT);
 
@@ -38,12 +27,6 @@ $PAGE->set_title(get_string('modulenameplural', 'mod_videoplayer'));
 $PAGE->set_heading(format_string($course->fullname));
 $PAGE->set_context($coursecontext);
 $PAGE->navbar->add(get_string('modulenameplural', 'mod_videoplayer'));
-
-$event = \mod_videoplayer\event\course_module_instance_list_viewed::create([
-    'context' => $coursecontext,
-]);
-$event->add_record_snapshot('course', $course);
-$event->trigger();
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('modulenameplural', 'mod_videoplayer'));
@@ -68,6 +51,12 @@ $table->head = [
 ];
 $table->attributes['class'] = 'generaltable mod-videoplayer-index';
 
+$instanceids = array_values(array_unique(array_map(
+    static fn($cm): int => (int)$cm->instance,
+    $cms
+)));
+$instances = $instanceids ? $DB->get_records_list('videoplayer', 'id', $instanceids) : [];
+
 foreach ($cms as $cm) {
     if (!$cm->uservisible) {
         continue;
@@ -78,12 +67,15 @@ foreach ($cms as $cm) {
         continue;
     }
 
-    $instance = $DB->get_record('videoplayer', ['id' => $cm->instance]);
+    $instance = $instances[$cm->instance] ?? null;
     if (!$instance) {
         continue;
     }
 
-    $type = empty($instance->type) ? 'auto' : clean_param($instance->type, PARAM_ALPHANUMEXT);
+    $type = empty($instance->type) ? drive::TYPE_AUTO : clean_param($instance->type, PARAM_ALPHANUMEXT);
+    if ($type === drive::TYPE_AUTO) {
+        $type = drive::detect_type((string)($instance->videourl ?? ''));
+    }
     $typestring = get_string_manager()->string_exists('type' . $type, 'mod_videoplayer')
         ? get_string('type' . $type, 'mod_videoplayer')
         : get_string('typefile', 'mod_videoplayer');

@@ -1,78 +1,88 @@
 {{!
-    This file is part of Moodle - http://moodle.org/
-
-    @template mod_videoplayer/video
-
-    Protected HTML5 video viewer with precise playback progress state.
-    Example context (json):
-    {
-        "type": "video",
-        "cmid": 42,
-        "trackingcmid": 42,
-        "resourcetype": "Resource type: Video",
-        "videourl": "https://example.invalid/protected.php?id=42",
-        "videomimetype": "video/mp4",
-        "title": "Protected video",
-        "disablecontextmenu": true,
-        "lastsecond": 15.5,
-        "totalseconds": 120,
-        "initialtimespent": 20,
-        "watchedranges": "[[0,15.5]]",
-        "completionpercent": 12.92,
-        "completed": false
-    }
-
+    Protected native HTML5 video player. Only Moodle protected endpoints are exposed to the browser.
 }}
-<div class="mod-videoplayer-container mod-videoplayer-native" data-resource-type="{{type}}" data-cmid="{{cmid}}"{{#playerstyle}} style="{{playerstyle}}"{{/playerstyle}}>
+<div class="mod-videoplayer-container mod-videoplayer-custom-video js-custom-video-player"
+     data-resource-type="{{type}}"
+     data-cmid="{{cmid}}"
+     data-initial-position="{{initialposition}}"
+     data-initial-duration="{{initialduration}}"
+     data-initial-timespent="{{initialtimespent}}"
+     data-tracking-enabled="{{#trackprogress}}1{{/trackprogress}}{{^trackprogress}}0{{/trackprogress}}"
+     data-disable-context-menu="{{#disablecontextmenu}}1{{/disablecontextmenu}}{{^disablecontextmenu}}0{{/disablecontextmenu}}"
+     {{#playerstyle}}style="{{playerstyle}}"{{/playerstyle}}>
     <div class="mod-videoplayer-meta mb-2">
-        {{#showresourcetype}}
-            <span class="mod-videoplayer-meta-item">{{resourcetype}}</span>
-        {{/showresourcetype}}
+        {{#showresourcetype}}<span class="mod-videoplayer-meta-item">{{resourcetype}}</span>{{/showresourcetype}}
         <span class="mod-videoplayer-meta-item">{{#str}} protectedresource, mod_videoplayer {{/str}}</span>
-        {{#completionpercent}}
-            <span class="mod-videoplayer-meta-item" data-region="video-progress">{{completionpercent}}%</span>
-        {{/completionpercent}}
+        <span class="mod-videoplayer-meta-item js-video-progress-label">{{completionpercent}}%</span>
     </div>
 
-    <div class="mod-videoplayer-native-frame" {{#disablecontextmenu}}oncontextmenu="return false;"{{/disablecontextmenu}}>
-        <video
-            class="mod-videoplayer-native-video js-drive-resource-video"
-            controls
-            draggable="false"
-            {{#disablecontextmenu}}oncontextmenu="return false;"{{/disablecontextmenu}}
-            playsinline
-            preload="metadata"
-            data-cmid="{{trackingcmid}}"
-            data-disable-context-menu="{{#disablecontextmenu}}1{{/disablecontextmenu}}{{^disablecontextmenu}}0{{/disablecontextmenu}}"
-            data-initial-second="{{lastsecond}}"
-            data-total-seconds="{{totalseconds}}"
-            data-initial-time-spent="{{initialtimespent}}"
-            data-watched-ranges="{{watchedranges}}"
-            data-initial-completion="{{completionpercent}}"
-            data-initial-completed="{{#completed}}1{{/completed}}{{^completed}}0{{/completed}}"
-            title="{{title}}">
-            <source src="{{videourl}}"{{#videomimetype}} type="{{videomimetype}}"{{/videomimetype}}>
+    <div class="mod-videoplayer-native-frame mod-videoplayer-own-player js-native-video-frame"
+         data-primary-src="{{videourl}}"
+         data-fallback-src="{{videofallbackurl}}"
+         tabindex="0"
+         aria-label="{{title}}">
+        <video class="mod-videoplayer-native-video js-drive-resource-video"
+               preload="metadata"
+               playsinline
+               webkit-playsinline
+               disablepictureinpicture
+               controlslist="nodownload"
+               draggable="false">
             {{#str}} videonotsupported, mod_videoplayer {{/str}}
         </video>
 
-        <div
-            class="mod-videoplayer-video-health"
-            data-region="video-health"
-            data-message-codec="{{#str}} videocodecunsupported, mod_videoplayer {{/str}}"
-            data-message-generic="{{#str}} videogenericerror, mod_videoplayer {{/str}}"
-            data-message-network="{{#str}} videonetworkerror, mod_videoplayer {{/str}}"
-            data-message-unavailable="{{#str}} videoprotectedunavailable, mod_videoplayer {{/str}}"
-            role="status"
-            aria-live="polite"
-            hidden>
-            <div class="mod-videoplayer-video-health-card">
-                <div class="mod-videoplayer-video-health-icon" aria-hidden="true">!</div>
-                <strong class="mod-videoplayer-video-health-title">{{#str}} videoplaybackproblem, mod_videoplayer {{/str}}</strong>
-                <p class="mod-videoplayer-video-health-message" data-region="video-health-message"></p>
-                <button type="button" class="btn btn-light mod-videoplayer-video-health-retry" data-action="retry-video">
-                    {{#str}} videoretry, mod_videoplayer {{/str}}
-                </button>
+        {{#enablewatermark}}
+            <div class="mod-videoplayer-video-watermark" aria-hidden="true">{{watermark}}</div>
+        {{/enablewatermark}}
+
+        <div class="mod-videoplayer-video-loading js-video-loading" aria-live="polite">
+            <span class="mod-videoplayer-video-spinner" aria-hidden="true"></span>
+            <span>{{#str}} videoloading, mod_videoplayer {{/str}}</span>
+        </div>
+
+        <button type="button" class="mod-videoplayer-big-play js-video-big-play" aria-label="{{#str}} videoplay, mod_videoplayer {{/str}}">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10-6.5z"/></svg>
+        </button>
+
+        <div class="mod-videoplayer-video-error js-video-error" hidden role="alert">
+            <strong>{{#str}} videoerror, mod_videoplayer {{/str}}</strong>
+            <span>{{#str}} videoerrorhelp, mod_videoplayer {{/str}}</span>
+            <button type="button" class="btn btn-light btn-sm js-video-retry">{{#str}} retry, mod_videoplayer {{/str}}</button>
+        </div>
+
+        <div class="mod-videoplayer-own-controls js-video-controls">
+            <button type="button" class="mod-videoplayer-control-button js-video-toggle" aria-label="{{#str}} videoplay, mod_videoplayer {{/str}}" data-label-play="{{#str}} videoplay, mod_videoplayer {{/str}}" data-label-pause="{{#str}} videopause, mod_videoplayer {{/str}}">
+                <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+                <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zm6 0h4v14h-4z"/></svg>
+            </button>
+
+            <span class="mod-videoplayer-time js-video-current">0:00</span>
+            <div class="mod-videoplayer-seek-wrap">
+                <div class="mod-videoplayer-buffer js-video-buffer"></div>
+                <input type="range" class="mod-videoplayer-seek js-video-seek" min="0" max="1000" value="0" step="1" aria-label="{{#str}} videoseek, mod_videoplayer {{/str}}">
             </div>
+            <span class="mod-videoplayer-time js-video-duration">0:00</span>
+
+            <label class="sr-only" for="video-speed-{{cmid}}">{{#str}} videospeed, mod_videoplayer {{/str}}</label>
+            <select id="video-speed-{{cmid}}" class="mod-videoplayer-speed js-video-speed" aria-label="{{#str}} videospeed, mod_videoplayer {{/str}}">
+                <option value="0.5">0.5×</option>
+                <option value="0.75">0.75×</option>
+                <option value="1" selected>1×</option>
+                <option value="1.25">1.25×</option>
+                <option value="1.5">1.5×</option>
+                <option value="2">2×</option>
+            </select>
+
+            <button type="button" class="mod-videoplayer-control-button js-video-mute" aria-label="{{#str}} videomute, mod_videoplayer {{/str}}" data-label-mute="{{#str}} videomute, mod_videoplayer {{/str}}" data-label-unmute="{{#str}} videounmute, mod_videoplayer {{/str}}">
+                <svg class="icon-volume" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4zm11.5.2v5.6c1.2-.7 2-1.7 2-2.8s-.8-2.1-2-2.8zm0-4v2.1c2.4.8 4 2.5 4 4.7s-1.6 3.9-4 4.7v2.1c3.6-.9 6-3.5 6-6.8s-2.4-5.9-6-6.8z"/></svg>
+                <svg class="icon-muted" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4zm12.3 3 2.3-2.3-1.4-1.4-2.3 2.3-2.3-2.3-1.4 1.4 2.3 2.3-2.3 2.3 1.4 1.4 2.3-2.3 2.3 2.3 1.4-1.4z"/></svg>
+            </button>
+            <input type="range" class="mod-videoplayer-volume js-video-volume" min="0" max="1" value="1" step="0.05" aria-label="{{#str}} videovolume, mod_videoplayer {{/str}}">
+
+            <button type="button" class="mod-videoplayer-control-button js-video-fullscreen" aria-label="{{#str}} fullscreen, mod_videoplayer {{/str}}">
+                <svg class="icon-expand" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zm-3-12v2h3v3h2V5h-5z"/></svg>
+                <svg class="icon-compress" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>
+            </button>
         </div>
     </div>
 </div>

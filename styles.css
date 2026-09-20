@@ -1,8 +1,821 @@
-/*
- * Drive Resource intentionally keeps this global stylesheet empty.
- *
- * Moodle compiles a module's styles.css into the site-wide theme bundle, so
- * activity-viewer rules must not live here. Viewer styles are loaded only from
- * view.php through styles_activity.css to avoid interfering with course
- * formats, themes, navigation, modals, cards, or other plugins.
- */
+.mod-videoplayer-container {
+    width: 100%;
+    --mod-videoplayer-surface: #ffffff;
+    --mod-videoplayer-muted: #64748b;
+    --mod-videoplayer-border: rgba(15, 23, 42, .12);
+    --mod-videoplayer-shadow: 0 18px 45px rgba(15, 23, 42, .12);
+    --mod-videoplayer-radius: 1.25rem;
+}
+
+.mod-videoplayer-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem .75rem;
+    color: var(--mod-videoplayer-muted);
+    font-size: .875rem;
+}
+
+.mod-videoplayer-meta-item {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1.3;
+    border: 1px solid var(--mod-videoplayer-border);
+    border-radius: 999px;
+    padding: .35rem .75rem;
+    background: rgba(255, 255, 255, .85);
+}
+
+.mod-videoplayer-no-scroll {
+    overflow: hidden !important;
+    height: 100% !important;
+}
+
+.mod-videoplayer-native-frame {
+    position: relative;
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border-radius: 14px;
+    background: #000;
+    box-shadow: 0 10px 25px rgba(15, 23, 42, .12);
+}
+
+.mod-videoplayer-native-frame.is-portrait-video {
+    max-width: min(520px, 100%);
+    aspect-ratio: 9 / 16;
+}
+
+.mod-videoplayer-native-frame.is-square-video {
+    max-width: min(720px, 100%);
+    aspect-ratio: 1 / 1;
+}
+
+
+.mod-videoplayer-native-video {
+    background: #000;
+}
+
+.mod-videoplayer-native-video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
+}
+
+.mod-videoplayer-pdfjs-viewer {
+    position: relative;
+    width: 100%;
+    max-width: 1120px;
+    margin: 0 auto;
+    overflow: hidden;
+    border: 1px solid var(--mod-videoplayer-border);
+    border-radius: var(--mod-videoplayer-radius);
+    background: linear-gradient(135deg, #f8fafc, #eef2ff);
+    box-shadow: var(--mod-videoplayer-shadow);
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.mod-videoplayer-pdfjs-viewer * {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.mod-videoplayer-pdfjs-topbar {
+    display: none !important;
+}
+
+.mod-videoplayer-pdfjs-canvas-wrap {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    width: 100%;
+    min-height: 70vh;
+    padding: 1.5rem;
+    overflow: auto;
+    background: #eef2f7;
+    scroll-behavior: smooth;
+}
+
+.mod-videoplayer-pdfjs-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 12;
+    pointer-events: none;
+}
+
+.mod-videoplayer-pdfjs-control {
+    position: absolute;
+    z-index: 13;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 0;
+    border-radius: 999px;
+    color: #0f172a;
+    background: rgba(255, 255, 255, .86);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, .18);
+    backdrop-filter: blur(10px);
+    cursor: pointer;
+    pointer-events: auto;
+    transition: transform .15s ease, background .15s ease, opacity .15s ease;
+}
+
+.mod-videoplayer-pdfjs-control:hover,
+.mod-videoplayer-pdfjs-control:focus {
+    background: #fff;
+    transform: scale(1.04);
+    outline: 2px solid rgba(6, 182, 201, .22);
+    outline-offset: 2px;
+}
+
+.mod-videoplayer-pdfjs-control:disabled {
+    opacity: .35;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.mod-videoplayer-pdfjs-control-prev,
+.mod-videoplayer-pdfjs-control-next {
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 2.25rem;
+    line-height: 1;
+}
+
+.mod-videoplayer-pdfjs-control-prev:hover,
+.mod-videoplayer-pdfjs-control-prev:focus,
+.mod-videoplayer-pdfjs-control-next:hover,
+.mod-videoplayer-pdfjs-control-next:focus {
+    transform: translateY(-50%) scale(1.04);
+}
+
+.mod-videoplayer-pdfjs-control-prev {
+    left: .75rem;
+}
+
+.mod-videoplayer-pdfjs-control-next {
+    right: .75rem;
+}
+
+.mod-videoplayer-pdfjs-control-fullscreen {
+    top: .75rem;
+    right: .75rem;
+    width: 2.45rem;
+    height: 2.45rem;
+    font-size: 1.15rem;
+    color: #ffffff;
+    background: rgba(6, 182, 201, .95);
+}
+
+.mod-videoplayer-pdfjs-control-fullscreen:hover,
+.mod-videoplayer-pdfjs-control-fullscreen:focus {
+    background: #0891b2;
+}
+
+.mod-videoplayer-pdfjs-page-status {
+    position: absolute;
+    top: .75rem;
+    left: 50%;
+    z-index: 13;
+    min-width: 4rem;
+    padding: .35rem .7rem;
+    border-radius: 999px;
+    text-align: center;
+    font-weight: 700;
+    color: #0f172a;
+    background: rgba(255, 255, 255, .88);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, .12);
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+
+.mod-videoplayer-pdfjs-canvas {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    pointer-events: none;
+    user-select: none;
+    border-radius: .5rem;
+    background: #fff;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, .28);
+    transition: opacity .16s ease, transform .16s ease;
+    -webkit-user-drag: none;
+}
+
+.mod-videoplayer-pdfjs-canvas.is-rendering {
+    opacity: .72;
+    transform: scale(.995);
+}
+
+
+
+
+
+
+.mod-videoplayer-pdfjs-loading {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    gap: .8rem;
+    align-items: center;
+    justify-content: center;
+    color: #4b5563;
+    font-weight: 700;
+    background: linear-gradient(180deg, rgba(248, 250, 252, .96), rgba(238, 242, 247, .96));
+}
+
+.mod-videoplayer-pdfjs-spinner {
+    width: 2rem;
+    height: 2rem;
+    border: 3px solid #d1d5db;
+    border-top-color: #06b6c9;
+    border-radius: 50%;
+    animation: modvideoplayer-spin .8s linear infinite;
+}
+
+.mod-videoplayer-watermark {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    user-select: none;
+    transform: rotate(-28deg);
+    color: rgba(15, 23, 42, .10);
+    font-size: clamp(1.5rem, 4vw, 4rem);
+    font-weight: 800;
+    text-align: center;
+    letter-spacing: .08em;
+    padding: 2rem;
+}
+
+.mod-videoplayer-achievements {
+    position: absolute;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 30;
+    width: min(22rem, calc(100% - 2rem));
+}
+
+.mod-videoplayer-reward {
+    box-shadow: 0 10px 24px rgba(15, 23, 42, .18);
+}
+
+.mod-videoplayer-container .is-fallback-fullscreen,
+.mod-videoplayer-container.is-fallback-fullscreen {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 1055 !important;
+    max-width: none !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    border-radius: 0 !important;
+}
+
+.mod-videoplayer-container .is-fallback-fullscreen .mod-videoplayer-pdfjs-canvas-wrap,
+.mod-videoplayer-container.is-fallback-fullscreen .mod-videoplayer-pdfjs-canvas-wrap {
+    min-height: 100vh;
+}
+
+@keyframes modvideoplayer-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 767.98px) {
+    .mod-videoplayer-container {
+        --mod-videoplayer-radius: .85rem;
+        --mod-videoplayer-shadow: 0 10px 22px rgba(15, 23, 42, .10);
+    }
+
+    .mod-videoplayer-meta {
+        gap: .35rem;
+        font-size: .8rem;
+    }
+
+    .mod-videoplayer-meta-item {
+        padding: .28rem .55rem;
+    }
+
+    .mod-videoplayer-pdfjs-viewer {
+        border-radius: .85rem;
+    }
+
+    .mod-videoplayer-pdfjs-canvas-wrap {
+        min-height: 60vh;
+        padding: .6rem;
+    }
+
+    .mod-videoplayer-pdfjs-control {
+        width: 2.35rem;
+        height: 2.35rem;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, .16);
+    }
+
+    .mod-videoplayer-pdfjs-control-prev,
+    .mod-videoplayer-pdfjs-control-next {
+        font-size: 2rem;
+    }
+
+    .mod-videoplayer-pdfjs-control-prev {
+        left: .35rem;
+    }
+
+    .mod-videoplayer-pdfjs-control-next {
+        right: .35rem;
+    }
+
+    .mod-videoplayer-pdfjs-control-fullscreen {
+        top: .45rem;
+        right: .45rem;
+        width: 2.15rem;
+        height: 2.15rem;
+        font-size: 1rem;
+    }
+
+    .mod-videoplayer-pdfjs-page-status {
+        top: .45rem;
+        min-width: 3.25rem;
+        padding: .25rem .55rem;
+        font-size: .82rem;
+    }
+
+    .mod-videoplayer-pdfjs-canvas {
+        border-radius: .45rem;
+        box-shadow: 0 10px 20px rgba(15, 23, 42, .20);
+    }
+}
+
+/* Native HTML5 video player (Moodle 4.5 compatibility path). */
+.mod-videoplayer-native-frame .mod-videoplayer-native-video,
+.mod-videoplayer-native-frame .mod-videoplayer-video-fallback {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+.mod-videoplayer-video-fallback {
+    background: #000;
+}
+
+.mod-videoplayer-video-loading {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .75rem;
+    padding: 1rem;
+    background: #000;
+    color: #fff;
+    font-size: .95rem;
+    text-align: center;
+    pointer-events: none;
+}
+
+.mod-videoplayer-video-loading[hidden] {
+    display: none !important;
+}
+
+.mod-videoplayer-video-spinner {
+    width: 2rem;
+    height: 2rem;
+    border: 3px solid rgba(255, 255, 255, .35);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: modvideoplayer-video-spin .8s linear infinite;
+}
+
+@keyframes modvideoplayer-video-spin {
+    to { transform: rotate(360deg); }
+}
+
+
+/* Moodle-native custom video player. Google Drive UI is never rendered. */
+.mod-videoplayer-own-player {
+    --mod-videoplayer-accent: var(--mod-videoplayer-player-color, var(--bs-primary, var(--primary, #3b82f6)));
+    isolation: isolate;
+    background: #050505;
+    cursor: pointer;
+    outline: none;
+}
+
+.mod-videoplayer-own-player:focus-visible {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, .22), 0 12px 30px rgba(15, 23, 42, .18);
+}
+
+.mod-videoplayer-own-player .mod-videoplayer-native-video {
+    z-index: 1;
+    object-fit: contain;
+    background: #000;
+}
+
+.mod-videoplayer-big-play {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 4.5rem;
+    height: 4.5rem;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, .2);
+    border-radius: 999px;
+    color: #fff;
+    background: color-mix(in srgb, var(--mod-videoplayer-accent) 88%, #000 12%);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, .35);
+    transform: translate(-50%, -50%);
+    transition: transform .16s ease, opacity .16s ease, background .16s ease;
+}
+
+.mod-videoplayer-big-play:hover,
+.mod-videoplayer-big-play:focus-visible {
+    transform: translate(-50%, -50%) scale(1.06);
+    outline: 2px solid rgba(255, 255, 255, .7);
+    outline-offset: 2px;
+}
+
+.mod-videoplayer-big-play svg {
+    width: 2rem;
+    height: 2rem;
+    margin-left: .18rem;
+    fill: currentColor;
+}
+
+.mod-videoplayer-big-play[hidden] {
+    display: none !important;
+}
+
+.mod-videoplayer-own-controls {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 7;
+    display: grid;
+    grid-template-columns: auto auto minmax(80px, 1fr) auto auto minmax(56px, 88px) auto;
+    align-items: center;
+    gap: .55rem;
+    min-height: 4.25rem;
+    padding: 1.35rem .9rem .65rem;
+    color: #fff;
+    background: linear-gradient(0deg, rgba(0, 0, 0, .88) 0%, rgba(0, 0, 0, .62) 55%, rgba(0, 0, 0, 0) 100%);
+    transition: opacity .18s ease, transform .18s ease;
+}
+
+.mod-videoplayer-own-player.controls-hidden .mod-videoplayer-own-controls {
+    opacity: 0;
+    transform: translateY(.35rem);
+    pointer-events: none;
+}
+
+.mod-videoplayer-control-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.45rem;
+    height: 2.45rem;
+    padding: 0;
+    border: 0;
+    border-radius: .7rem;
+    color: #fff;
+    background: transparent;
+    cursor: pointer;
+    transition: background .15s ease, transform .15s ease;
+}
+
+.mod-videoplayer-control-button:hover,
+.mod-videoplayer-control-button:focus-visible {
+    background: rgba(255, 255, 255, .14);
+    transform: translateY(-1px);
+    outline: none;
+}
+
+.mod-videoplayer-control-button svg {
+    width: 1.45rem;
+    height: 1.45rem;
+    fill: currentColor;
+}
+
+.mod-videoplayer-own-player .icon-pause,
+.mod-videoplayer-own-player .icon-muted,
+.mod-videoplayer-own-player .icon-compress {
+    display: none;
+}
+
+.mod-videoplayer-own-player.is-playing .icon-play,
+.mod-videoplayer-own-player.is-muted .icon-volume,
+.mod-videoplayer-own-player.is-fullscreen .icon-expand {
+    display: none;
+}
+
+.mod-videoplayer-own-player.is-playing .icon-pause,
+.mod-videoplayer-own-player.is-muted .icon-muted,
+.mod-videoplayer-own-player.is-fullscreen .icon-compress {
+    display: block;
+}
+
+.mod-videoplayer-time {
+    min-width: 2.8rem;
+    color: rgba(255, 255, 255, .94);
+    font-variant-numeric: tabular-nums;
+    font-size: .82rem;
+    font-weight: 650;
+    text-align: center;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .45);
+}
+
+.mod-videoplayer-seek-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 1.75rem;
+}
+
+.mod-videoplayer-buffer {
+    position: absolute;
+    left: 0;
+    width: 0;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .38);
+    pointer-events: none;
+}
+
+.mod-videoplayer-seek,
+.mod-videoplayer-volume {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    height: 4px;
+    margin: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .22);
+    cursor: pointer;
+}
+
+.mod-videoplayer-seek::-webkit-slider-thumb,
+.mod-videoplayer-volume::-webkit-slider-thumb {
+    width: 14px;
+    height: 14px;
+    appearance: none;
+    -webkit-appearance: none;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: var(--mod-videoplayer-accent);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .35);
+}
+
+.mod-videoplayer-seek::-moz-range-thumb,
+.mod-videoplayer-volume::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: var(--mod-videoplayer-accent);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .35);
+}
+
+.mod-videoplayer-volume {
+    min-width: 56px;
+}
+
+.mod-videoplayer-video-loading {
+    z-index: 4;
+    background: rgba(0, 0, 0, .72);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+
+.mod-videoplayer-video-spinner {
+    width: 2.65rem;
+    height: 2.65rem;
+    border-width: 4px;
+    border-top-color: var(--mod-videoplayer-accent);
+}
+
+.mod-videoplayer-video-error {
+    position: absolute;
+    inset: 0;
+    z-index: 8;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .55rem;
+    padding: 1.5rem;
+    color: #fff;
+    text-align: center;
+    background: rgba(2, 6, 23, .94);
+}
+
+.mod-videoplayer-video-error[hidden] {
+    display: none !important;
+}
+
+.mod-videoplayer-video-error strong {
+    font-size: 1.05rem;
+}
+
+.mod-videoplayer-video-error span {
+    max-width: 34rem;
+    color: rgba(255, 255, 255, .76);
+    font-size: .9rem;
+}
+
+.mod-videoplayer-own-player.has-video-error .mod-videoplayer-own-controls,
+.mod-videoplayer-own-player.has-video-error .mod-videoplayer-big-play {
+    display: none !important;
+}
+
+@media (max-width: 767.98px) {
+    .mod-videoplayer-own-player {
+        border-radius: 12px;
+        box-shadow: none;
+    }
+
+    .mod-videoplayer-big-play {
+        width: 3.8rem;
+        height: 3.8rem;
+    }
+
+    .mod-videoplayer-big-play svg {
+        width: 1.7rem;
+        height: 1.7rem;
+    }
+
+    .mod-videoplayer-own-controls {
+        grid-template-columns: auto auto minmax(60px, 1fr) auto auto;
+        gap: .32rem;
+        min-height: 3.7rem;
+        padding: 1.1rem .45rem .4rem;
+    }
+
+    .mod-videoplayer-own-controls .mod-videoplayer-volume,
+    .mod-videoplayer-own-controls > .mod-videoplayer-time:nth-of-type(2) {
+        display: none;
+    }
+
+    .mod-videoplayer-control-button {
+        width: 2.25rem;
+        height: 2.25rem;
+        border-radius: .55rem;
+    }
+
+    .mod-videoplayer-control-button svg {
+        width: 1.25rem;
+        height: 1.25rem;
+    }
+
+    .mod-videoplayer-time {
+        min-width: 2.45rem;
+        font-size: .76rem;
+    }
+}
+
+/* RC17 refactor: native-only media and protected resource presentation. */
+.mod-videoplayer-speed {
+    min-width: 4.5rem;
+    height: 2rem;
+    padding: 0 .35rem;
+    border: 1px solid rgba(255, 255, 255, .28);
+    border-radius: .45rem;
+    background: rgba(15, 23, 42, .72);
+    color: #fff;
+    font-size: .82rem;
+}
+
+.mod-videoplayer-video-watermark {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    z-index: 4;
+    max-width: 70%;
+    padding: .3rem .5rem;
+    border-radius: .4rem;
+    background: rgba(15, 23, 42, .52);
+    color: rgba(255, 255, 255, .86);
+    font-size: .72rem;
+    line-height: 1.2;
+    pointer-events: none;
+    user-select: none;
+}
+
+.mod-videoplayer-audio-card,
+.mod-videoplayer-generic-card {
+    position: relative;
+    padding: 1rem;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: .75rem;
+    background: var(--bs-body-bg, #fff);
+}
+
+.mod-videoplayer-native-audio {
+    display: block;
+    width: 100%;
+}
+
+.mod-videoplayer-audio-watermark {
+    margin-top: .5rem;
+    color: var(--bs-secondary-color, #6c757d);
+    font-size: .75rem;
+    text-align: right;
+    user-select: none;
+}
+
+.mod-videoplayer-image-frame {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    overflow: hidden;
+    margin: 0;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: .75rem;
+    background: #0f172a;
+}
+
+.mod-videoplayer-protected-image {
+    display: block;
+    max-width: 100%;
+    max-height: min(80vh, 1100px);
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    user-select: none;
+}
+
+.mod-videoplayer-image-watermark {
+    position: absolute;
+    right: 1rem;
+    bottom: 1rem;
+    padding: .3rem .5rem;
+    border-radius: .4rem;
+    background: rgba(15, 23, 42, .55);
+    color: rgba(255, 255, 255, .88);
+    font-size: .72rem;
+    pointer-events: none;
+}
+
+.mod-videoplayer-pdfjs-search {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin-bottom: .65rem;
+}
+
+.mod-videoplayer-pdfjs-search .form-control {
+    min-width: 12rem;
+    max-width: 28rem;
+}
+
+.mod-videoplayer-pdfjs-search-status {
+    min-width: 4.5rem;
+    color: var(--bs-secondary-color, #6c757d);
+    font-size: .875rem;
+}
+
+@media (max-width: 767.98px) {
+    .mod-videoplayer-speed {
+        min-width: 3.8rem;
+        font-size: .75rem;
+    }
+
+    .mod-videoplayer-video-watermark {
+        top: .5rem;
+        right: .5rem;
+        font-size: .65rem;
+    }
+
+    .mod-videoplayer-pdfjs-search {
+        flex-wrap: wrap;
+    }
+
+    .mod-videoplayer-pdfjs-search .form-control {
+        flex: 1 1 100%;
+        max-width: none;
+    }
+}

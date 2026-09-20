@@ -1,31 +1,33 @@
 <?php
 // This file is part of Moodle - http://moodle.org/
-//
-// Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Moodle is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace mod_videoplayer\output;
 
 /**
- * Output renderer for mod_videoplayer.
+ * Output renderer for Drive Resource.
  *
  * @package    mod_videoplayer
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class renderer extends \plugin_renderer_base {
+
     /**
-     * Render an invalid resource URL message.
+     * Render a learner resource view using the type-specific template selected
+     * by the view model.
+     *
+     * @param resource_view $view
+     * @return string
+     */
+    public function render_resource_view(resource_view $view): string {
+        return $this->render_from_template(
+            $view->template_name(),
+            $view->export_for_template($this)
+        );
+    }
+
+    /**
+     * Render an invalid resource message.
      *
      * @return string
      */

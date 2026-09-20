@@ -1,20 +1,9 @@
 <?php
 // This file is part of Moodle - http://moodle.org/
-//
-// Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Moodle is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace mod_videoplayer\local;
+
+use mod_videoplayer\local\stream\upstream_url_policy;
 
 /**
  * Local protected streaming and PDF cache service for Drive Resource.
@@ -27,6 +16,7 @@ namespace mod_videoplayer\local;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class protected_stream {
+
     /** @var int Private browser cache lifetime for authorised protected streams. */
     private const PRIVATE_CACHE_SECONDS = 300;
 
@@ -85,6 +75,20 @@ final class protected_stream {
      */
     public static function cache_file_for(string $fileid, string $type): string {
         return self::pdf_cache_dir() . '/' . self::cache_key($fileid, $type) . '.pdf';
+    }
+
+    /**
+     * Invalidate one cached Google Drive PDF representation.
+     *
+     * @param string $fileid Google Drive file id.
+     * @param string $type Resource type.
+     * @return void
+     */
+    public static function invalidate_pdf_cache(string $fileid, string $type): void {
+        if ($fileid === '') {
+            return;
+        }
+        self::delete_if_file(self::cache_file_for($fileid, $type));
     }
 
     /**
@@ -250,6 +254,11 @@ final class protected_stream {
      * @return bool Whether a valid PDF was cached.
      */
     public static function warm_drive_pdf_cache(string $url, string $cachefile): bool {
+        if (!upstream_url_policy::is_allowed($url)) {
+            debugging('Drive Resource PDF cache rejected a non-allowlisted upstream URL.', DEBUG_DEVELOPER);
+            return false;
+        }
+
         $cachedir = dirname($cachefile);
         if (!is_dir($cachedir)) {
             make_writable_directory($cachedir);
@@ -521,12 +530,6 @@ final class protected_stream {
             CURLOPT_COOKIEFILE => $cookiejar,
             CURLOPT_FILE => $handle,
         ]);
-        if (defined('CURLOPT_PROTOCOLS') && defined('CURLPROTO_HTTPS')) {
-            curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTPS);
-        }
-        if (defined('CURLOPT_REDIR_PROTOCOLS') && defined('CURLPROTO_HTTPS')) {
-            curl_setopt($ch, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTPS);
-        }
 
         $result = curl_exec($ch);
         $curlerror = curl_error($ch);

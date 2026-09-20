@@ -1,179 +1,69 @@
 {{!
-    This file is part of Moodle - http://moodle.org/
-
-    Moodle is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    Moodle is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+    Local PDF.js viewer for PDF, Google Docs, Sheets and Slides exports.
 }}
-{{!
-    @template mod_videoplayer/pdfjs
-
-    Stable protected PDF.js viewer.
-
-    Example context (json):
-    {
-        "type": "pdf",
-        "cmid": 42,
-        "resourcetype": "Resource type: PDF",
-        "completionpercent": 25,
-        "initialpage": 1,
-        "totalpages": 10,
-        "points": 5,
-        "pdfurl": "https://example.com/protected.php?id=42",
-        "title": "Example protected PDF",
-        "displaymode": "pdfjs",
-        "disablecontextmenu": true,
-        "enablewatermark": true,
-        "enablegamification": true,
-        "watermark": "Example learner"
-    }
-}}
-<div class="mod-videoplayer-container mod-videoplayer-pdfjs"
-     data-resource-type="{{type}}"
-     data-cmid="{{trackingcmid}}">
+<div class="mod-videoplayer-container mod-videoplayer-pdfjs" data-resource-type="{{type}}" data-cmid="{{cmid}}">
     <div class="mod-videoplayer-meta mb-2">
-        {{#showresourcetype}}
-            <span class="mod-videoplayer-meta-item">{{resourcetype}}</span>
-        {{/showresourcetype}}
+        {{#showresourcetype}}<span class="mod-videoplayer-meta-item">{{resourcetype}}</span>{{/showresourcetype}}
         <span class="mod-videoplayer-meta-item">{{#str}} protectedresource, mod_videoplayer {{/str}}</span>
-        {{#completionpercent}}
-            <span class="mod-videoplayer-meta-item" data-region="pdfjs-progress">{{completionpercent}}%</span>
-        {{/completionpercent}}
+        <span class="mod-videoplayer-meta-item" data-region="pdfjs-progress">{{completionpercent}}%</span>
         {{#enablegamification}}
-            <span class="mod-videoplayer-meta-item">
-                {{#str}} points, mod_videoplayer {{/str}}:
-                <strong data-region="pdfjs-points">{{points}}</strong>
-            </span>
+            <span class="mod-videoplayer-meta-item" data-region="pdfjs-points">{{points}} {{#str}} points, mod_videoplayer {{/str}}</span>
         {{/enablegamification}}
+    </div>
+
+    <div data-region="pdfjs-achievements" aria-live="polite"></div>
+
+    <div class="mod-videoplayer-resume alert alert-info" data-region="pdfjs-resume" {{^totalpages}}hidden{{/totalpages}}>
+        {{#str}} resumereading, mod_videoplayer {{/str}}
+        <strong>{{initialpage}}</strong>{{#totalpages}} / {{totalpages}}{{/totalpages}}
     </div>
 
     <div class="mod-videoplayer-pdfjs-viewer"
          data-pdf-url="{{pdfurl}}"
          data-title="{{title}}"
-         data-cmid="{{trackingcmid}}"
+         data-cmid="{{cmid}}"
          data-initial-page="{{initialpage}}"
-         data-initial-progress="{{initialprogress}}"
-         data-initial-time-spent="{{initialtimespent}}"
-         data-initial-completion="{{completionpercent}}"
-         data-initial-completed="{{#completed}}1{{/completed}}{{^completed}}0{{/completed}}"
-         data-visited-pages="{{visitedpages}}"
-         data-search-not-found="{{#str}} searchpdfnotfound, mod_videoplayer {{/str}}"
-         data-search-result-page="{{#str}} searchpdfresultpage, mod_videoplayer {{/str}}"
-         data-display-mode="pdfjs"
+         data-initial-timespent="{{initialtimespent}}"
+         data-tracking-enabled="{{#trackprogress}}1{{/trackprogress}}{{^trackprogress}}0{{/trackprogress}}"
+         data-points-label="{{#str}} points, mod_videoplayer {{/str}}"
+         data-searching-text="{{#str}} searching, mod_videoplayer {{/str}}"
+         data-no-matches-text="{{#str}} nomatches, mod_videoplayer {{/str}}"
+         data-display-mode="standard"
          data-disable-context-menu="{{#disablecontextmenu}}1{{/disablecontextmenu}}{{^disablecontextmenu}}0{{/disablecontextmenu}}"
-         data-watermark="{{#enablewatermark}}{{watermark}}{{/enablewatermark}}"
-         oncontextmenu="return false;">
-        <form class="mod-videoplayer-pdfjs-searchbar" data-region="pdf-search-form" role="search">
-            <label class="sr-only visually-hidden" for="mod-videoplayer-pdf-search-{{cmid}}">
-                {{#str}} searchpdf, mod_videoplayer {{/str}}
-            </label>
-            <input id="mod-videoplayer-pdf-search-{{cmid}}"
-                   class="form-control mod-videoplayer-pdfjs-search-input"
-                   type="search"
-                   data-region="pdf-search-input"
-                   placeholder="{{#str}} searchpdfplaceholder, mod_videoplayer {{/str}}"
-                   autocomplete="off">
-            <button type="submit"
-                    class="btn btn-secondary mod-videoplayer-pdfjs-search-button"
-                    data-action="search-pdf">
-                {{#str}} searchpdf, mod_videoplayer {{/str}}
-            </button>
-            <span class="mod-videoplayer-pdfjs-search-status"
-                  data-region="pdf-search-status"
-                  aria-live="polite"></span>
-        </form>
-
-        <div class="mod-videoplayer-pdfjs-overlay" aria-label="{{title}}">
-            <button type="button"
-                    class="mod-videoplayer-pdfjs-control mod-videoplayer-pdfjs-control-prev"
-                    data-action="previous-page"
-                    title="{{#str}} previouspage, mod_videoplayer {{/str}}"
-                    aria-label="{{#str}} previouspage, mod_videoplayer {{/str}}">
-                <span aria-hidden="true">‹</span>
-            </button>
-
-            <button type="button"
-                    class="mod-videoplayer-pdfjs-control mod-videoplayer-pdfjs-control-zoomout"
-                    data-action="zoom-out"
-                    title="{{#str}} zoomout, mod_videoplayer {{/str}}"
-                    aria-label="{{#str}} zoomout, mod_videoplayer {{/str}}">
-                <span aria-hidden="true">−</span>
-            </button>
-
-            <span class="mod-videoplayer-pdfjs-page-status" aria-live="polite">
-                <span data-region="current-page">1</span> /
-                <span data-region="total-pages">-</span>
-                <span class="mod-videoplayer-pdfjs-zoom-status" data-region="zoom-level">100%</span>
-            </span>
-
-            <button type="button"
-                    class="mod-videoplayer-pdfjs-control mod-videoplayer-pdfjs-control-zoomin"
-                    data-action="zoom-in"
-                    title="{{#str}} zoomin, mod_videoplayer {{/str}}"
-                    aria-label="{{#str}} zoomin, mod_videoplayer {{/str}}">
-                <span aria-hidden="true">+</span>
-            </button>
-
-            <button type="button"
-                    class="mod-videoplayer-pdfjs-control mod-videoplayer-pdfjs-control-fit"
-                    data-action="fit-screen"
-                    title="{{#str}} fittoscreen, mod_videoplayer {{/str}}"
-                    aria-label="{{#str}} fittoscreen, mod_videoplayer {{/str}}">
-                <span aria-hidden="true">⤢</span>
-            </button>
-
-            <button type="button"
-                    class="mod-videoplayer-pdfjs-control mod-videoplayer-pdfjs-control-fullscreen"
-                    data-action="fullscreen"
-                    title="{{#str}} fullscreen, mod_videoplayer {{/str}}"
-                    aria-label="{{#str}} fullscreen, mod_videoplayer {{/str}}">
-                <span aria-hidden="true">⛶</span>
-            </button>
-
-            <button type="button"
-                    class="mod-videoplayer-pdfjs-control mod-videoplayer-pdfjs-control-next"
-                    data-action="next-page"
-                    title="{{#str}} nextpage, mod_videoplayer {{/str}}"
-                    aria-label="{{#str}} nextpage, mod_videoplayer {{/str}}">
-                <span aria-hidden="true">›</span>
-            </button>
+         data-watermark="{{#enablewatermark}}{{watermark}}{{/enablewatermark}}">
+        <div class="mod-videoplayer-pdfjs-search" data-region="pdfjs-search">
+            <label class="sr-only" for="pdf-search-{{cmid}}">{{#str}} searchpdf, mod_videoplayer {{/str}}</label>
+            <input id="pdf-search-{{cmid}}" type="search" class="form-control form-control-sm" data-region="pdfjs-search-input" placeholder="{{#str}} searchpdf, mod_videoplayer {{/str}}">
+            <button type="button" class="btn btn-secondary btn-sm" data-action="search-pdf">{{#str}} search, core {{/str}}</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-action="search-next" disabled>{{#str}} nextmatch, mod_videoplayer {{/str}}</button>
+            <span class="mod-videoplayer-pdfjs-search-status" data-region="pdfjs-search-status" aria-live="polite"></span>
         </div>
 
-        <div class="mod-videoplayer-pdfjs-canvas-wrap" oncontextmenu="return false;">
+        <div class="mod-videoplayer-pdfjs-canvas-wrap">
             <div class="mod-videoplayer-pdfjs-loading" data-region="pdfjs-loading">
                 <span class="mod-videoplayer-pdfjs-spinner" aria-hidden="true"></span>
                 <span>{{#str}} loadingpdf, mod_videoplayer {{/str}}</span>
             </div>
 
-            <div class="mod-videoplayer-pdfjs-canvas-stage" data-region="pdfjs-stage">
-                <canvas class="mod-videoplayer-pdfjs-canvas"
-                        draggable="false"
-                        oncontextmenu="return false;"></canvas>
-                {{#enablewatermark}}
-                    <div class="mod-videoplayer-watermark" aria-hidden="true">{{watermark}}</div>
-                {{/enablewatermark}}
+            <div class="mod-videoplayer-pdfjs-overlay" aria-label="{{title}}">
+                <button type="button" class="mod-videoplayer-pdfjs-control mod-videoplayer-pdfjs-control-prev" data-action="previous-page" title="{{#str}} previouspage, mod_videoplayer {{/str}}" aria-label="{{#str}} previouspage, mod_videoplayer {{/str}}"><span aria-hidden="true">‹</span></button>
+                <button type="button" class="mod-videoplayer-pdfjs-control mod-videoplayer-pdfjs-control-zoomout" data-action="zoom-out" title="{{#str}} zoomout, mod_videoplayer {{/str}}" aria-label="{{#str}} zoomout, mod_videoplayer {{/str}}"><span aria-hidden="true">−</span></button>
+                <span class="mod-videoplayer-pdfjs-page-status" aria-live="polite">
+                    <span data-region="current-page">1</span> / <span data-region="total-pages">-</span>
+                    <span class="mod-videoplayer-pdfjs-zoom-status" data-region="zoom-level">100%</span>
+                </span>
+                <button type="button" class="mod-videoplayer-pdfjs-control mod-videoplayer-pdfjs-control-zoomin" data-action="zoom-in" title="{{#str}} zoomin, mod_videoplayer {{/str}}" aria-label="{{#str}} zoomin, mod_videoplayer {{/str}}"><span aria-hidden="true">+</span></button>
+                <button type="button" class="mod-videoplayer-pdfjs-control mod-videoplayer-pdfjs-control-fit" data-action="fit-screen" title="{{#str}} fitscreen, mod_videoplayer {{/str}}" aria-label="{{#str}} fitscreen, mod_videoplayer {{/str}}"><span aria-hidden="true">⤢</span></button>
+                <button type="button" class="mod-videoplayer-pdfjs-control mod-videoplayer-pdfjs-control-fullscreen" data-action="fullscreen" title="{{#str}} fullscreen, mod_videoplayer {{/str}}" aria-label="{{#str}} fullscreen, mod_videoplayer {{/str}}"><span aria-hidden="true">⛶</span></button>
+                <button type="button" class="mod-videoplayer-pdfjs-control mod-videoplayer-pdfjs-control-next" data-action="next-page" title="{{#str}} nextpage, mod_videoplayer {{/str}}" aria-label="{{#str}} nextpage, mod_videoplayer {{/str}}"><span aria-hidden="true">›</span></button>
             </div>
+
+            <canvas class="mod-videoplayer-pdfjs-canvas" draggable="false"></canvas>
+            {{#enablewatermark}}
+                <div class="mod-videoplayer-watermark" aria-hidden="true">{{watermark}}</div>
+            {{/enablewatermark}}
         </div>
 
-        {{#enablegamification}}
-            <div class="mod-videoplayer-achievements"
-                 data-region="pdfjs-achievements"
-                 aria-live="polite"></div>
-        {{/enablegamification}}
-
-        <div class="mod-videoplayer-pdfjs-error alert alert-danger"
-             data-region="pdfjs-error"
-             hidden>
-            {{#str}} pdfjsrequired, mod_videoplayer {{/str}}
-        </div>
+        <div class="mod-videoplayer-pdfjs-error alert alert-danger" data-region="pdfjs-error" hidden>{{#str}} pdfjsrequired, mod_videoplayer {{/str}}</div>
     </div>
 </div>

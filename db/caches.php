@@ -2,7 +2,7 @@
 // This file is part of Moodle - http://moodle.org/
 
 /**
- * Scheduled task definitions for Drive Resource.
+ * Cache definitions for Drive Resource.
  *
  * @package    mod_videoplayer
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
@@ -11,14 +11,12 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$tasks = [
-    [
-        'classname' => '\\mod_videoplayer\\task\\cleanup_pdf_cache',
-        'blocking' => 0,
-        'minute' => '17',
-        'hour' => '*/6',
-        'day' => '*',
-        'month' => '*',
-        'dayofweek' => '*',
+$definitions = [
+    'drivestream' => [
+        'mode' => cache_store::MODE_APPLICATION,
+        'simplekeys' => true,
+        'simpledata' => true,
+        'staticacceleration' => true,
+        'ttl' => 300,
     ],
 ];
