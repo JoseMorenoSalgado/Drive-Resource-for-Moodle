@@ -24,6 +24,8 @@
  */
 
 
+use mod_videoplayer\local\drive;
+
 /**
  * Restore structure step for the videoplayer activity.
  */
