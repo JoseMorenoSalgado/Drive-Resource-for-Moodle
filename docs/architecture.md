@@ -71,7 +71,9 @@ protected.php?stream=source
   -> http_range_proxy
 ```
 
-The browser sees only the two Moodle protected URLs.
+The browser sees only Moodle protected URLs.
+
+Persistent buffering is handled as a recovery state rather than an immediate fatal error. `nativevideo.js` waits through short buffer underruns, then reloads the protected progressive endpoint with a server-side refresh flag while preserving `currentTime`. `drive_stream_resolver` bypasses its short-lived signed-URL cache for that recovery request. If the refreshed progressive stream remains unavailable, the player switches to the protected source stream. No upstream Google URL is returned to the browser.
 
 The current progressive resolver uses the public playback endpoint used by the Drive web client. It is intentionally isolated in `drive_stream_resolver` because it is an upstream compatibility integration and may need maintenance when Google changes its web playback service.
 
