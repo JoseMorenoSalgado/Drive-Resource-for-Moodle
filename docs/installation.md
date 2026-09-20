@@ -294,3 +294,9 @@ For Moodle 4.5 release validation, the shared PHPUnit suite must remain annotati
 After upgrading to release 1.1.32-rc5 or newer, purge Moodle caches and test at least one large Google Drive MP4 from an enrolled learner account. Confirm that playback starts, duration becomes available, seeking produces HTTP 206 responses from `/mod/videoplayer/protected.php`, and no Google Drive URL is visible in the page source.
 
 If the protected endpoint returns HTTP 502, enable Moodle developer debugging temporarily and inspect the safe `X-Drive-Resource-Status` response value plus the server log. Do not disable Moodle authentication/capability checks or expose the upstream Drive link as a workaround.
+
+## 1.1.32-rc6 upgrade verification
+
+After updating the plugin, run the Moodle upgrade so version `2026092002` seeds any missing Drive Resource configuration defaults and changes the database default resource type to Video. Purge Moodle caches afterwards.
+
+For an existing standard Google Drive video link using `/file/d/.../view`, verify both an older activity stored as `auto` and a newly created activity. The learner page must render the HTML5/Plyr video viewer, `protected.php` must not report `protectedmodedisabled` unless the administrator explicitly disabled protected mode, and Range requests should return usable HTTP 206 responses or the bounded synthetic fallback.
