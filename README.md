@@ -206,8 +206,8 @@ Any AMD source change must include its rebuilt production bundle. The generated 
 
 ## Release
 
-- Release: `1.1.32-rc4`
-- Moodle plugin version: `2026092000`
+- Release: `1.1.32-rc5`
+- Moodle plugin version: `2026092001`
 - Component: `mod_videoplayer`
 - Product: Drive Resource
 - Supported Moodle branches: 4.5–5.2
