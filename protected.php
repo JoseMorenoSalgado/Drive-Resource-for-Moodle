@@ -67,9 +67,7 @@ if (!$fileid) {
     throw new moodle_exception('invaliddriveurl', 'mod_videoplayer');
 }
 
-$type = empty($videoplayer->type) || $videoplayer->type === 'auto'
-    ? drive::detect_type($videoplayer->videourl)
-    : clean_param($videoplayer->type, PARAM_ALPHANUMEXT);
+$type = drive::resolve_record_type($videoplayer);
 
 if (!drive::is_pdf_type($type) && !get_config('mod_videoplayer', 'protectedmode')) {
     throw new moodle_exception('protectedmodedisabled', 'mod_videoplayer');
