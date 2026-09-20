@@ -26,6 +26,8 @@ class normalize_video extends \core\task\adhoc_task {
     public function execute(): void {
         global $DB;
 
+        @set_time_limit(0);
+
         $data = $this->get_custom_data();
         if (empty($data->instanceid)) {
             return;
