@@ -313,7 +313,7 @@ Verify that:
 1. the learner HTML contains only the Moodle `protected.php` URL, never the raw Drive URL or file ID;
 2. initial metadata and seeks receive valid `200/206` responses;
 3. `206 Content-Range` starts at the byte requested by the browser;
-4. a Drive/proxy failure shows an actionable protected-stream message instead of an unexplained black player;
-5. a transport-successful but undecodable video shows the codec compatibility message.
+4. the protected endpoint exposes only safe diagnostic status headers such as `X-Drive-Resource-Status` and never leaks upstream URLs or tokens;
+5. when a source does not decode in the browser, verify protected transport independently and confirm the source codec before treating it as a proxy failure.
 
 For direct browser playback, use MP4 with H.264/AVC video and AAC audio. An MP4 container can still contain a desktop codec such as TSCC2 that Chrome, Safari, Firefox, Android and iOS do not decode natively. Such a file must be transcoded before direct protected HTML5 playback can be guaranteed.
