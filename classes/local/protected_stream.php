@@ -279,22 +279,10 @@ final class protected_stream {
             }
 
             $tmpfile = $cachefile . '.tmp.' . getmypid();
-            $cookiejar = $cachefile . '.cookies.' . getmypid();
             self::delete_if_file($tmpfile);
-            self::delete_if_file($cookiejar);
 
-            $download = self::download_to_file($url, $tmpfile, $cookiejar);
+            $download = drive_downloader::download($url, $tmpfile);
             $valid = $download['ok'] && self::is_pdf_file($tmpfile);
-
-            if (!$valid && is_file($tmpfile)) {
-                $confirmtoken = self::extract_drive_confirm_token($tmpfile);
-                if ($confirmtoken !== null) {
-                    self::delete_if_file($tmpfile);
-                    $confirmedurl = self::add_drive_confirm_token($url, $confirmtoken);
-                    $download = self::download_to_file($confirmedurl, $tmpfile, $cookiejar);
-                    $valid = $download['ok'] && self::is_pdf_file($tmpfile);
-                }
-            }
 
             if (!$valid) {
                 self::delete_if_file($tmpfile);
@@ -314,9 +302,6 @@ final class protected_stream {
 
             return true;
         } finally {
-            if (isset($cookiejar)) {
-                self::delete_if_file($cookiejar);
-            }
             flock($lockhandle, LOCK_UN);
             fclose($lockhandle);
         }
