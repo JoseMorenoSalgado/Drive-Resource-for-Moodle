@@ -63,6 +63,14 @@ Protected responses use:
 
 Valid ranges preserve `206`. Unsatisfiable ranges return `416` without leaking upstream details. HTML login/error responses must never be returned as successful PDF or media bytes.
 
+## Video normalization safety
+
+Background media retrieval uses `drive_downloader`, which disables automatic cURL redirects and validates every redirect target before following it. Only HTTPS Google Drive/Docs/Usercontent destinations and bounded Googleusercontent download subdomains are accepted. HTTP, custom ports, URL credentials and arbitrary hosts are rejected.
+
+FFmpeg and FFprobe paths are administrator-controlled executable settings. Commands are invoked through `proc_open` with an argument array rather than shell interpolation. Activity names, Drive URLs and request parameters are never inserted into a shell command.
+
+Normalization runs in Moodle ad-hoc tasks, not learner requests. Temporary source/output files remain private, are removed after processing, and final files are atomically promoted only after codec validation. Learners can receive normalized bytes only after the normal `require_login`, course-module, context and capability checks in `protected.php`.
+
 ## Video diagnostic safety
 
 The browser-side health monitor performs diagnostics only against the Moodle-owned `protected.php` URL. It must never receive a raw Drive ID, confirmation token, cookie, direct download URL or redirect destination.
