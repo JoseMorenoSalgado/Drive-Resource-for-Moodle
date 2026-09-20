@@ -45,25 +45,50 @@ final class progress_service {
         int $userid,
         array $input
     ): array {
+        $lockfactory = \core\lock\lock_config::get_lock_factory('mod_videoplayer');
+        $lockkey = 'progress_' . (int)$instance->id . '_' . $userid;
+        $lock = $lockfactory->get_lock($lockkey, 10);
+
+        if (!$lock) {
+            throw new \moodle_exception('progresslocktimeout', 'mod_videoplayer');
+        }
+
+        try {
+            return $this->save_progress_locked($cm, $course, $instance, $context, $userid, $input);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * Save progress after acquiring the per-user/resource lock.
+     *
+     * @param object $cm Course module record/info.
+     * @param object $course Course record.
+     * @param object $instance Drive Resource instance.
+     * @param \context_module $context Module context.
+     * @param int $userid User id.
+     * @param array $input Validated external input.
+     * @return array
+     */
+    private function save_progress_locked(
+        object $cm,
+        object $course,
+        object $instance,
+        \context_module $context,
+        int $userid,
+        array $input
+    ): array {
         global $DB;
 
         $now = time();
         $lastpage = max(0, (int)($input['lastpage'] ?? 0));
         $totalpages = max(0, (int)($input['totalpages'] ?? 0));
-        $timespent = max(0, (int)($input['timespent'] ?? 0));
+        $clienttimespent = max(0, (int)($input['timespent'] ?? 0));
         $progress = max(0.0, (float)($input['progress'] ?? 0));
         $lastposition = max(0.0, (float)($input['lastposition'] ?? 0));
         $duration = max(0.0, (float)($input['duration'] ?? 0));
         $clientpercentage = $this->clamp_percentage((float)($input['completionpercentage'] ?? 0));
-        $derivedpercentage = $this->derive_percentage(
-            $clientpercentage,
-            $lastpage,
-            $totalpages,
-            $lastposition,
-            $duration
-        );
-        $requiredpercentage = max(1, min(100, (int)($instance->completionpercentage ?? 80)));
-        $completed = $derivedpercentage >= $requiredpercentage;
 
         $conditions = [
             'videoplayerid' => (int)$instance->id,
@@ -73,6 +98,23 @@ final class progress_service {
         $transaction = $DB->start_delegated_transaction();
         $record = $DB->get_record('videoplayer_views', $conditions);
         $wascompleted = $record ? !empty($record->completed) : false;
+        $timespent = $this->bounded_timespent($clienttimespent, $record ?: null, $now);
+        $requiredseconds = max(60, (int)get_config('mod_videoplayer', 'defaultrequiredseconds'));
+        $derivedpercentage = $this->derive_percentage(
+            $clientpercentage,
+            $lastpage,
+            $totalpages,
+            $lastposition,
+            $duration,
+            $timespent,
+            $requiredseconds
+        );
+        $requiredpercentage = max(1, min(100, (int)($instance->completionpercentage ?? 80)));
+        $completed = $derivedpercentage >= $requiredpercentage;
+
+        if ($totalpages === 0 && $duration <= 0) {
+            $progress = min($progress, (float)$timespent);
+        }
 
         if ($record) {
             $record->progress = max((float)$record->progress, $progress);
@@ -162,6 +204,8 @@ final class progress_service {
      * @param int $totalpages
      * @param float $lastposition
      * @param float $duration
+     * @param int $timespent Server-bounded active seconds.
+     * @param int $requiredseconds Required active seconds for generic resources.
      * @return float
      */
     private function derive_percentage(
@@ -169,7 +213,9 @@ final class progress_service {
         int $lastpage,
         int $totalpages,
         float $lastposition,
-        float $duration
+        float $duration,
+        int $timespent,
+        int $requiredseconds
     ): float {
         if ($totalpages > 0 && $lastpage > 0) {
             return $this->clamp_percentage(($lastpage / $totalpages) * 100);
@@ -177,7 +223,35 @@ final class progress_service {
         if ($duration > 0) {
             return $this->clamp_percentage((min($lastposition, $duration) / $duration) * 100);
         }
+
+        if ($requiredseconds > 0) {
+            return $this->clamp_percentage(($timespent / $requiredseconds) * 100);
+        }
+
         return $this->clamp_percentage($clientpercentage);
+    }
+
+    /**
+     * Bound client-reported active time by server-observed wall time.
+     *
+     * The browser remains responsible for determining whether the tab/player is
+     * active, but it cannot jump cumulative time arbitrarily in one request.
+     *
+     * @param int $clienttimespent Client cumulative active time.
+     * @param object|null $record Existing progress record.
+     * @param int $now Current server timestamp.
+     * @return int
+     */
+    private function bounded_timespent(int $clienttimespent, ?object $record, int $now): int {
+        if ($record === null) {
+            return min($clienttimespent, 60);
+        }
+
+        $stored = max(0, (int)($record->timespent ?? 0));
+        $elapsed = max(0, $now - (int)($record->timemodified ?? $now));
+        $maximum = $stored + $elapsed + 5;
+
+        return max($stored, min($clienttimespent, $maximum));
     }
 
     /**
