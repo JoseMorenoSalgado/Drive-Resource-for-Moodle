@@ -42,13 +42,11 @@ class precache_pdf extends \core\task\adhoc_task {
         }
 
         $record = $DB->get_record('videoplayer', ['id' => (int)$data->instanceid]);
-        if (!$record || ($record->source ?? 'googledrive') !== 'googledrive') {
+        if (!$record || ($record->source ?? drive::SOURCE_GOOGLEDRIVE) !== drive::SOURCE_GOOGLEDRIVE) {
             return;
         }
 
-        $type = empty($record->type) || $record->type === 'auto'
-            ? drive::detect_type($record->videourl)
-            : clean_param($record->type, PARAM_ALPHANUMEXT);
+        $type = drive::resolve_record_type($record);
 
         if (!drive::is_pdf_type($type) || (string)get_config('mod_videoplayer', 'pdfcacheenabled') === '0') {
             return;
