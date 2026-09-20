@@ -88,3 +88,9 @@ Before release:
 - unauthenticated and unauthorized `protected.php` requests must fail;
 - backup/privacy behavior must be tested;
 - Google Drive video playback must be tested on physical mobile devices where possible.
+
+## Security hardening release gate
+
+The hardening branch adds an automated regression guard for the security boundary. It fails when Google upstream hosts or iframe/preview paths appear in browser-facing templates/AMD code, when `protected.php` loses the centralized activity access boundary or begins accepting arbitrary URL parameters, or when required protected-stream safeguards disappear.
+
+The SSRF regression suite also covers lookalike Google suffixes, loopback targets, userinfo URLs, scheme-relative URLs and non-HTTPS schemes. See `docs/hardening-validation.md` for the evidence required before promotion from release-candidate maturity.
