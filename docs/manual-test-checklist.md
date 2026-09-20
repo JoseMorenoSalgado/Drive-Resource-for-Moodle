@@ -34,6 +34,10 @@ Use the exact Google Drive video that succeeded in rc15/rc16.
 - Progress percentage and active time update.
 - Browser network requests use Moodle `protected.php` as the media URL.
 - Primary progressive stream can fall back to protected source delivery without showing Google UI.
+- A short buffer underrun does not flash the loading overlay immediately.
+- A persistent stall triggers automatic recovery near the same playback second.
+- Recovery refreshes the protected progressive stream before source fallback and never exposes a Google URL.
+- Repeated upstream failures stop after the bounded recovery attempts and show the controlled player error state instead of looping forever.
 
 ### Video protocol
 
