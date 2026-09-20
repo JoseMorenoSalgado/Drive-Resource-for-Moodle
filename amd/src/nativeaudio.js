@@ -37,6 +37,8 @@ define(['core/ajax'], function(Ajax) {
             return;
         }
 
+        audio.setAttribute('controlslist', 'nodownload');
+
         if (disableContextMenu) {
             [root, audio].forEach(function(node) {
                 node.addEventListener('contextmenu', blockEvent, true);

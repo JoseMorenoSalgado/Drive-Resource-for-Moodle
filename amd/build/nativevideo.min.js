@@ -76,7 +76,11 @@ define(['core/ajax'], function(Ajax) {
         video.preload = 'metadata';
         video.setAttribute('playsinline', '');
         video.setAttribute('webkit-playsinline', '');
+        video.setAttribute('controlslist', 'nodownload');
         video.setAttribute('draggable', 'false');
+        if ('disablePictureInPicture' in video) {
+            video.disablePictureInPicture = true;
+        }
 
         if (disableContextMenu) {
             [root, frame, video].forEach(function(node) {

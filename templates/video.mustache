@@ -1,6 +1,31 @@
 {{!
     Protected native HTML5 video player. Only Moodle protected endpoints are exposed to the browser.
 }}
+{{!
+    @template mod_videoplayer/video
+
+    Protected native HTML5 video player with Moodle-owned controls.
+
+    Example context (json):
+    {
+        "type": "video",
+        "cmid": 42,
+        "initialposition": 12,
+        "initialduration": 240,
+        "initialtimespent": 30,
+        "trackprogress": true,
+        "disablecontextmenu": true,
+        "playerstyle": "",
+        "showresourcetype": true,
+        "resourcetype": "Video",
+        "completionpercent": 25,
+        "title": "Protected training video",
+        "videourl": "/mod/videoplayer/protected.php?id=42",
+        "videofallbackurl": "/mod/videoplayer/protected.php?id=42&stream=source",
+        "enablewatermark": true,
+        "watermark": "Student"
+    }
+}}
 <div class="mod-videoplayer-container mod-videoplayer-custom-video js-custom-video-player"
      data-resource-type="{{type}}"
      data-cmid="{{cmid}}"
@@ -24,9 +49,6 @@
         <video class="mod-videoplayer-native-video js-drive-resource-video"
                preload="metadata"
                playsinline
-               webkit-playsinline
-               disablepictureinpicture
-               controlslist="nodownload"
                draggable="false">
             {{#str}} videonotsupported, mod_videoplayer {{/str}}
         </video>

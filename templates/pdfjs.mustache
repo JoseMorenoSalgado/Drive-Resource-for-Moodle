@@ -1,6 +1,31 @@
 {{!
     Local PDF.js viewer for PDF, Google Docs, Sheets and Slides exports.
 }}
+{{!
+    @template mod_videoplayer/pdfjs
+
+    Local PDF.js protected document viewer.
+
+    Example context (json):
+    {
+        "type": "pdf",
+        "cmid": 42,
+        "showresourcetype": true,
+        "resourcetype": "PDF",
+        "completionpercent": 40,
+        "enablegamification": true,
+        "points": 10,
+        "totalpages": 12,
+        "initialpage": 3,
+        "pdfurl": "/mod/videoplayer/protected.php?id=42",
+        "title": "Protected PDF",
+        "initialtimespent": 120,
+        "trackprogress": true,
+        "disablecontextmenu": true,
+        "enablewatermark": true,
+        "watermark": "Student"
+    }
+}}
 <div class="mod-videoplayer-container mod-videoplayer-pdfjs" data-resource-type="{{type}}" data-cmid="{{cmid}}">
     <div class="mod-videoplayer-meta mb-2">
         {{#showresourcetype}}<span class="mod-videoplayer-meta-item">{{resourcetype}}</span>{{/showresourcetype}}

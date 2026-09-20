@@ -1,6 +1,28 @@
 {{!
     Protected HTML5 audio player.
 }}
+{{!
+    @template mod_videoplayer/audio
+
+    Protected native HTML5 audio player.
+
+    Example context (json):
+    {
+        "type": "audio",
+        "cmid": 42,
+        "playerstyle": "",
+        "showresourcetype": true,
+        "resourcetype": "Audio",
+        "initialposition": 0,
+        "initialduration": 180,
+        "initialtimespent": 0,
+        "trackprogress": true,
+        "disablecontextmenu": true,
+        "audiourl": "/mod/videoplayer/protected.php?id=42",
+        "enablewatermark": true,
+        "watermark": "Student"
+    }
+}}
 <div class="mod-videoplayer-container mod-videoplayer-audio" data-resource-type="{{type}}" data-cmid="{{cmid}}"{{#playerstyle}} style="{{playerstyle}}"{{/playerstyle}}>
     <div class="mod-videoplayer-meta mb-2">
         {{#showresourcetype}}<span class="mod-videoplayer-meta-item">{{resourcetype}}</span>{{/showresourcetype}}
@@ -17,9 +39,7 @@
         <audio class="mod-videoplayer-native-audio js-drive-resource-audio"
                src="{{audiourl}}"
                controls
-               preload="metadata"
-               controlslist="nodownload"
-               {{#disabledownload}}disablepictureinpicture{{/disabledownload}}>
+               preload="metadata">
             {{#str}} audionotsupported, mod_videoplayer {{/str}}
         </audio>
         {{#enablewatermark}}

@@ -1,6 +1,24 @@
 {{!
     Protected image viewer.
 }}
+{{!
+    @template mod_videoplayer/image
+
+    Protected image viewer.
+
+    Example context (json):
+    {
+        "type": "image",
+        "cmid": 42,
+        "disablecontextmenu": true,
+        "showresourcetype": true,
+        "resourcetype": "Image",
+        "imageurl": "/mod/videoplayer/protected.php?id=42",
+        "title": "Protected course image",
+        "enablewatermark": true,
+        "watermark": "Student"
+    }
+}}
 <div class="mod-videoplayer-container mod-videoplayer-image" data-resource-type="{{type}}" data-cmid="{{cmid}}" data-protected-ui data-disable-context-menu="{{#disablecontextmenu}}1{{/disablecontextmenu}}{{^disablecontextmenu}}0{{/disablecontextmenu}}">
     <div class="mod-videoplayer-meta mb-2">
         {{#showresourcetype}}<span class="mod-videoplayer-meta-item">{{resourcetype}}</span>{{/showresourcetype}}
