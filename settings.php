@@ -82,6 +82,28 @@ if ($ADMIN->fulltree) {
     ));
 
     $settings->add(new admin_setting_configcheckbox(
+        'mod_videoplayer/videonormalizationenabled',
+        get_string('setting_videonormalizationenabled', 'mod_videoplayer'),
+        get_string('setting_videonormalizationenabled_desc', 'mod_videoplayer'),
+        1
+    ));
+
+    $settings->add(new admin_setting_configexecutable(
+        'mod_videoplayer/ffmpegpath',
+        get_string('setting_ffmpegpath', 'mod_videoplayer'),
+        get_string('setting_ffmpegpath_desc', 'mod_videoplayer'),
+        '/usr/bin/ffmpeg'
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'mod_videoplayer/videocachettl',
+        get_string('setting_videocachettl', 'mod_videoplayer'),
+        get_string('setting_videocachettl_desc', 'mod_videoplayer'),
+        2592000,
+        PARAM_INT
+    ));
+
+    $settings->add(new admin_setting_configcheckbox(
         'mod_videoplayer/pdfcacheenabled',
         get_string('setting_pdfcacheenabled', 'mod_videoplayer'),
         get_string('setting_pdfcacheenabled_desc', 'mod_videoplayer'),
