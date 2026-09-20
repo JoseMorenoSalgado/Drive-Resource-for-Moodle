@@ -49,3 +49,4 @@ Google Drive progressive playback is an upstream compatibility integration rathe
 RC17 was applied to the refactor branch from the verified release payload. This commit triggers the final Moodle 4.5 CI matrix against the completed source tree.
 
 - Moodle PHPCBF automatic style corrections were applied before the final CI pass.
+- Direct Moodle PHPCBF formatting was applied to the PHP sources before the final validation pass.
