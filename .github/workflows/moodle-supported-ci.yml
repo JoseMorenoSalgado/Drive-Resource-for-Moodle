@@ -168,23 +168,7 @@ jobs:
         run: moodle-plugin-ci mustache
 
       - name: AMD and JavaScript validation
-        id: amdvalidation
-        continue-on-error: true
         run: moodle-plugin-ci grunt --max-lint-warnings 0
-
-      - name: Capture generated video health build
-        if: steps.amdvalidation.outcome == 'failure' && matrix.moodle.label == '4.5' && matrix.php == '8.2' && matrix.database == 'mariadb'
-        run: |
-          echo '--- VIDEOHEALTH_MIN_BEGIN ---'
-          cat moodle/mod/videoplayer/amd/build/videohealth.min.js
-          echo '--- VIDEOHEALTH_MIN_END ---'
-          echo '--- VIDEOHEALTH_MAP_BEGIN ---'
-          cat moodle/mod/videoplayer/amd/build/videohealth.min.js.map
-          echo '--- VIDEOHEALTH_MAP_END ---'
-
-      - name: Enforce AMD and JavaScript validation
-        if: steps.amdvalidation.outcome == 'failure'
-        run: exit 1
 
       - name: PDF.js native ESM loader contract
         run: |
