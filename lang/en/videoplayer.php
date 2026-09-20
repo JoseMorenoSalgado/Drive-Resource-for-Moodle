@@ -127,6 +127,7 @@ $string['setting_showresourcetype_desc'] = 'Show the detected or selected resour
 $string['sourcegoogledrive'] = 'Google Drive';
 $string['sourcelocalpdf'] = 'Local protected PDF';
 $string['task_cleanup_pdf_cache'] = 'Clean Drive Resource PDF cache';
+$string['trackingdisabled'] = 'Progress tracking is disabled for this site.';
 $string['timespent'] = 'Active time';
 $string['typeaudio'] = 'Audio';
 $string['typeauto'] = 'Automatic';
