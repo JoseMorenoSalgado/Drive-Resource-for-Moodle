@@ -46,7 +46,7 @@ final class video_normalizer {
      * @return bool
      */
     public static function is_available(): bool {
-        return (string)get_config('mod_videoplayer', 'videonormalizationenabled') !== '0'
+        return (string) get_config('mod_videoplayer', 'videonormalizationenabled') !== '0'
             && self::ffmpeg_path() !== null
             && self::ffprobe_path() !== null
             && function_exists('proc_open');
@@ -58,7 +58,7 @@ final class video_normalizer {
      * @return string|null
      */
     public static function ffmpeg_path(): ?string {
-        $path = trim((string)get_config('mod_videoplayer', 'ffmpegpath'));
+        $path = trim((string) get_config('mod_videoplayer', 'ffmpegpath'));
         return $path !== '' && is_file($path) && is_executable($path) ? $path : null;
     }
 
@@ -83,7 +83,7 @@ final class video_normalizer {
      * @return int
      */
     public static function cache_ttl(): int {
-        $ttl = (int)get_config('mod_videoplayer', 'videocachettl');
+        $ttl = (int) get_config('mod_videoplayer', 'videocachettl');
         return $ttl > 0 ? $ttl : self::DEFAULT_CACHE_TTL;
     }
 
@@ -184,7 +184,7 @@ final class video_normalizer {
 
         $task = new \mod_videoplayer\task\normalize_video();
         $task->set_component('mod_videoplayer');
-        $task->set_custom_data(['instanceid' => (int)$record->id]);
+        $task->set_custom_data(['instanceid' => (int) $record->id]);
         \core\task\manager::queue_adhoc_task($task, true);
         return true;
     }
@@ -230,13 +230,13 @@ final class video_normalizer {
             self::delete_if_file($source);
             self::delete_if_file($output);
 
-            $fileid = drive::extract_file_id((string)$record->videourl);
+            $fileid = drive::extract_file_id((string) $record->videourl);
             if ($fileid === null) {
                 self::mark_failed($record, 'invalid_file_id');
                 return false;
             }
 
-            $url = drive::protected_content_url((string)$record->videourl, $fileid, drive::TYPE_VIDEO);
+            $url = drive::protected_content_url((string) $record->videourl, $fileid, drive::TYPE_VIDEO);
             if ($url === null) {
                 self::mark_failed($record, 'unresolved_source');
                 return false;
