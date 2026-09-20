@@ -2,6 +2,15 @@
 
 All notable changes to Drive Resource are documented here. The Moodle component remains `mod_videoplayer` for upgrade compatibility.
 
+## 1.1.33-rc19-m45 - 2026-09-20
+
+### Moodle 4.5 completion-form hotfix
+
+- Fixed a fatal error when creating or editing a Drive Resource activity with completion enabled: `mod_videoplayer_mod_form::get_suffixed_name()` does not exist in Moodle 4.5.
+- Replaced the invalid helper with Moodle 4.5's supported `get_suffix()` contract for custom completion element names in preprocessing, postprocessing, rules and validation.
+- Added a hardening invariant that fails CI if the unsupported helper is reintroduced.
+- Version: `2026092016`; release: `1.1.33-rc19-m45`.
+
 ## Unreleased - commercial hardening and validation
 
 - Deep audit: centralized all runtime resource-type resolution through `drive::resolve_record_type()` and introduced canonical source/type constants.
