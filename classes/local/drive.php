@@ -295,11 +295,14 @@ class drive {
 
         $scheme = strtolower((string) parse_url($action, PHP_URL_SCHEME));
         $host = strtolower((string) parse_url($action, PHP_URL_HOST));
-        if ($scheme !== 'https' || !in_array(
-            $host,
-            ['drive.usercontent.google.com', 'drive.google.com', 'docs.google.com'],
-            true
-        )) {
+        if (
+            $scheme !== 'https' ||
+            !in_array(
+                $host,
+                ['drive.usercontent.google.com', 'drive.google.com', 'docs.google.com'],
+                true
+            )
+        ) {
             return null;
         }
 
