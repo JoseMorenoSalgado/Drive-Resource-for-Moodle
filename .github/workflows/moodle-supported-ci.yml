@@ -240,6 +240,8 @@ jobs:
           grep -q 'MAX_CONFIRMATION_HOPS' plugin/classes/local/http_range_proxy.php
           grep -q 'Retrying a refused Range must not' plugin/classes/local/http_range_proxy.php
           grep -q 'X-Accel-Buffering: no' plugin/classes/local/http_range_proxy.php
+          grep -q 'CURLPROTO_HTTPS' plugin/classes/local/http_range_proxy.php
+          grep -q 'CURLPROTO_HTTPS' plugin/classes/local/protected_stream.php
           grep -q 'max-width: none !important' plugin/styles_pdf_mobile.css
           grep -q 'mod-videoplayer-pdfjs-canvas-stage' plugin/templates/pdfjs.mustache
           grep -q 'mod-videoplayer-pdfjs-canvas-stage' plugin/styles_pdf_overlay.css
