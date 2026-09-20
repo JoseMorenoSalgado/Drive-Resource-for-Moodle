@@ -257,6 +257,10 @@ The browser continues to see only `protected.php`. Google file identifiers, conf
 The activity record is now the single source of truth for viewer selection. `drive::resolve_record_type()` is used by `view.php`, `protected.php`, progress persistence, reports and PDF precache. Explicit resource types take precedence. Google Workspace URLs and URLs with visible extensions remain detectable. An opaque standard Google Drive `/file/d/{id}/view` URL stored as `auto` falls back to Video because the original `mod_videoplayer` product accepted only videos and historical records were migrated to `auto`.
 
 New activities and clean-install XMLDB defaults use `video` explicitly. This removes viewer/proxy disagreement where the page selected a generic unsupported resource while the protected endpoint could otherwise stream valid video bytes.
+
+## Legacy-compatible Drive media transport
+
+Shared binary media starts from the proven `drive.google.com/uc` download route used by earlier working releases. This remains entirely server-side. When Google responds with a large-file confirmation document, the bounded confirmation resolver validates the action and parameters before continuing to an allow-listed Google host such as `drive.usercontent.google.com`. The learner always requests only `protected.php`.
 ## Index-safe XMLDB migrations
 
 Schema migrations that alter an indexed field must respect Moodle's DDL dependency checks. The `videoplayer.type` default migration therefore treats `type_idx` as part of the operation: remove the logical XMLDB index, alter the field, and restore the same index in a `finally` block. This keeps PostgreSQL/MariaDB schema state consistent and makes failed upgrades safely retryable.

@@ -121,7 +121,7 @@ final class drive_test extends \advanced_testcase {
             drive::protected_content_url('', $fileid, 'presentation')
         );
         $this->assertSame(
-            'https://drive.usercontent.google.com/download?id=1AbC_def-123&export=download&confirm=t',
+            'https://drive.google.com/uc?export=download&id=1AbC_def-123',
             drive::protected_content_url('', $fileid, 'video')
         );
     }
@@ -135,8 +135,7 @@ final class drive_test extends \advanced_testcase {
         $originalurl = 'https://drive.google.com/file/d/1AbC_def-123/view?resourcekey=0-AbC_def-456';
 
         $this->assertSame(
-            'https://drive.usercontent.google.com/download?id=1AbC_def-123&export=download&confirm=t' .
-                '&resourcekey=0-AbC_def-456',
+            'https://drive.google.com/uc?export=download&id=1AbC_def-123&resourcekey=0-AbC_def-456',
             drive::protected_content_url($originalurl, '1AbC_def-123', 'video')
         );
     }
