@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.1.32-rc7 - 2026-09-19
+
+### Fixed
+
+- Fixed the Moodle XMLDB upgrade failure `ddldependencyerror` when changing the `videoplayer.type` default while `type_idx` still exists.
+- The upgrade now drops the logical `type_idx` index before altering the field and restores it in a `finally` block, including failed/retried upgrades.
+- Bumped the upgrade savepoint to `2026092003` so sites that failed on RC6 can safely rerun the upgrade.
+
 ## v1.1.32-rc6 - 2026-09-20
 
 ### Fixed
