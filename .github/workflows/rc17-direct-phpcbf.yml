@@ -1,0 +1,55 @@
+name: RC17 direct PHPCBF
+
+on:
+  push:
+    branches:
+      - refactor/html5-core-1.1.33-rc17
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rc17-direct-phpcbf
+  cancel-in-progress: true
+
+jobs:
+  fix:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+
+      - name: Install Moodle coding standard
+        run: composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci ^4
+
+      - name: Apply PHPCBF directly
+        shell: bash
+        run: |
+          set +e
+          ci/vendor/bin/phpcbf --standard=moodle --extensions=php --ignore=ci/*,thirdpartylibs/* .
+          code=$?
+          set -e
+          echo "PHPCBF exit code: $code"
+          if [ "$code" -gt 2 ]; then
+            exit "$code"
+          fi
+
+      - name: Commit fixes
+        shell: bash
+        run: |
+          rm -f .github/workflows/rc17-direct-phpcbf.yml
+          rm -rf ci
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No direct PHPCBF changes."
+            exit 0
+          fi
+          git commit -m "style: auto-fix Moodle coding standard"
+          git push
