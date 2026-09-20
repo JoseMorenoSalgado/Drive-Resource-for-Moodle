@@ -4,7 +4,7 @@ Drive Resource is a protected Moodle delivery layer. Browser restrictions are de
 
 ## Supported security baseline
 
-The current release supports Moodle 4.5–5.2. Security validation covers Moodle 4.5 and 5.0 on PHP 8.2/8.3 and Moodle 5.2 on PHP 8.3, matching the runtime requirements of each Moodle branch. Running the plugin on an undeclared Moodle or PHP combination is unsupported because API behavior and security fixes may differ.
+The current release supports Moodle 4.5–5.2. Security validation covers Moodle 4.5, 5.0 and 5.1 on PHP 8.2/8.3 and Moodle 5.2 on PHP 8.3, matching the runtime requirements of each Moodle branch. Running the plugin on an undeclared Moodle or PHP combination is unsupported because API behavior and security fixes may differ.
 
 ## Authorisation
 
