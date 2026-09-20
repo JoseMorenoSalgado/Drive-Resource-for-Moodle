@@ -287,3 +287,13 @@ Test on a physical iPhone:
 - Verify the test on Moodle 4.5 and at least one Moodle 5.x target, plus physical Android Chrome and iPhone Safari where available.
 - Temporarily remove the stored `mod_videoplayer/protectedmode` config on staging and confirm the documented default remains enabled; then explicitly set it to 0 and confirm the protected non-PDF path is rejected.
 - Confirm no browser-visible request contains a Google Drive download URL or file ID.
+
+## RC8 shared-video and codec checks
+
+- Paste a normal `/file/d/.../view?usp=drivesdk` video link and save it as Video.
+- Confirm the page source never contains the raw Drive file ID.
+- Confirm the protected endpoint returns `X-Drive-Resource-Status: MEDIA` for a compatible public/shared source.
+- Seek near the beginning, middle and end and confirm returned `Content-Range` values match the requested browser ranges.
+- Test one H.264/AAC MP4 on Android Chrome and iPhone Safari.
+- Test one known browser-incompatible codec and confirm the learner sees the codec diagnostic instead of a silent `00:00 / 00:00` player.
+- Test a Drive file that is not link-accessible and confirm the learner sees the Drive/protected-stream diagnostic without any upstream URL leakage.
