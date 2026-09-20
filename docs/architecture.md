@@ -247,3 +247,14 @@ New activities and clean-install XMLDB defaults use `video` explicitly. This rem
 
 Schema migrations that alter an indexed field must respect Moodle's DDL dependency checks. The `videoplayer.type` default migration therefore treats `type_idx` as part of the operation: remove the logical XMLDB index, alter the field, and restore the same index in a `finally` block. This keeps PostgreSQL/MariaDB schema state consistent and makes failed upgrades safely retryable.
 
+## Browser codec boundary and media normalization
+
+Drive Resource owns authorization and byte delivery, but HTML5 decoding remains a browser capability. A Google Drive URL can point to an MP4 container whose internal codec is not web-compatible. In direct proxy mode the plugin never asks Google's preview player to transcode the asset; it serves the original protected bytes.
+
+The production path therefore separates three concerns:
+
+1. **Drive resolution:** resolve the shared link and bounded Google confirmation flow server-side.
+2. **Protected transport:** return validated MIME and exact byte-range semantics through Moodle.
+3. **Browser decoding:** require a browser-compatible codec for direct playback.
+
+For broad browser support, source videos should use H.264/AVC video and AAC audio in MP4. Desktop capture codecs such as TSCC2 require a media-normalization/transcoding layer before they can be guaranteed to play in Chrome, Safari, Firefox, Android or iOS. A future transcoding subsystem must be asynchronous and cache-backed; it must not make `protected.php` buffer a complete source file in PHP memory.
