@@ -64,6 +64,26 @@ jobs:
             php: '8.3'
             database: pgsql
           - moodle:
+              label: '5.1'
+              branch: MOODLE_501_STABLE
+            php: '8.2'
+            database: mariadb
+          - moodle:
+              label: '5.1'
+              branch: MOODLE_501_STABLE
+            php: '8.2'
+            database: pgsql
+          - moodle:
+              label: '5.1'
+              branch: MOODLE_501_STABLE
+            php: '8.3'
+            database: mariadb
+          - moodle:
+              label: '5.1'
+              branch: MOODLE_501_STABLE
+            php: '8.3'
+            database: pgsql
+          - moodle:
               label: '5.2'
               branch: MOODLE_502_STABLE
             php: '8.3'
