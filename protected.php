@@ -69,7 +69,8 @@ if (!$fileid) {
 
 $type = drive::resolve_record_type($videoplayer);
 
-if (!drive::is_pdf_type($type) && !get_config('mod_videoplayer', 'protectedmode')) {
+$protectedmode = get_config('mod_videoplayer', 'protectedmode');
+if (!drive::is_pdf_type($type) && (string) $protectedmode === '0') {
     throw new moodle_exception('protectedmodedisabled', 'mod_videoplayer');
 }
 
