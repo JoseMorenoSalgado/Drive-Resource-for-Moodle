@@ -247,16 +247,7 @@ class progress_service {
      * @return string
      */
     private function resolve_resource_type(object $videoplayer): string {
-        if (($videoplayer->source ?? 'googledrive') === 'localpdf') {
-            return 'pdf';
-        }
-
-        $type = (string)($videoplayer->type ?? drive::TYPE_AUTO);
-        if ($type === '' || $type === drive::TYPE_AUTO) {
-            return drive::detect_type((string)($videoplayer->videourl ?? ''));
-        }
-
-        return clean_param($type, PARAM_ALPHANUMEXT);
+        return drive::resolve_record_type($videoplayer);
     }
 
     /**
