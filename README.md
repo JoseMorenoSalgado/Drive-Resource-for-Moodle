@@ -35,7 +35,8 @@ The internal Moodle component remains `mod_videoplayer` for upgrade, capability,
 - PHP 8.2+ with the extensions required by the supported Moodle branch; Moodle 5.2 is validated only on PHP 8.3 because the Moodle 5.2 core requires PHP 8.3+.
 - HTTPS in production.
 - Moodle cron running frequently.
-- Writable `$CFG->localcachedir` and `$CFG->cachedir`.\n- Optional FFmpeg + FFprobe for automatic normalization of browser-incompatible video codecs.
+- Writable `$CFG->localcachedir` and `$CFG->cachedir`.
+- Optional FFmpeg + FFprobe for automatic normalization of browser-incompatible video codecs.
 
 ## Installation
 
@@ -70,7 +71,7 @@ After deployment, reset PHP OPcache and invalidate Cloudflare, NGINX or other re
 
 ## Release 1.1.32-rc11
 
-Release `1.1.32-rc11` adds asynchronous browser-compatibility normalization without reintroducing the Google Drive viewer. Drive videos are inspected server-side with FFprobe. H.264/yuv420p + AAC sources stay on the existing protected byte proxy; incompatible sources such as TSCC2 are downloaded by a trusted-host, HTTPS-only background downloader and transcoded to a private H.264/AAC MP4 with FFmpeg. The normalized copy is served only through `protected.php` with Moodle authorization and byte-range support.
+Release `1.1.32-rc11` adds asynchronous browser-compatibility normalization without reintroducing the Google Drive viewer. Drive videos are inspected server-side with FFprobe. MP4/MOV-family H.264/yuv420p + AAC sources stay on the existing protected byte proxy; incompatible sources such as TSCC2 are downloaded by a trusted-host, HTTPS-only background downloader and transcoded to a private H.264/AAC MP4 with FFmpeg. The normalized copy is served only through `protected.php` with Moodle authorization and byte-range support.
 
 FFmpeg is optional. Configure **Site administration → Plugins → Activity modules → Drive Resource → FFmpeg executable path**. FFprobe must exist beside FFmpeg. If the executable is unavailable, Drive Resource safely keeps the RC10 direct protected proxy behavior.
 
