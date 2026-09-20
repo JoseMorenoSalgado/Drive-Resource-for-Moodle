@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.1.32-rc11 - 2026-09-20
+
+### Added
+
+- Added asynchronous FFprobe/FFmpeg video normalization for Drive sources that browsers cannot decode directly, including TSCC2-in-MP4 sources.
+- Added a trusted-host, HTTPS-only server-side downloader shared by PDF cache warming and video normalization.
+- Added private normalized-video cache lifecycle, duplicate-suppressed ad-hoc processing and scheduled cleanup.
+- Added regression tests for trusted Drive redirects and H.264/AAC versus TSCC2 codec classification.
+
+### Security
+
+- Background download redirects are explicitly restricted to approved Google Drive/Googleusercontent HTTPS hosts and are never exposed to learners.
+- Normalized media remains outside the web root and is served only through the authenticated `protected.php` Range endpoint.
+
+### Changed
+
+- Bumped Drive Resource to `1.1.32-rc11` / `2026092007`.
+
 ## v1.1.32-rc10 - 2026-09-20
 
 ### Fixed
