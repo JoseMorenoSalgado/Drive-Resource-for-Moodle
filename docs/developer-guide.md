@@ -263,3 +263,11 @@ The supported CI matrix covers Moodle 4.5, 5.0 and 5.2, PHP 8.2/8.3, MariaDB and
 When a Drive video renders but metadata never loads, inspect the protected endpoint response rather than the Plyr UI first. A healthy initial request should return media with `Content-Type: video/*` (or an inferred safe video type), `Accept-Ranges: bytes`, and either HTTP 200 for a normal request or HTTP 206 with a valid `Content-Range` for a range request.
 
 The proxy recognizes Drive large-file confirmation HTML and automatically follows the validated confirmation form with its generated parameters and cookies. Tests for this behavior live in `tests/drive_test.php` and `tests/http_range_proxy_test.php`. Do not reintroduce direct Google URLs, iframe previews or client-side confirmation handling.
+
+## Video runtime invariants
+
+Do not implement resource-type detection independently in an entry point. Use `drive::resolve_record_type()` everywhere so rendering, streaming, progress and reporting agree on the same type.
+
+Plugin checkbox settings must distinguish an absent config value from an explicitly disabled value. Settings whose documented default is enabled should use `(string) $value === '0'` only to detect an explicit disable, or ensure the upgrade step seeds the default first.
+
+When a browser Range request receives upstream HTTP 200, retry strategies must not consume the complete response body. The first incompatible full-response chunk is intentionally aborted before the next strategy. The synthetic strategy remains the only path allowed to consume the upstream full stream for a requested byte window.
