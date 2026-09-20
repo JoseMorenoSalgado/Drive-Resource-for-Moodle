@@ -98,6 +98,67 @@
     -webkit-user-drag: none;
 }
 
+.mod-videoplayer-video-health {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(1rem, 3vw, 2rem);
+    color: #f8fafc;
+    background: rgba(2, 6, 23, .88);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+
+.mod-videoplayer-video-health[hidden] {
+    display: none !important;
+}
+
+.mod-videoplayer-video-health-card {
+    width: min(34rem, 100%);
+    text-align: center;
+}
+
+.mod-videoplayer-video-health-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin-bottom: .8rem;
+    border: 2px solid rgba(255, 255, 255, .72);
+    border-radius: 999px;
+    font-size: 1.4rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.mod-videoplayer-video-health-title {
+    display: block;
+    margin-bottom: .45rem;
+    font-size: clamp(1rem, 2.2vw, 1.25rem);
+}
+
+.mod-videoplayer-video-health-message {
+    margin: 0 auto 1rem;
+    max-width: 30rem;
+    color: rgba(248, 250, 252, .88);
+    font-size: .94rem;
+    line-height: 1.5;
+}
+
+.mod-videoplayer-video-health-retry {
+    min-width: 8rem;
+    font-weight: 700;
+}
+
+.mod-videoplayer-native-frame.has-video-error .plyr__controls,
+.mod-videoplayer-native-frame.has-video-error .plyr__control--overlaid {
+    visibility: hidden;
+}
+
 .mod-videoplayer-pdfjs-viewer {
     position: relative;
     width: 100%;
