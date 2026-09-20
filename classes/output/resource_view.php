@@ -17,6 +17,7 @@
 namespace mod_videoplayer\output;
 
 use mod_videoplayer\local\access\activity_context;
+use mod_videoplayer\local\plugin_config;
 use mod_videoplayer\local\resource\resource_descriptor;
 
 /**
@@ -93,7 +94,6 @@ final class resource_view implements \renderable, \templatable {
         $fallbackvideourl = $this->resource->is_video()
             ? $this->resource->protected_url($cmid, 'source')->out(false)
             : '';
-        $config = (object)get_config('mod_videoplayer');
         $isguest = isguestuser();
 
         $typestringkey = 'type' . $type;
@@ -102,11 +102,8 @@ final class resource_view implements \renderable, \templatable {
             : get_string('typefile', 'mod_videoplayer');
 
         $playerstyle = '';
-        if (($config->playercolormode ?? '') === 'custom') {
-            $playercolor = trim((string)($config->playercolor ?? ''));
-            if (preg_match('/^#[0-9a-fA-F]{6}$/', $playercolor)) {
-                $playerstyle = '--mod-videoplayer-player-color: ' . $playercolor . ';';
-            }
+        if (plugin_config::player_color_mode() === 'custom') {
+            $playerstyle = '--mod-videoplayer-player-color: ' . plugin_config::player_color() . ';';
         }
 
         $initialpage = max(1, (int)($this->progress->lastpage ?? 1));
@@ -127,8 +124,8 @@ final class resource_view implements \renderable, \templatable {
             'type' => $type,
             'cmid' => $cmid,
             'title' => format_string($instance->name, true, ['context' => $this->activity->context()]),
-            'showresourcetype' => (string)($config->showresourcetype ?? '1') !== '0',
-            'trackprogress' => !$isguest && (string)($config->enabletracking ?? '1') !== '0',
+            'showresourcetype' => plugin_config::show_resource_type(),
+            'trackprogress' => !$isguest && plugin_config::tracking_enabled(),
             'resourcetype' => get_string('resourcetype', 'mod_videoplayer') . ': ' . $typestring,
             'protectedurl' => $protectedurl->out(false),
             'pdfurl' => $protectedurl->out(false),
