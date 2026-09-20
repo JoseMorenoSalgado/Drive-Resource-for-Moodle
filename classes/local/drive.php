@@ -30,6 +30,24 @@ class drive {
     /** @var string Generic media type. */
     public const TYPE_AUTO = 'auto';
 
+    /** @var string Video resource type. */
+    public const TYPE_VIDEO = 'video';
+
+    /** @var string Generic unsupported file type. */
+    public const TYPE_FILE = 'file';
+
+    /** @var array<string> Supported configured resource types. */
+    private const CONFIGURED_TYPES = [
+        self::TYPE_AUTO,
+        self::TYPE_VIDEO,
+        'pdf',
+        'image',
+        'document',
+        'spreadsheet',
+        'presentation',
+        self::TYPE_FILE,
+    ];
+
     /**
      * Extract a Google Drive file ID from supported sharing URLs.
      *
@@ -111,6 +129,47 @@ class drive {
         }
 
         return 'file';
+    }
+
+    /**
+     * Resolve the effective resource type for one activity record.
+     *
+     * Standard Google Drive sharing URLs such as /file/d/{id}/view do not
+     * expose a filename or MIME type. Older versions of this plugin were
+     * video-only and later migrated those records to type=auto, which caused
+     * every normal Drive video URL to resolve as a generic unsupported file.
+     *
+     * Automatic mode therefore keeps URL-based detection for typed URLs and
+     * Google Workspace resources, but uses video as the deterministic fallback
+     * for an otherwise opaque Drive file link. New activities default to the
+     * explicit video type, while PDF/image/document resources can still be
+     * selected explicitly.
+     *
+     * @param object $record Activity record with source, type and videourl fields.
+     * @return string Effective resource type.
+     */
+    public static function resolve_record_type(object $record): string {
+        if (($record->source ?? self::SOURCE_GOOGLEDRIVE) === 'localpdf') {
+            return 'pdf';
+        }
+
+        $configured = clean_param((string) ($record->type ?? self::TYPE_AUTO), PARAM_ALPHANUMEXT);
+        if ($configured !== '' && $configured !== self::TYPE_AUTO) {
+            return in_array($configured, self::CONFIGURED_TYPES, true) ? $configured : self::TYPE_FILE;
+        }
+
+        $detected = self::detect_type((string) ($record->videourl ?? ''));
+        return $detected === self::TYPE_FILE ? self::TYPE_VIDEO : $detected;
+    }
+
+    /**
+     * Validate a configured resource type.
+     *
+     * @param string $type Resource type.
+     * @return bool
+     */
+    public static function is_supported_configured_type(string $type): bool {
+        return in_array($type, self::CONFIGURED_TYPES, true);
     }
 
     /**
