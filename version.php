@@ -14,7 +14,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'mod_videoplayer';
-$plugin->version = 2026092013;
+$plugin->version = 2026092014;
 $plugin->release = '1.1.33-rc17-m45';
 $plugin->requires = 2024100700; // Moodle 4.5.0 (LTS).
 $plugin->supported = [405, 405];
