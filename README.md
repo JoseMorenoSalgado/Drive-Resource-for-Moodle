@@ -246,9 +246,9 @@ Protected video now has a third byte-range strategy. If Google Drive ignores bot
 
 Cross-version CI note: the shared Moodle 4.5–5.x PHPUnit suite uses docblock metadata for providers and coverage so the same tests run under PHPUnit 9 and PHPUnit 11 without version-specific test branches.
 
-## 1.1.32 RC3 production gate
+## 1.1.32 RC6 production gate
 
-Drive Resource 1.1.32 RC3 is the production-candidate line for Moodle 4.5–5.2.
+Drive Resource 1.1.32 RC6 is the production-candidate line for Moodle 4.5–5.2.
 
 The learner-facing architecture does not use Google Drive preview iframes. Videos, PDFs, images, Google Docs, Google Sheets and Google Slides are requested through Moodle's protected endpoint after login, course-module and capability checks. PDF-compatible resources render with the bundled local PDF.js viewer; videos use the local Plyr-enhanced HTML5 player; images use a Moodle-owned protected viewer.
 
