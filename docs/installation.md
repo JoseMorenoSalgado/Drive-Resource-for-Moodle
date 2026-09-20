@@ -52,7 +52,9 @@ Large video/PDF delivery is streamed by PHP. Ensure:
 - PHP cURL is enabled;
 - output compression/buffering rules do not rewrite range responses;
 - HTTPS certificate validation works from the Moodle server;
-- Moodle/PHP can write `$CFG->localcachedir`.
+- Moodle/PHP can write `$CFG->localcachedir`;
+- reverse proxies do not buffer or rewrite byte-range video responses in a way that prevents timely delivery;
+- infrastructure timeouts are longer than normal range requests but do not mask a broken upstream indefinitely; the plugin itself aborts effectively stalled upstream transfers.
 
 The plugin does not require increasing PHP memory to the size of a video because the proxy streams chunks rather than buffering the full object.
 
@@ -70,11 +72,12 @@ After installing rc17:
 2. hard-refresh the browser;
 3. open the exact video known to work in rc15/rc16;
 4. verify play, seek, fullscreen, speed and resume;
-5. verify the page source/network requests show Moodle `protected.php`, not a Google viewer;
-6. test a PDF and a Google Doc/Sheet/Slide export;
-7. run cron so PDF cache tasks can execute;
-8. verify teacher progress report;
-9. test backup/restore and Privacy API on staging.
+5. while playing, throttle/interrupt the network long enough to trigger buffering and confirm playback recovers near the same second without exposing Google UI;
+6. verify the page source/network requests show Moodle `protected.php`, not a Google viewer;
+7. test a PDF and a Google Doc/Sheet/Slide export;
+8. run cron so PDF cache tasks can execute;
+9. verify teacher progress report;
+10. test backup/restore and Privacy API on staging.
 
 Use `docs/manual-test-checklist.md` for the complete gate.
 
