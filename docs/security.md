@@ -187,11 +187,10 @@ Missing site configuration is not treated as an authorization decision. In parti
 
 Database upgrade failures must not encourage administrators to bypass Moodle's XMLDB layer or manually remove production indexes. RC7 performs the indexed `videoplayer.type` migration through Moodle's database manager and restores `type_idx` even when the field alteration throws. The change does not relax authentication, capability checks, protected delivery, or modify learner progress data.
 
-## RC8 Drive confirmation and diagnostic hardening
+## RC8 Drive confirmation hardening
 
 Google confirmation HTML is untrusted. RC8 accepts only a bounded allow-list of download query fields, validates values, and continues to restrict confirmation targets to approved HTTPS Google hosts. Escaped embedded `downloadUrl` values are decoded as JSON before validation; they are never emitted to learner HTML.
 
-Playback diagnostics probe only the Moodle protected endpoint. They consume safe status headers such as `X-Drive-Resource-Status` and do not reveal the Drive file ID, confirmation token, upstream URL, cookies or Google response body.
 
 Both protected proxy and cache-warming cURL paths restrict origin and redirect protocols to HTTPS when the installed cURL runtime exposes the protocol controls. TLS peer and host verification remain mandatory.
 
