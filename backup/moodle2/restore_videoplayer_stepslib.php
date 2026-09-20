@@ -97,6 +97,11 @@ class restore_videoplayer_activity_structure_step extends restore_activity_struc
         if (!isset($data->completionpercentage) || $data->completionpercentage === '') {
             $data->completionpercentage = 80;
         }
+        if (!isset($data->completionprogressenabled)) {
+            $data->completionprogressenabled = 1;
+        } else {
+            $data->completionprogressenabled = empty($data->completionprogressenabled) ? 0 : 1;
+        }
         if ($data->source === drive::SOURCE_LOCALPDF) {
             $data->videourl = '';
         }
