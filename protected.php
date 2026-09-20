@@ -29,6 +29,7 @@ require_once(__DIR__ . '/lib.php');
 use mod_videoplayer\local\drive;
 use mod_videoplayer\local\http_range_proxy;
 use mod_videoplayer\local\protected_stream;
+use mod_videoplayer\local\video_normalizer;
 use mod_videoplayer\task\precache_pdf;
 
 $id = required_param('id', PARAM_INT);
@@ -84,6 +85,22 @@ if (drive::is_pdf_type($type) && !preg_match('/\.pdf$/i', $filename)) {
     $filename .= '.pdf';
 } else if ($type === 'video' && !preg_match('/\.(mp4|webm|m4v|mov)$/i', $filename)) {
     $filename .= '.mp4';
+}
+
+if ($type === drive::TYPE_VIDEO) {
+    $normalizedfile = video_normalizer::normalized_file_for($videoplayer);
+    if ($normalizedfile !== null) {
+        protected_stream::send_file(
+            $normalizedfile,
+            $filename,
+            'video/mp4',
+            video_normalizer::cache_key_for($videoplayer) ?? '',
+            filemtime($normalizedfile) ?: time(),
+            'VIDEO_NORMALIZED'
+        );
+    }
+
+    video_normalizer::queue_if_needed($videoplayer);
 }
 
 $cachestatus = 'BYPASS';
