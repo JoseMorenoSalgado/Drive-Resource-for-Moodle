@@ -49,7 +49,13 @@ final class upstream_url_policy_test extends \advanced_testcase {
     public function test_untrusted_hosts_are_rejected(): void {
         $this->assertFalse(upstream_url_policy::is_allowed('http://drive.google.com/uc?id=abc'));
         $this->assertFalse(upstream_url_policy::is_allowed('https://drive.google.com.evil.example/uc?id=abc'));
+        $this->assertFalse(upstream_url_policy::is_allowed('https://googlevideo.com.evil.example/videoplayback?id=abc'));
+        $this->assertFalse(upstream_url_policy::is_allowed('https://evilgooglevideo.com/videoplayback?id=abc'));
+        $this->assertFalse(upstream_url_policy::is_allowed('https://googleusercontent.com.evil.example/file?id=abc'));
         $this->assertFalse(upstream_url_policy::is_allowed('https://127.0.0.1/internal'));
+        $this->assertFalse(upstream_url_policy::is_allowed('https://[::1]/internal'));
+        $this->assertFalse(upstream_url_policy::is_allowed('file:///etc/passwd'));
+        $this->assertFalse(upstream_url_policy::is_allowed('//drive.google.com/uc?id=abc'));
         $this->assertFalse(upstream_url_policy::is_allowed('https://user:pass@drive.google.com/uc?id=abc'));
     }
 }
