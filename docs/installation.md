@@ -257,7 +257,7 @@ Unsatisfiable ranges must return `416` with `Content-Range: bytes */<size>` wher
 
 ## Automated validation
 
-`.github/workflows/moodle-supported-ci.yml` tests Moodle 4.5 and 5.0 on PHP 8.2/8.3, and Moodle 5.2 on PHP 8.3, with:
+`.github/workflows/moodle-supported-ci.yml` tests Moodle 4.5, 5.0 and 5.1 on PHP 8.2/8.3, and Moodle 5.2 on PHP 8.3, with:
 
 - MariaDB 10.11 and PostgreSQL 16;
 - PHP lint, Moodle Coding Style, PHPDoc, plugin validation and XMLDB savepoints;
