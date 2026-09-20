@@ -43,3 +43,7 @@ The release blocker is the exact Drive video previously confirmed working in rc1
 ## Known external dependency risk
 
 Google Drive progressive playback is an upstream compatibility integration rather than a stable contracted media API. The resolver is isolated and the protected source fallback is retained so future upstream changes can be handled without replacing the player architecture.
+
+## GitHub validation
+
+RC17 was applied to the refactor branch from the verified release payload. This commit triggers the final Moodle 4.5 CI matrix against the completed source tree.
