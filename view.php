@@ -27,6 +27,7 @@ require_once(__DIR__ . '/lib.php');
 require_once(__DIR__ . '/locallib.php');
 
 use mod_videoplayer\local\drive;
+use mod_videoplayer\local\video_normalizer;
 
 $id = required_param('id', PARAM_INT);
 
@@ -97,6 +98,12 @@ $ispdfcompatible = drive::is_pdf_type($type);
 $isvideo = $type === 'video';
 $isimage = $type === 'image';
 $trackingenabled = (string) get_config('mod_videoplayer', 'enabletracking') !== '0';
+
+if ($isvideo) {
+    // Queue normalization early so legacy incompatible codecs can be prepared
+    // before the learner retries playback. Duplicate ad-hoc tasks are suppressed.
+    video_normalizer::queue_if_needed($videoplayer);
+}
 
 $typestringkey = 'type' . $type;
 $typestring = get_string_manager()->string_exists($typestringkey, 'mod_videoplayer')
