@@ -463,14 +463,13 @@ final class video_normalizer {
      * @return int Process exit code.
      */
     private static function run_process(array $command, ?string $stdoutpath = null, ?string $stderrpath = null): int {
+        $ownstdout = $stdoutpath === null;
+        $ownstderr = $stderrpath === null;
         $stdoutpath = $stdoutpath ?? tempnam(self::cache_dir(), 'process-out-');
         $stderrpath = $stderrpath ?? tempnam(self::cache_dir(), 'process-err-');
         if ($stdoutpath === false || $stderrpath === false) {
             return 1;
         }
-
-        $ownstdout = func_num_args() < 2 || $stdoutpath === null;
-        $ownstderr = func_num_args() < 3 || $stderrpath === null;
         $descriptors = [
             0 => ['pipe', 'r'],
             1 => ['file', $stdoutpath, 'wb'],
