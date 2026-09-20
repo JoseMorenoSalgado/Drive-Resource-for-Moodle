@@ -16,6 +16,8 @@
 
 namespace mod_videoplayer\local;
 
+use mod_videoplayer\local\stream\upstream_url_policy;
+
 /**
  * Resilient HTTP byte-range proxy for protected Drive resources.
  *
@@ -45,6 +47,9 @@ final class http_range_proxy {
 
     /** @var int Maximum number of server-side Drive confirmation hops. */
     private const MAX_CONFIRMATION_HOPS = 2;
+
+    /** @var int Maximum validated upstream redirect hops. */
+    private const MAX_REDIRECT_HOPS = 5;
 
     /** @var string No Range header is required. */
     private const RANGE_MODE_NONE = 'none';
@@ -79,19 +84,29 @@ final class http_range_proxy {
         string $fallbacktype,
         string $cachestatus = 'BYPASS'
     ): never {
+        if (!upstream_url_policy::is_allowed($url)) {
+            debugging('Drive Resource proxy rejected a non-allowlisted upstream URL.', DEBUG_DEVELOPER);
+            self::send_bad_gateway('UPSTREAM_URL_REJECTED');
+        }
+
         $range = self::request_range_header();
         $ishead = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'HEAD';
         $validator = self::stable_validator($url);
         $currenturl = $url;
         $requestcookies = [];
         $confirmationhops = 0;
+        $redirecthops = 0;
         $lastresponse = null;
 
         while (true) {
+            if (!upstream_url_policy::is_allowed($currenturl)) {
+                self::send_bad_gateway('UPSTREAM_URL_REJECTED');
+            }
             $rangemodes = $range === ''
                 ? [self::RANGE_MODE_NONE]
                 : [self::RANGE_MODE_CURL, self::RANGE_MODE_HEADER, self::RANGE_MODE_SYNTHETIC];
             $resolvedwarning = false;
+            $resolvedredirect = false;
 
             foreach ($rangemodes as $rangemode) {
                 $lastresponse = self::execute_attempt(
@@ -114,6 +129,21 @@ final class http_range_proxy {
                     $requestcookies,
                     (array) ($lastresponse['cookies'] ?? [])
                 );
+
+                $status = (int)($lastresponse['status'] ?? 0);
+                if ($status >= 300 && $status < 400) {
+                    $location = (string)($lastresponse['headers']['location'] ?? '');
+                    $redirecturl = upstream_url_policy::resolve_redirect($currenturl, $location);
+                    if ($redirecturl === null || $redirecthops >= self::MAX_REDIRECT_HOPS) {
+                        debugging('Drive Resource proxy rejected an unsafe upstream redirect.', DEBUG_DEVELOPER);
+                        self::send_bad_gateway('UPSTREAM_REDIRECT_REJECTED');
+                    }
+
+                    $currenturl = $redirecturl;
+                    $redirecthops++;
+                    $resolvedredirect = true;
+                    break;
+                }
 
                 if ($lastresponse['invalidcontent']) {
                     $followupurl = drive::resolve_download_warning_url(
@@ -150,7 +180,7 @@ final class http_range_proxy {
                 }
             }
 
-            if ($resolvedwarning) {
+            if ($resolvedwarning || $resolvedredirect) {
                 continue;
             }
 
@@ -290,6 +320,7 @@ final class http_range_proxy {
                 'content-range' => '/^Content-Range:\s*(.+)$/i',
                 'accept-ranges' => '/^Accept-Ranges:\s*(.+)$/i',
                 'content-disposition' => '/^Content-Disposition:\s*(.+)$/i',
+                'location' => '/^Location:\s*(.+)$/i',
             ];
 
             foreach ($patterns as $key => $pattern) {
@@ -318,8 +349,7 @@ final class http_range_proxy {
         }
 
         $options = [
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_MAXREDIRS => 5,
+            CURLOPT_FOLLOWLOCATION => false,
             CURLOPT_CONNECTTIMEOUT => 12,
             CURLOPT_TIMEOUT => 0,
             CURLOPT_NOSIGNAL => true,

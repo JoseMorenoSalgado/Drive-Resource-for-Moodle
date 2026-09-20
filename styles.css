@@ -818,3 +818,451 @@
         max-width: none;
     }
 }
+
+/* -------------------------------------------------------------------------
+ * Consolidated learner-view refinements.
+ *
+ * These rules previously lived in three runtime-loaded stylesheets. Keeping
+ * them in the standard Moodle plugin stylesheet preserves cascade order while
+ * eliminating extra CSS requests and duplicate loading paths.
+ * ------------------------------------------------------------------------- */
+
+/*
+ * Drive Resource visual refinements.
+ *
+ * This stylesheet keeps presentation polish separated from the base Moodle
+ * activity styles and from PDF-specific mobile fixes.
+ */
+
+.mod-videoplayer-container {
+    --drive-resource-accent: var(--bs-primary, var(--primary, #06b6c9));
+    --drive-resource-accent-strong: #0891b2;
+    --drive-resource-surface: rgba(255, 255, 255, .96);
+    --drive-resource-border: rgba(100, 116, 139, .20);
+    --drive-resource-muted: #64748b;
+    --drive-resource-ink: #0f172a;
+}
+
+.mod-videoplayer-meta {
+    margin-bottom: .8rem;
+}
+
+.mod-videoplayer-meta-item {
+    color: var(--drive-resource-muted);
+    border-color: var(--drive-resource-border);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, .96), rgba(248, 250, 252, .92));
+    box-shadow: 0 5px 14px rgba(15, 23, 42, .045);
+}
+
+.mod-videoplayer-pdfjs-viewer,
+.mod-videoplayer-native-frame {
+    border-color: var(--drive-resource-border);
+}
+
+.mod-videoplayer-pdfjs-viewer {
+    background:
+        radial-gradient(circle at 10% 0%, rgba(6, 182, 201, .10), transparent 20rem),
+        radial-gradient(circle at 90% 0%, rgba(59, 130, 246, .08), transparent 22rem),
+        linear-gradient(135deg, #f8fafc, #eef2f7);
+}
+
+.mod-videoplayer-pdfjs-canvas-wrap {
+    background:
+        linear-gradient(180deg, rgba(241, 245, 249, .92), rgba(226, 232, 240, .92));
+}
+
+.mod-videoplayer-pdfjs-control {
+    font-weight: 800;
+}
+
+.mod-videoplayer-pdfjs-control-fullscreen,
+.mod-videoplayer-pdfjs-control-fit.is-active {
+    color: #ffffff !important;
+    background: var(--drive-resource-accent) !important;
+}
+
+.mod-videoplayer-pdfjs-control-fullscreen:hover,
+.mod-videoplayer-pdfjs-control-fullscreen:focus,
+.mod-videoplayer-pdfjs-control-fit.is-active:hover,
+.mod-videoplayer-pdfjs-control-fit.is-active:focus {
+    background: var(--drive-resource-accent-strong) !important;
+}
+
+.mod-videoplayer-pdfjs-page-status {
+    border: 1px solid rgba(255, 255, 255, .62);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.mod-videoplayer-native-frame {
+    border: 1px solid rgba(15, 23, 42, .12);
+}
+
+
+
+@media (max-width: 767.98px) {
+    .mod-videoplayer-container {
+        --mod-videoplayer-radius: .9rem;
+    }
+
+    .mod-videoplayer-meta {
+        margin-bottom: .55rem;
+    }
+
+    .mod-videoplayer-meta-item {
+        box-shadow: none;
+    }
+
+    .mod-videoplayer-pdfjs-viewer {
+        border-color: rgba(100, 116, 139, .24);
+        background: #f8fafc;
+    }
+
+    .mod-videoplayer-pdfjs-canvas-wrap {
+        background: #f8fafc !important;
+    }
+
+    .mod-videoplayer-pdfjs-control {
+        border: 1px solid rgba(148, 163, 184, .22) !important;
+    }
+}
+
+/* PDF responsive/mobile layer. */
+
+/*
+ * Mobile-first overrides for the protected PDF.js viewer.
+ *
+ * These rules intentionally live in a dedicated stylesheet so the mobile
+ * reading experience can evolve without increasing risk in the generic
+ * activity stylesheet.
+ */
+
+.mod-videoplayer-pdfjs {
+    max-width: 100%;
+}
+
+.mod-videoplayer-pdfjs-viewer {
+    isolation: isolate;
+}
+
+.mod-videoplayer-pdfjs-control.is-active {
+    background: #ffffff;
+    outline: 2px solid rgba(6, 182, 201, .35);
+}
+
+.mod-videoplayer-pdfjs-control-zoomout {
+    top: .75rem;
+    left: .75rem;
+}
+
+.mod-videoplayer-pdfjs-control-zoomin {
+    top: .75rem;
+    left: 4rem;
+}
+
+.mod-videoplayer-pdfjs-control-fit {
+    top: .75rem;
+    right: 4rem;
+    font-size: 1.05rem;
+}
+
+.mod-videoplayer-pdfjs-viewer:fullscreen {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #0f172a !important;
+}
+
+.mod-videoplayer-pdfjs-viewer:fullscreen .mod-videoplayer-pdfjs-canvas-wrap {
+    height: 100vh !important;
+    min-height: 100vh !important;
+    padding: .75rem !important;
+    background: #0f172a !important;
+}
+
+@media (max-width: 767.98px) {
+    body.path-mod-videoplayer .activity-header,
+    body.path-mod-videoplayer #page-header {
+        margin-bottom: .35rem;
+    }
+
+    .mod-videoplayer-pdfjs {
+        margin-left: calc(var(--bs-gutter-x, 1.5rem) * -.35);
+        margin-right: calc(var(--bs-gutter-x, 1.5rem) * -.35);
+    }
+
+    .mod-videoplayer-pdfjs .mod-videoplayer-meta {
+        gap: .35rem;
+        margin-bottom: .45rem !important;
+        padding: 0 .15rem;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        scrollbar-width: none;
+    }
+
+    .mod-videoplayer-pdfjs .mod-videoplayer-meta::-webkit-scrollbar {
+        display: none;
+    }
+
+    .mod-videoplayer-pdfjs .mod-videoplayer-meta-item {
+        flex: 0 0 auto;
+        padding: .25rem .55rem;
+        font-size: .78rem;
+        line-height: 1.2;
+        white-space: nowrap;
+        background: rgba(255, 255, 255, .92);
+    }
+
+    .mod-videoplayer-resume {
+        margin-bottom: .45rem;
+        padding: .5rem .65rem;
+        font-size: .85rem;
+    }
+
+    .mod-videoplayer-pdfjs-viewer {
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        border-radius: 14px;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, .10);
+    }
+
+    .mod-videoplayer-pdfjs-canvas-wrap {
+        min-height: 80svh !important;
+        height: 80svh !important;
+        padding: .25rem !important;
+        align-items: flex-start !important;
+        justify-content: center !important;
+        overflow: auto !important;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+        touch-action: pan-x pan-y;
+        background: #f1f5f9 !important;
+        scrollbar-width: thin;
+    }
+
+    .mod-videoplayer-pdfjs-canvas {
+        display: block !important;
+        max-width: 100% !important;
+        width: auto !important;
+        height: auto !important;
+        margin: 0 auto !important;
+        border-radius: 8px !important;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, .18) !important;
+    }
+
+    .mod-videoplayer-pdfjs-overlay {
+        position: sticky !important;
+        top: .25rem !important;
+        left: 0 !important;
+        right: 0 !important;
+        height: 0 !important;
+        z-index: 25 !important;
+        pointer-events: none;
+    }
+
+    .mod-videoplayer-pdfjs-control,
+    .mod-videoplayer-pdfjs-control-fullscreen {
+        width: 46px !important;
+        height: 46px !important;
+        min-width: 46px !important;
+        min-height: 46px !important;
+        padding: 0 !important;
+        border-radius: 999px !important;
+        font-size: 1.25rem !important;
+        background: rgba(255, 255, 255, .94) !important;
+        color: #0f172a !important;
+        box-shadow: 0 10px 26px rgba(15, 23, 42, .18) !important;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+    }
+
+    .mod-videoplayer-pdfjs-control-prev,
+    .mod-videoplayer-pdfjs-control-next {
+        top: calc(40svh + .25rem) !important;
+        font-size: 2rem !important;
+    }
+
+    .mod-videoplayer-pdfjs-control-prev {
+        left: .35rem !important;
+    }
+
+    .mod-videoplayer-pdfjs-control-next {
+        right: .35rem !important;
+    }
+
+    .mod-videoplayer-pdfjs-control-zoomout,
+    .mod-videoplayer-pdfjs-control-zoomin,
+    .mod-videoplayer-pdfjs-control-fit,
+    .mod-videoplayer-pdfjs-control-fullscreen {
+        top: .45rem !important;
+    }
+
+    .mod-videoplayer-pdfjs-control-zoomout {
+        left: .45rem !important;
+    }
+
+    .mod-videoplayer-pdfjs-control-zoomin {
+        left: 3.55rem !important;
+    }
+
+    .mod-videoplayer-pdfjs-control-fit {
+        right: 3.55rem !important;
+    }
+
+    .mod-videoplayer-pdfjs-control-fullscreen {
+        right: .45rem !important;
+    }
+
+    .mod-videoplayer-pdfjs-page-status {
+        top: .45rem !important;
+        left: 50% !important;
+        min-width: 64px !important;
+        padding: .45rem .65rem !important;
+        font-size: .9rem !important;
+        line-height: 1.1;
+        background: rgba(255, 255, 255, .96) !important;
+        box-shadow: 0 10px 26px rgba(15, 23, 42, .14) !important;
+    }
+
+    .mod-videoplayer-pdfjs-zoom-status {
+        display: none !important;
+    }
+
+    .mod-videoplayer-watermark {
+        font-size: clamp(1.15rem, 7vw, 2.25rem);
+        padding: 1rem;
+    }
+
+    .is-fallback-fullscreen.mod-videoplayer-pdfjs-viewer,
+    .mod-videoplayer-pdfjs-viewer:fullscreen {
+        inset: 0 !important;
+        width: 100vw !important;
+        height: 100svh !important;
+        max-width: none !important;
+        border-radius: 0 !important;
+    }
+
+    .is-fallback-fullscreen .mod-videoplayer-pdfjs-canvas-wrap,
+    .mod-videoplayer-pdfjs-viewer:fullscreen .mod-videoplayer-pdfjs-canvas-wrap {
+        min-height: 100svh !important;
+        height: 100svh !important;
+        padding: calc(env(safe-area-inset-top, 0px) + .45rem) .25rem calc(env(safe-area-inset-bottom, 0px) + .45rem) !important;
+    }
+}
+
+@media (max-width: 420px) {
+    .mod-videoplayer-pdfjs-control,
+    .mod-videoplayer-pdfjs-control-fullscreen {
+        width: 44px !important;
+        height: 44px !important;
+        min-width: 44px !important;
+        min-height: 44px !important;
+    }
+
+    .mod-videoplayer-pdfjs-control-zoomin {
+        left: 3.35rem !important;
+    }
+
+    .mod-videoplayer-pdfjs-control-fit {
+        right: 3.35rem !important;
+    }
+
+    .mod-videoplayer-pdfjs-page-status {
+        min-width: 58px !important;
+        padding: .42rem .55rem !important;
+        font-size: .84rem !important;
+    }
+}
+
+/* PDF overlay/layout layer. */
+
+.mod-videoplayer-pdfjs {
+    width: 100%;
+}
+
+.mod-videoplayer-pdfjs-viewer {
+    width: 100%;
+    max-width: 100%;
+}
+
+.mod-videoplayer-pdfjs-canvas-wrap {
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    min-height: clamp(520px, 76vh, 860px) !important;
+    padding: clamp(.5rem, 1.2vw, 1rem) !important;
+    overflow: auto !important;
+    box-sizing: border-box !important;
+}
+
+.mod-videoplayer-pdfjs-canvas {
+    display: block !important;
+    max-width: none !important;
+    max-height: none !important;
+    width: auto !important;
+    height: auto !important;
+    margin: auto !important;
+    object-fit: contain !important;
+}
+
+.mod-videoplayer-pdfjs-zoom-status {
+    display: inline-block;
+    margin-left: .35rem;
+    padding-left: .35rem;
+    border-left: 1px solid rgba(255, 255, 255, .35);
+    font-size: .78rem;
+    opacity: .9;
+}
+
+.is-fallback-fullscreen .mod-videoplayer-pdfjs-canvas-wrap,
+.mod-videoplayer-pdfjs-viewer:fullscreen .mod-videoplayer-pdfjs-canvas-wrap {
+    min-height: 100vh !important;
+    height: 100vh !important;
+    padding: .75rem !important;
+}
+
+@media (min-width: 1200px) {
+    .mod-videoplayer-pdfjs-canvas-wrap {
+        min-height: clamp(620px, 78vh, 920px) !important;
+    }
+}
+
+@media (max-width: 991.98px) {
+    .mod-videoplayer-pdfjs-canvas-wrap {
+        min-height: clamp(520px, 74vh, 760px) !important;
+        padding: .6rem !important;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .mod-videoplayer-pdfjs-canvas-wrap {
+        align-items: center !important;
+        min-height: min(72svh, 620px) !important;
+        padding: .35rem !important;
+        border-radius: 12px !important;
+    }
+
+    .mod-videoplayer-pdfjs-overlay {
+        inset: .5rem !important;
+        gap: .3rem !important;
+    }
+
+    .mod-videoplayer-pdfjs-control {
+        min-width: 2rem !important;
+        min-height: 2rem !important;
+        padding: .25rem !important;
+    }
+
+    .mod-videoplayer-pdfjs-page-status {
+        font-size: .75rem !important;
+        padding: .35rem .45rem !important;
+    }
+
+    .mod-videoplayer-pdfjs-zoom-status {
+        display: none;
+    }
+}

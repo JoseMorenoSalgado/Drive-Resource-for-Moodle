@@ -35,11 +35,20 @@ final class protected_stream {
     /** @var int Stream chunk size in bytes. */
     private const STREAM_CHUNK_SIZE = 262144;
 
-    /** @var int Default PDF cache lifetime: 30 days. */
-    private const DEFAULT_PDF_CACHE_TTL = 2592000;
-
     /** @var int Temporary cache file stale lifetime. */
     private const STALE_TMP_TTL = 3600;
+
+    /** @var int Abort PDF cache downloads that remain effectively stalled. */
+    private const LOW_SPEED_LIMIT = 1024;
+
+    /** @var int Seconds below LOW_SPEED_LIMIT before aborting a cache download. */
+    private const LOW_SPEED_TIME = 20;
+
+    /** @var int Maximum validated redirects while warming the PDF cache. */
+    private const MAX_REDIRECT_HOPS = 5;
+
+    /** @var int Maximum Drive warning body read for confirmation resolution. */
+    private const MAX_WARNING_HTML_BYTES = 1048576;
 
     /**
      * Return the configured PDF cache TTL.
@@ -47,8 +56,7 @@ final class protected_stream {
      * @return int Cache TTL in seconds.
      */
     public static function pdf_cache_ttl(): int {
-        $ttl = (int)get_config('mod_videoplayer', 'pdfcachettl');
-        return $ttl > 0 ? $ttl : self::DEFAULT_PDF_CACHE_TTL;
+        return plugin_config::pdf_cache_ttl();
     }
 
     /**
@@ -308,10 +316,22 @@ final class protected_stream {
             $valid = $download['ok'] && self::is_pdf_file($tmpfile);
 
             if (!$valid && is_file($tmpfile)) {
-                $confirmtoken = self::extract_drive_confirm_token($tmpfile);
-                if ($confirmtoken !== null) {
+                $warningbody = file_get_contents(
+                    $tmpfile,
+                    false,
+                    null,
+                    0,
+                    self::MAX_WARNING_HTML_BYTES
+                );
+                $confirmedurl = is_string($warningbody)
+                    ? drive::resolve_download_warning_url(
+                        $warningbody,
+                        (string)($download['effectiveurl'] ?? $url)
+                    )
+                    : null;
+
+                if ($confirmedurl !== null) {
                     self::delete_if_file($tmpfile);
-                    $confirmedurl = self::add_drive_confirm_token($url, $confirmtoken);
                     $download = self::download_to_file($confirmedurl, $tmpfile, $cookiejar);
                     $valid = $download['ok'] && self::is_pdf_file($tmpfile);
                 }
@@ -375,9 +395,12 @@ final class protected_stream {
             $isexpiredpdf = preg_match('/\.pdf$/', $basename) && $modified + $ttl < $now;
             $isstaletmp = strpos($basename, '.tmp.') !== false && $modified + self::STALE_TMP_TTL < $now;
             $isstalecookie = strpos($basename, '.cookies.') !== false && $modified + self::STALE_TMP_TTL < $now;
+            $isstalelock = str_ends_with($basename, '.lock') && $modified + self::STALE_TMP_TTL < $now;
 
             if ($isexpiredpdf || $isstaletmp || $isstalecookie) {
                 self::delete_if_file($file);
+            } else if ($isstalelock) {
+                self::delete_stale_lock_file($file);
             }
         }
     }
@@ -511,95 +534,146 @@ final class protected_stream {
     /**
      * Download an upstream URL to a file using a cookie jar.
      *
+     * Redirects are followed manually so every hop is revalidated against the
+     * upstream allow-list before a network request is made.
+     *
      * @param string $url Download URL.
      * @param string $targetpath Target file path.
      * @param string $cookiejar Cookie jar path.
-     * @return array{ok:bool,httpcode:int,error:string,contenttype:string}
+     * @return array{ok:bool,httpcode:int,error:string,contenttype:string,effectiveurl:string}
      */
     private static function download_to_file(string $url, string $targetpath, string $cookiejar): array {
-        $handle = fopen($targetpath, 'wb');
-        if ($handle === false) {
-            return ['ok' => false, 'httpcode' => 0, 'error' => 'target_not_writable', 'contenttype' => ''];
-        }
+        $currenturl = $url;
 
-        $ch = curl_init($url);
-        if ($ch === false) {
+        for ($redirects = 0; $redirects <= self::MAX_REDIRECT_HOPS; $redirects++) {
+            if (!upstream_url_policy::is_allowed($currenturl)) {
+                return [
+                    'ok' => false,
+                    'httpcode' => 0,
+                    'error' => 'upstream_url_rejected',
+                    'contenttype' => '',
+                    'effectiveurl' => $currenturl,
+                ];
+            }
+
+            $handle = fopen($targetpath, 'wb');
+            if ($handle === false) {
+                return [
+                    'ok' => false,
+                    'httpcode' => 0,
+                    'error' => 'target_not_writable',
+                    'contenttype' => '',
+                    'effectiveurl' => $currenturl,
+                ];
+            }
+
+            $location = '';
+            $ch = curl_init($currenturl);
+            if ($ch === false) {
+                fclose($handle);
+                return [
+                    'ok' => false,
+                    'httpcode' => 0,
+                    'error' => 'curl_init_failed',
+                    'contenttype' => '',
+                    'effectiveurl' => $currenturl,
+                ];
+            }
+
+            $options = [
+                CURLOPT_FOLLOWLOCATION => false,
+                CURLOPT_CONNECTTIMEOUT => 15,
+                CURLOPT_TIMEOUT => 0,
+                CURLOPT_NOSIGNAL => true,
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_SSL_VERIFYHOST => 2,
+                CURLOPT_BUFFERSIZE => self::STREAM_CHUNK_SIZE,
+                CURLOPT_LOW_SPEED_LIMIT => self::LOW_SPEED_LIMIT,
+                CURLOPT_LOW_SPEED_TIME => self::LOW_SPEED_TIME,
+                CURLOPT_HTTPHEADER => ['Accept-Encoding: identity'],
+                CURLOPT_USERAGENT => 'DriveResourceMoodleProxy/1.1.33',
+                CURLOPT_COOKIEJAR => $cookiejar,
+                CURLOPT_COOKIEFILE => $cookiejar,
+                CURLOPT_FILE => $handle,
+                CURLOPT_HEADERFUNCTION => static function ($curl, string $header) use (&$location): int {
+                    $length = strlen($header);
+                    if (preg_match('/^Location:\\s*(.+)$/i', trim($header), $matches)) {
+                        $location = trim($matches[1]);
+                    }
+                    return $length;
+                },
+            ];
+
+            if (defined('CURLOPT_PROTOCOLS') && defined('CURLPROTO_HTTPS')) {
+                $options[CURLOPT_PROTOCOLS] = CURLPROTO_HTTPS;
+            }
+
+            curl_setopt_array($ch, $options);
+            $result = curl_exec($ch);
+            $curlerror = curl_error($ch);
+            $curlcode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $contenttype = (string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+            curl_close($ch);
             fclose($handle);
-            return ['ok' => false, 'httpcode' => 0, 'error' => 'curl_init_failed', 'contenttype' => ''];
+
+            if ($curlcode >= 300 && $curlcode < 400) {
+                $redirecturl = upstream_url_policy::resolve_redirect($currenturl, $location);
+                if ($redirecturl === null || $redirects >= self::MAX_REDIRECT_HOPS) {
+                    self::delete_if_file($targetpath);
+                    return [
+                        'ok' => false,
+                        'httpcode' => $curlcode,
+                        'error' => 'upstream_redirect_rejected',
+                        'contenttype' => $contenttype,
+                        'effectiveurl' => $currenturl,
+                    ];
+                }
+
+                self::delete_if_file($targetpath);
+                $currenturl = $redirecturl;
+                continue;
+            }
+
+            return [
+                'ok' => $result !== false && $curlcode >= 200 && $curlcode < 300,
+                'httpcode' => $curlcode,
+                'error' => $curlerror,
+                'contenttype' => $contenttype,
+                'effectiveurl' => $currenturl,
+            ];
         }
-
-        curl_setopt_array($ch, [
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_MAXREDIRS => 5,
-            CURLOPT_CONNECTTIMEOUT => 15,
-            CURLOPT_TIMEOUT => 0,
-            CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_SSL_VERIFYHOST => 2,
-            CURLOPT_BUFFERSIZE => self::STREAM_CHUNK_SIZE,
-            CURLOPT_HTTPHEADER => ['Accept-Encoding: identity'],
-            CURLOPT_USERAGENT => 'DriveResourceMoodleProxy/1.1',
-            CURLOPT_COOKIEJAR => $cookiejar,
-            CURLOPT_COOKIEFILE => $cookiejar,
-            CURLOPT_FILE => $handle,
-        ]);
-
-        $result = curl_exec($ch);
-        $curlerror = curl_error($ch);
-        $curlcode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $contenttype = (string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-        curl_close($ch);
-        fclose($handle);
 
         return [
-            'ok' => $result !== false && $curlcode >= 200 && $curlcode < 300,
-            'httpcode' => $curlcode,
-            'error' => $curlerror,
-            'contenttype' => $contenttype,
+            'ok' => false,
+            'httpcode' => 0,
+            'error' => 'too_many_redirects',
+            'contenttype' => '',
+            'effectiveurl' => $currenturl,
         ];
     }
 
     /**
-     * Extract the Google Drive download confirmation token from a warning page.
+     * Delete a stale cache lock only when no process currently owns it.
      *
-     * @param string $path HTML response path.
-     * @return string|null Confirmation token.
+     * @param string $path Lock file path.
+     * @return void
      */
-    private static function extract_drive_confirm_token(string $path): ?string {
-        if (!is_readable($path)) {
-            return null;
+    private static function delete_stale_lock_file(string $path): void {
+        $handle = fopen($path, 'c');
+        if ($handle === false) {
+            return;
         }
 
-        $html = file_get_contents($path, false, null, 0, 1048576);
-        if (!is_string($html) || $html === '') {
-            return null;
-        }
-
-        $html = html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $patterns = [
-            '/[?&]confirm=([0-9A-Za-z_\-]+)/',
-            '/name=["\']confirm["\'][^>]*value=["\']([^"\']+)["\']/i',
-            '/confirm=([0-9A-Za-z_\-]+)/',
-        ];
-
-        foreach ($patterns as $pattern) {
-            if (preg_match($pattern, $html, $matches)) {
-                return clean_param($matches[1], PARAM_ALPHANUMEXT);
+        try {
+            if (!flock($handle, LOCK_EX | LOCK_NB)) {
+                return;
             }
+
+            @unlink($path);
+        } finally {
+            flock($handle, LOCK_UN);
+            fclose($handle);
         }
-
-        return null;
-    }
-
-    /**
-     * Append a Google Drive confirmation token to a download URL.
-     *
-     * @param string $url Download URL.
-     * @param string $token Confirmation token.
-     * @return string URL with confirmation token.
-     */
-    private static function add_drive_confirm_token(string $url, string $token): string {
-        $separator = strpos($url, '?') === false ? '?' : '&';
-        return $url . $separator . 'confirm=' . rawurlencode($token);
     }
 
     /**

@@ -25,6 +25,42 @@ namespace mod_videoplayer\local\stream;
  */
 final class upstream_url_policy {
     /**
+     * Resolve and validate one upstream redirect target.
+     *
+     * Only absolute HTTPS URLs and root-relative redirects are accepted. The
+     * resulting URL must remain inside the Google-owned upstream allow-list.
+     *
+     * @param string $baseurl Current trusted URL.
+     * @param string $location Raw Location header.
+     * @return string|null
+     */
+    public static function resolve_redirect(string $baseurl, string $location): ?string {
+        $location = trim(str_replace(["\r", "\n"], '', $location));
+        if ($location === '') {
+            return null;
+        }
+
+        if (str_starts_with($location, '//')) {
+            $location = 'https:' . $location;
+        } else if (str_starts_with($location, '/')) {
+            $base = parse_url($baseurl);
+            if (
+                !is_array($base) ||
+                strtolower((string)($base['scheme'] ?? '')) !== 'https' ||
+                empty($base['host'])
+            ) {
+                return null;
+            }
+
+            $location = 'https://' . strtolower((string)$base['host']) . $location;
+        } else if (!preg_match('~^https://~i', $location)) {
+            return null;
+        }
+
+        return self::is_allowed($location) ? $location : null;
+    }
+
+    /**
      * Whether one HTTPS URL is safe for the Drive Resource proxy.
      *
      * @param string $url
@@ -40,6 +76,10 @@ final class upstream_url_policy {
             return false;
         }
 
+        if (isset($parts['port']) && (int)$parts['port'] !== 443) {
+            return false;
+        }
+
         $host = strtolower((string)($parts['host'] ?? ''));
         if ($host === '') {
             return false;
@@ -49,6 +89,7 @@ final class upstream_url_policy {
             'drive.google.com',
             'docs.google.com',
             'drive.usercontent.google.com',
+            'content-workspacevideo-pa.googleapis.com',
         ];
         if (in_array($host, $exact, true)) {
             return true;

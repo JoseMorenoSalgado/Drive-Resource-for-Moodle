@@ -45,6 +45,14 @@ if grep -nE 'required_param\([^,]+,[[:space:]]*PARAM_URL|optional_param\([^,]+,[
     fail "protected.php accepts a browser-supplied arbitrary URL."
 fi
 
+echo "Checking upstream redirect confinement..."
+if grep -n "CURLOPT_FOLLOWLOCATION => true" \
+    classes/local/http_range_proxy.php \
+    classes/local/protected_stream.php \
+    classes/local/drive_stream_resolver.php; then
+    fail "Automatic cURL redirect following bypasses per-hop upstream allow-list validation."
+fi
+
 echo "Checking byte-range and stall-resilience invariants..."
 grep -q 'CURLOPT_RANGE' classes/local/http_range_proxy.php     || fail "HTTP proxy no longer forwards byte ranges with CURLOPT_RANGE."
 grep -q "Accept-Ranges: bytes" classes/local/http_range_proxy.php     || fail "HTTP proxy no longer exposes byte-range support."
@@ -52,6 +60,11 @@ grep -q 'CURLOPT_LOW_SPEED_LIMIT' classes/local/http_range_proxy.php     || fail
 grep -q 'connection_aborted()' classes/local/http_range_proxy.php     || fail "HTTP proxy no longer stops abandoned browser range requests."
 grep -q 'MAX_RECOVERY_ATTEMPTS' amd/src/nativevideo.js     || fail "Video recovery is no longer bounded."
 grep -q "searchParams.set('refresh', '1')" amd/src/nativevideo.js     || fail "Video recovery no longer refreshes the protected signed stream."
+
+echo "Checking canonical resource type resolution..."
+if grep -nE 'drive::detect_type\(' lib.php index.php classes/local/resource/resource_descriptor.php classes/task/precache_pdf.php; then
+    fail "Runtime code bypasses drive::resolve_record_type() and duplicates resource type resolution."
+fi
 
 echo "Checking release metadata..."
 grep -q "\$plugin->supported = \[405, 405\]" version.php     || fail "Moodle 4.5 support declaration changed unexpectedly."

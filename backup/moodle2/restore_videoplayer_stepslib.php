@@ -24,6 +24,8 @@
  */
 
 
+use mod_videoplayer\local\drive;
+
 /**
  * Restore structure step for the videoplayer activity.
  */
@@ -61,18 +63,25 @@ class restore_videoplayer_activity_structure_step extends restore_activity_struc
 
         $data->course = $this->get_courseid();
 
-        if (empty($data->source)) {
-            $data->source = 'googledrive';
+        $source = clean_param(
+            (string)($data->source ?? drive::SOURCE_GOOGLEDRIVE),
+            PARAM_ALPHANUMEXT
+        );
+        $data->source = in_array(
+            $source,
+            [drive::SOURCE_GOOGLEDRIVE, drive::SOURCE_LOCALPDF],
+            true
+        ) ? $source : drive::SOURCE_GOOGLEDRIVE;
+
+        $type = clean_param((string)($data->type ?? drive::TYPE_AUTO), PARAM_ALPHANUMEXT);
+        if ($data->source === drive::SOURCE_LOCALPDF) {
+            $data->type = 'pdf';
+        } else {
+            $data->type = drive::is_supported_configured_type($type) ? $type : drive::TYPE_AUTO;
         }
-        if (empty($data->type)) {
-            $data->type = $data->source === 'localpdf' ? 'pdf' : 'auto';
-        }
-        if (empty($data->displaymode)) {
-            $data->displaymode = 'standard';
-        }
-        if (!isset($data->disabledownload)) {
-            $data->disabledownload = 1;
-        }
+
+        $data->displaymode = 'standard';
+        $data->disabledownload = 1;
         if (!isset($data->disablecontextmenu)) {
             $data->disablecontextmenu = 1;
         }
@@ -88,7 +97,12 @@ class restore_videoplayer_activity_structure_step extends restore_activity_struc
         if (!isset($data->completionpercentage) || $data->completionpercentage === '') {
             $data->completionpercentage = 80;
         }
-        if ($data->source === 'localpdf') {
+        if (!isset($data->completionprogressenabled)) {
+            $data->completionprogressenabled = 1;
+        } else {
+            $data->completionprogressenabled = empty($data->completionprogressenabled) ? 0 : 1;
+        }
+        if ($data->source === drive::SOURCE_LOCALPDF) {
             $data->videourl = '';
         }
 

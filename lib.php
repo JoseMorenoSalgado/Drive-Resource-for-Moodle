@@ -25,7 +25,6 @@
 
 use mod_videoplayer\local\drive;
 use mod_videoplayer\local\protected_stream;
-use mod_videoplayer\local\resource\resource_descriptor;
 
 /**
  * File area used for protected local PDF resources.
@@ -45,6 +44,7 @@ function videoplayer_supports($feature) {
         case FEATURE_MOD_INTRO:
         case FEATURE_SHOW_DESCRIPTION:
         case FEATURE_COMPLETION_TRACKS_VIEWS:
+        case FEATURE_COMPLETION_HAS_RULES:
         case FEATURE_BACKUP_MOODLE2:
             return true;
         case FEATURE_GRADE_HAS_GRADE:
@@ -53,6 +53,48 @@ function videoplayer_supports($feature) {
         default:
             return null;
     }
+}
+
+/**
+ * Populate cached course-module data, including custom completion rules.
+ *
+ * @param stdClass $coursemodule Course module record.
+ * @return cached_cm_info|false
+ */
+function videoplayer_get_coursemodule_info($coursemodule) {
+    global $DB;
+
+    $fields = 'id, name, intro, introformat, completionprogressenabled, completionpercentage';
+    $instance = $DB->get_record(
+        'videoplayer',
+        ['id' => (int)$coursemodule->instance],
+        $fields,
+        IGNORE_MISSING
+    );
+    if (!$instance) {
+        return false;
+    }
+
+    $result = new cached_cm_info();
+    $result->name = $instance->name;
+
+    if (!empty($coursemodule->showdescription)) {
+        $result->content = format_module_intro(
+            'videoplayer',
+            $instance,
+            (int)$coursemodule->id,
+            false
+        );
+    }
+
+    if ((int)$coursemodule->completion === COMPLETION_TRACKING_AUTOMATIC) {
+        $threshold = !empty($instance->completionprogressenabled)
+            ? max(1, min(100, (int)$instance->completionpercentage))
+            : 0;
+        $result->customdata['customcompletionrules']['completionprogress'] = $threshold;
+    }
+
+    return $result;
 }
 
 /**
@@ -69,9 +111,7 @@ function videoplayer_queue_pdf_precache(int $instanceid): void {
         return;
     }
 
-    $type = empty($instance->type) || $instance->type === drive::TYPE_AUTO
-        ? drive::detect_type((string)$instance->videourl)
-        : clean_param($instance->type, PARAM_ALPHANUMEXT);
+    $type = drive::resolve_record_type($instance);
     if (!drive::is_pdf_type($type)) {
         return;
     }
@@ -89,15 +129,15 @@ function videoplayer_queue_pdf_precache(int $instanceid): void {
  * @return stdClass
  */
 function videoplayer_normalise_instance_data(stdClass $data): stdClass {
-    $allowedsources = [drive::SOURCE_GOOGLEDRIVE, 'localpdf'];
+    $allowedsources = [drive::SOURCE_GOOGLEDRIVE, drive::SOURCE_LOCALPDF];
     $source = clean_param($data->source ?? drive::SOURCE_GOOGLEDRIVE, PARAM_ALPHANUMEXT);
     $data->source = in_array($source, $allowedsources, true) ? $source : drive::SOURCE_GOOGLEDRIVE;
 
-    $allowedtypes = array_merge([drive::TYPE_AUTO], resource_descriptor::SUPPORTED_TYPES);
+    $allowedtypes = array_merge([drive::TYPE_AUTO], drive::RESOURCE_TYPES);
     $type = clean_param($data->type ?? drive::TYPE_AUTO, PARAM_ALPHANUMEXT);
     $data->type = in_array($type, $allowedtypes, true) ? $type : drive::TYPE_AUTO;
 
-    if ($data->source === 'localpdf') {
+    if ($data->source === drive::SOURCE_LOCALPDF) {
         $data->type = 'pdf';
         $data->videourl = '';
         $data->displaymode = 'standard';
@@ -107,7 +147,9 @@ function videoplayer_normalise_instance_data(stdClass $data): stdClass {
         $data->displaymode = 'standard';
     }
 
-    $data->disabledownload = empty($data->disabledownload) ? 0 : 1;
+    // Direct-download UI is not supported by the protected-only architecture.
+    // Keep the legacy database field pinned for backup/restore compatibility.
+    $data->disabledownload = 1;
     $data->disablecontextmenu = empty($data->disablecontextmenu) ? 0 : 1;
     $data->enablewatermark = empty($data->enablewatermark) ? 0 : 1;
     $data->enablegamification = empty($data->enablegamification) ? 0 : 1;
@@ -125,7 +167,7 @@ function videoplayer_normalise_instance_data(stdClass $data): stdClass {
  */
 function videoplayer_save_localpdf_file(stdClass $data): void {
     if (
-        ($data->source ?? drive::SOURCE_GOOGLEDRIVE) !== 'localpdf'
+        ($data->source ?? drive::SOURCE_GOOGLEDRIVE) !== drive::SOURCE_LOCALPDF
             || empty($data->localpdffile)
             || empty($data->coursemodule)
     ) {
@@ -181,9 +223,7 @@ function videoplayer_invalidate_instance_pdf_cache(stdClass $instance): void {
 
     $url = trim((string)($instance->videourl ?? ''));
     $fileid = drive::extract_file_id($url);
-    $type = empty($instance->type) || $instance->type === drive::TYPE_AUTO
-        ? drive::detect_type($url)
-        : clean_param($instance->type, PARAM_ALPHANUMEXT);
+    $type = drive::resolve_record_type($instance);
     if ($fileid && drive::is_pdf_type($type)) {
         protected_stream::invalidate_pdf_cache($fileid, $type);
     }
@@ -234,6 +274,8 @@ function videoplayer_delete_instance($id) {
         $context = context_module::instance($cm->id);
         get_file_storage()->delete_area_files($context->id, 'mod_videoplayer', VIDEOPLAYER_LOCALPDF_FILEAREA);
     }
+
+    videoplayer_invalidate_instance_pdf_cache($instance);
 
     $transaction = $DB->start_delegated_transaction();
     $DB->delete_records('videoplayer_rewards', ['videoplayerid' => $instance->id]);

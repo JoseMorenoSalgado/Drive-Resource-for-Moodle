@@ -94,3 +94,9 @@ Before release:
 The hardening branch adds an automated regression guard for the security boundary. It fails when Google upstream hosts or iframe/preview paths appear in browser-facing templates/AMD code, when `protected.php` loses the centralized activity access boundary or begins accepting arbitrary URL parameters, or when required protected-stream safeguards disappear.
 
 The SSRF regression suite also covers lookalike Google suffixes, loopback targets, userinfo URLs, scheme-relative URLs and non-HTTPS schemes. See `docs/hardening-validation.md` for the evidence required before promotion from release-candidate maturity.
+
+## Protected-only configuration invariants
+
+The learner delivery model is not optional. The historical `disabledownload` column is retained only for database/backup compatibility and is pinned by normalization; the current activity form no longer presents it as an effective security control. Authorization and URL confidentiality are provided by the Moodle protected endpoint, not by a checkbox.
+
+Resource typing is also centralized before protected URL construction so different controllers cannot disagree about how an opaque Drive sharing URL should be handled.

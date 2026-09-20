@@ -17,6 +17,7 @@
 namespace mod_videoplayer\output;
 
 use mod_videoplayer\local\access\activity_context;
+use mod_videoplayer\local\plugin_config;
 use mod_videoplayer\local\resource\resource_descriptor;
 
 /**
@@ -87,8 +88,13 @@ final class resource_view implements \renderable, \templatable {
         $cmid = (int)$this->activity->cm()->id;
         $type = $this->resource->type();
         $protectedurl = $this->resource->protected_url($cmid);
-        $primaryvideourl = $this->resource->protected_url($cmid, 'transcoded');
-        $fallbackvideourl = $this->resource->protected_url($cmid, 'source');
+        $primaryvideourl = $this->resource->is_video()
+            ? $this->resource->protected_url($cmid, 'transcoded')->out(false)
+            : '';
+        $fallbackvideourl = $this->resource->is_video()
+            ? $this->resource->protected_url($cmid, 'source')->out(false)
+            : '';
+        $isguest = isguestuser();
 
         $typestringkey = 'type' . $type;
         $typestring = get_string_manager()->string_exists($typestringkey, 'mod_videoplayer')
@@ -96,11 +102,8 @@ final class resource_view implements \renderable, \templatable {
             : get_string('typefile', 'mod_videoplayer');
 
         $playerstyle = '';
-        if (get_config('mod_videoplayer', 'playercolormode') === 'custom') {
-            $playercolor = trim((string)get_config('mod_videoplayer', 'playercolor'));
-            if (preg_match('/^#[0-9a-fA-F]{6}$/', $playercolor)) {
-                $playerstyle = '--mod-videoplayer-player-color: ' . $playercolor . ';';
-            }
+        if (plugin_config::player_color_mode() === 'custom') {
+            $playerstyle = '--mod-videoplayer-player-color: ' . plugin_config::player_color() . ';';
         }
 
         $initialpage = max(1, (int)($this->progress->lastpage ?? 1));
@@ -112,31 +115,28 @@ final class resource_view implements \renderable, \templatable {
         $points = max(0, (int)($this->progress->points ?? 0));
 
         $watermark = '';
-        if (!empty($instance->enablewatermark) && !isguestuser()) {
+        if (!empty($instance->enablewatermark) && !$isguest) {
             $watermark = fullname($USER) . ' · '
                 . userdate(time(), get_string('strftimedatetimeshort', 'langconfig'));
         }
 
         return [
             'type' => $type,
-            'source' => $this->resource->source(),
             'cmid' => $cmid,
             'title' => format_string($instance->name, true, ['context' => $this->activity->context()]),
-            'showresourcetype' => (string)get_config('mod_videoplayer', 'showresourcetype') !== '0',
-            'trackprogress' => !isguestuser() && (string)get_config('mod_videoplayer', 'enabletracking') !== '0',
+            'showresourcetype' => plugin_config::show_resource_type(),
+            'trackprogress' => !$isguest && plugin_config::tracking_enabled(),
             'resourcetype' => get_string('resourcetype', 'mod_videoplayer') . ': ' . $typestring,
             'protectedurl' => $protectedurl->out(false),
             'pdfurl' => $protectedurl->out(false),
-            'videourl' => $primaryvideourl->out(false),
-            'videofallbackurl' => $fallbackvideourl->out(false),
+            'videourl' => $primaryvideourl,
+            'videofallbackurl' => $fallbackvideourl,
             'audiourl' => $protectedurl->out(false),
             'imageurl' => $protectedurl->out(false),
             'playerstyle' => $playerstyle,
-            'disabledownload' => !empty($instance->disabledownload),
             'disablecontextmenu' => !empty($instance->disablecontextmenu),
             'enablewatermark' => !empty($instance->enablewatermark),
             'enablegamification' => !empty($instance->enablegamification),
-            'pointsperpage' => max(0, (int)($instance->pointsperpage ?? 1)),
             'initialpage' => $initialpage,
             'totalpages' => $totalpages,
             'initialposition' => round($lastposition, 3),

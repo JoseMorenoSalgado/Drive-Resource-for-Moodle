@@ -33,6 +33,10 @@ It also supports a PDF uploaded to Moodle private file storage.
 
 Google Docs, Sheets and Slides are exported to PDF on the server side and rendered with the bundled PDF.js viewer. The browser is not sent a Google Drive viewer URL.
 
+## Deep cleanup status
+
+The RC18 audit centralizes resource-type resolution in `drive::resolve_record_type()`, removes duplicate type-detection branches from runtime code, removes obsolete form plumbing, keeps the legacy download flag pinned to the protected-only architecture, and invalidates PDF cache state when an activity is deleted.
+
 ## Release hardening
 
 The commercial release gate is defined in `docs/hardening-validation.md`. It adds explicit security, streaming, browser/device, PDF/document, Moodle API, performance/soak and packaging exit criteria on top of the normal Moodle CI matrix.

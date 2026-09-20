@@ -26,6 +26,10 @@ defined('MOODLE_INTERNAL') || die();
 
 $string['audionotsupported'] = 'Your browser cannot play this audio.';
 $string['backtoresource'] = 'Back to resource';
+$string['completionprogressdesc'] = 'Reach at least {$a}% progress';
+$string['completionprogressenabled'] = 'Require progress percentage';
+$string['completionprogressgroup'] = 'Required progress';
+$string['completionprogressgroup_help'] = 'When automatic completion is enabled, require the learner to reach this percentage of the resource. Video and audio use playback position, PDFs use page progress, and generic resources use active viewing time.';
 $string['completionpercentage'] = 'Required completion percentage';
 $string['completionpercentage_help'] = 'Percentage required to consider this resource completed when progress tracking is available. For PDF ebooks, the percentage is calculated from pages read.';
 $string['disablecontextmenu'] = 'Disable right click and basic copy actions';
@@ -90,6 +94,7 @@ $string['privacy:metadata:videoplayer_views:timespent'] = 'The active reading ti
 $string['privacy:metadata:videoplayer_views:totalpages'] = 'The total number of PDF pages detected by the viewer.';
 $string['privacy:metadata:videoplayer_views:userid'] = 'The ID of the user who viewed the resource.';
 $string['privacy:metadata:videoplayer_views:videoplayerid'] = 'The Drive Resource activity instance ID.';
+$string['progresslocktimeout'] = 'Your progress could not be saved because another update is still being processed. Please try again.';
 $string['progress'] = 'Progress';
 $string['progressreport'] = 'Progress report';
 $string['protectedresource'] = 'Protected resource';
@@ -126,6 +131,7 @@ $string['setting_showresourcetype_desc'] = 'Show the detected or selected resour
 $string['sourcegoogledrive'] = 'Google Drive';
 $string['sourcelocalpdf'] = 'Local protected PDF';
 $string['task_cleanup_pdf_cache'] = 'Clean Drive Resource PDF cache';
+$string['trackingdisabled'] = 'Progress tracking is disabled for this site.';
 $string['timespent'] = 'Active time';
 $string['typeaudio'] = 'Audio';
 $string['typeauto'] = 'Automatic';

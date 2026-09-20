@@ -26,6 +26,10 @@ defined('MOODLE_INTERNAL') || die();
 
 $string['audionotsupported'] = 'Su navegador no puede reproducir este audio.';
 $string['backtoresource'] = 'Volver al recurso';
+$string['completionprogressdesc'] = 'Alcanzar al menos el {$a}% de progreso';
+$string['completionprogressenabled'] = 'Requerir porcentaje de progreso';
+$string['completionprogressgroup'] = 'Progreso requerido';
+$string['completionprogressgroup_help'] = 'Cuando la finalización automática está activada, exige que el estudiante alcance este porcentaje del recurso. Video y audio usan la posición de reproducción, los PDF usan el avance por páginas y los recursos genéricos usan el tiempo activo de visualización.';
 $string['completionpercentage'] = 'Porcentaje requerido de finalización';
 $string['completionpercentage_help'] = 'Porcentaje necesario para considerar este recurso como completado.';
 $string['disablecontextmenu'] = 'Desactivar clic derecho y acciones básicas de copia';
@@ -90,6 +94,7 @@ $string['privacy:metadata:videoplayer_views:timespent'] = 'Tiempo activo de lect
 $string['privacy:metadata:videoplayer_views:totalpages'] = 'Total de páginas detectadas.';
 $string['privacy:metadata:videoplayer_views:userid'] = 'ID del usuario.';
 $string['privacy:metadata:videoplayer_views:videoplayerid'] = 'ID de la instancia.';
+$string['progresslocktimeout'] = 'No se pudo guardar el progreso porque todavía se está procesando otra actualización. Inténtelo nuevamente.';
 $string['progress'] = 'Progreso';
 $string['progressreport'] = 'Reporte de progreso';
 $string['protectedresource'] = 'Recurso protegido';
@@ -126,6 +131,7 @@ $string['setting_showresourcetype_desc'] = 'Muestra el tipo de recurso detectado
 $string['sourcegoogledrive'] = 'Google Drive';
 $string['sourcelocalpdf'] = 'PDF local protegido';
 $string['task_cleanup_pdf_cache'] = 'Limpiar caché PDF de Drive Resource';
+$string['trackingdisabled'] = 'El seguimiento de progreso está desactivado en este sitio.';
 $string['timespent'] = 'Tiempo activo';
 $string['typeaudio'] = 'Audio';
 $string['typeauto'] = 'Automático';

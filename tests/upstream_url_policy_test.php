@@ -39,6 +39,9 @@ final class upstream_url_policy_test extends \advanced_testcase {
         $this->assertTrue(upstream_url_policy::is_allowed('https://r1---sn-test.googlevideo.com/videoplayback?id=abc'));
         $this->assertTrue(upstream_url_policy::is_allowed('https://doc-00-00-docs.googleusercontent.com/docs/securesc/abc'));
         $this->assertTrue(upstream_url_policy::is_allowed('https://lh3.c.drive.google.com/videoplayback?id=abc'));
+        $this->assertTrue(upstream_url_policy::is_allowed(
+            'https://content-workspacevideo-pa.googleapis.com/v1/drive/media/abc/playback'
+        ));
     }
 
     /**
@@ -57,5 +60,39 @@ final class upstream_url_policy_test extends \advanced_testcase {
         $this->assertFalse(upstream_url_policy::is_allowed('file:///etc/passwd'));
         $this->assertFalse(upstream_url_policy::is_allowed('//drive.google.com/uc?id=abc'));
         $this->assertFalse(upstream_url_policy::is_allowed('https://user:pass@drive.google.com/uc?id=abc'));
+        $this->assertFalse(upstream_url_policy::is_allowed('https://drive.google.com:8443/uc?id=abc'));
+    }
+
+    /**
+     * Redirects must remain on allow-listed Google HTTPS endpoints.
+     *
+     * @return void
+     */
+    public function test_redirect_resolution_stays_inside_allow_list(): void {
+        $base = 'https://drive.google.com/uc?id=abc';
+
+        $this->assertSame(
+            'https://drive.usercontent.google.com/download?id=abc',
+            upstream_url_policy::resolve_redirect(
+                $base,
+                'https://drive.usercontent.google.com/download?id=abc'
+            )
+        );
+        $this->assertSame(
+            'https://drive.google.com/download?id=abc',
+            upstream_url_policy::resolve_redirect($base, '/download?id=abc')
+        );
+        $this->assertSame(
+            'https://r1---sn-test.googlevideo.com/videoplayback?id=abc',
+            upstream_url_policy::resolve_redirect(
+                $base,
+                '//r1---sn-test.googlevideo.com/videoplayback?id=abc'
+            )
+        );
+
+        $this->assertNull(upstream_url_policy::resolve_redirect($base, 'https://evil.example/file'));
+        $this->assertNull(upstream_url_policy::resolve_redirect($base, '//127.0.0.1/internal'));
+        $this->assertNull(upstream_url_policy::resolve_redirect($base, '../relative/path'));
+        $this->assertNull(upstream_url_policy::resolve_redirect($base, "https://drive.google.com\r\nX-Test: injected"));
     }
 }

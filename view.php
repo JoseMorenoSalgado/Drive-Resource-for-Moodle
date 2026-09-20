@@ -28,6 +28,7 @@ require(__DIR__ . '/../../config.php');
 require_once(__DIR__ . '/lib.php');
 
 use mod_videoplayer\local\access\activity_context;
+use mod_videoplayer\local\plugin_config;
 use mod_videoplayer\local\resource\resource_descriptor;
 use mod_videoplayer\output\resource_view;
 
@@ -43,7 +44,6 @@ $PAGE->set_url('/mod/videoplayer/view.php', ['id' => $cm->id]);
 $PAGE->set_title(format_string($instance->name, true, ['context' => $context]));
 $PAGE->set_heading(format_string($course->fullname));
 $PAGE->set_context($context);
-$PAGE->requires->css('/mod/videoplayer/styles_visual_refinements.css');
 
 $event = \mod_videoplayer\event\course_module_viewed::create([
     'objectid' => $instance->id,
@@ -67,8 +67,6 @@ if (!isguestuser()) {
 
 if ($resource->is_available()) {
     if ($resource->is_pdf_like()) {
-        $PAGE->requires->css('/mod/videoplayer/styles_pdf_mobile.css');
-        $PAGE->requires->css('/mod/videoplayer/styles_pdf_overlay.css');
         $PAGE->requires->js_call_amd('mod_videoplayer/pdfviewer', 'init');
     } else if ($resource->is_video()) {
         $PAGE->requires->js_call_amd('mod_videoplayer/nativevideo', 'init');
@@ -76,8 +74,8 @@ if ($resource->is_available()) {
         $PAGE->requires->js_call_amd('mod_videoplayer/nativeaudio', 'init');
     } else {
         $PAGE->requires->js_call_amd('mod_videoplayer/protectedui', 'init');
-        if (!isguestuser() && (bool)get_config('mod_videoplayer', 'enabletracking')) {
-            $requiredseconds = max(60, (int)get_config('mod_videoplayer', 'defaultrequiredseconds'));
+        if (!isguestuser() && plugin_config::tracking_enabled()) {
+            $requiredseconds = plugin_config::required_seconds();
             $PAGE->requires->js_call_amd('mod_videoplayer/progress', 'init', [[
                 'cmid' => $cm->id,
                 'requiredSeconds' => $requiredseconds,

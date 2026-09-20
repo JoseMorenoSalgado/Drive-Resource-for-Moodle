@@ -144,3 +144,11 @@ Only PDF.js is required by the learner viewer and is bundled locally. Video/audi
 The architecture is guarded by `.github/scripts/release-invariants.sh` and `.github/workflows/hardening.yml`. These checks intentionally encode non-negotiable product invariants: browser-facing presentation must remain Moodle-only, Google viewer/iframe paths must not reappear, protected delivery must retain the centralized access boundary, and the HTTP proxy/player must retain byte-range and bounded stall-recovery behavior.
 
 The complete promotion criteria are maintained in `docs/hardening-validation.md`.
+
+## Canonical resource typing
+
+Resource source/type normalization is owned by `classes/local/drive.php`. Runtime code must call `drive::resolve_record_type()`; it must not reimplement `auto` handling with direct calls to `drive::detect_type()`.
+
+This prevents divergent behavior for opaque Drive sharing links. In particular, legacy/opaque `/file/d/{id}/view` records using `type=auto` retain the historical video fallback consistently in the learner view, course index, cache task and lifecycle callbacks.
+
+`drive::RESOURCE_TYPES` is the canonical registry used by form options and persistence validation. `drive::SOURCE_GOOGLEDRIVE` and `drive::SOURCE_LOCALPDF` are the canonical source identifiers.

@@ -24,6 +24,8 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+use mod_videoplayer\local\plugin_config;
+
 if ($ADMIN->fulltree) {
     $settings->add(new admin_setting_configcheckbox(
         'mod_videoplayer/enabletracking',
@@ -36,7 +38,7 @@ if ($ADMIN->fulltree) {
         'mod_videoplayer/defaultrequiredseconds',
         get_string('setting_defaultrequiredseconds', 'mod_videoplayer'),
         get_string('setting_defaultrequiredseconds_desc', 'mod_videoplayer'),
-        300,
+        plugin_config::DEFAULT_REQUIRED_SECONDS,
         PARAM_INT
     ));
 
@@ -44,7 +46,7 @@ if ($ADMIN->fulltree) {
         'mod_videoplayer/defaultcompletionpercentage',
         get_string('setting_defaultcompletionpercentage', 'mod_videoplayer'),
         get_string('setting_defaultcompletionpercentage_desc', 'mod_videoplayer'),
-        80,
+        plugin_config::DEFAULT_COMPLETION_PERCENTAGE,
         PARAM_INT
     ));
 
@@ -70,7 +72,7 @@ if ($ADMIN->fulltree) {
         'mod_videoplayer/playercolor',
         get_string('setting_playercolor', 'mod_videoplayer'),
         get_string('setting_playercolor_desc', 'mod_videoplayer'),
-        '#3b82f6',
+        plugin_config::DEFAULT_PLAYER_COLOR,
         PARAM_TEXT
     ));
 
@@ -85,7 +87,7 @@ if ($ADMIN->fulltree) {
         'mod_videoplayer/pdfcachettl',
         get_string('setting_pdfcachettl', 'mod_videoplayer'),
         get_string('setting_pdfcachettl_desc', 'mod_videoplayer'),
-        2592000,
+        plugin_config::DEFAULT_PDF_CACHE_TTL,
         PARAM_INT
     ));
 }
