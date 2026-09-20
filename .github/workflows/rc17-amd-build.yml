@@ -57,11 +57,9 @@ jobs:
       - name: Rebuild AMD assets
         shell: bash
         run: |
-          set +e
-          moodle-plugin-ci grunt --max-lint-warnings 0
-          code=$?
-          set -e
-          echo "Grunt exit code: $code"
+          cd moodle/mod/videoplayer/amd
+          npx grunt amd --max-lint-warnings=0
+          cd ../../../..
           cp -f moodle/mod/videoplayer/amd/build/*.min.js plugin/amd/build/
           cp -f moodle/mod/videoplayer/amd/build/*.min.js.map plugin/amd/build/
           test -f plugin/amd/build/pdfviewer.min.js
