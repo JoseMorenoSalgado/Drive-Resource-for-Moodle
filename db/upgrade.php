@@ -405,5 +405,26 @@ function xmldb_videoplayer_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026092014, 'videoplayer');
     }
 
+    // Moodle custom progress completion rule.
+    if ($oldversion < 2026092015) {
+        $table = new xmldb_table('videoplayer');
+        $field = new xmldb_field(
+            'completionprogressenabled',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '1',
+            'completionpercentage'
+        );
+
+        if ($dbman->table_exists($table) && !$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_mod_savepoint(true, 2026092015, 'videoplayer');
+    }
+
     return true;
 }
