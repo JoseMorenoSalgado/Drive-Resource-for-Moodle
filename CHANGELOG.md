@@ -74,7 +74,7 @@
 - Exact PDF completion from pages actually viewed, with local PDF.js text search.
 - Standard `course_module_instance_list_viewed` event for the activity index.
 - Moodle-owned protected image viewer.
-- CI coverage for Moodle 4.5 and 5.0 on PHP 8.2/8.3, plus Moodle 5.2 on PHP 8.3, with MariaDB and PostgreSQL.
+- CI coverage for Moodle 4.5, 5.0 and 5.1 on PHP 8.2/8.3, plus Moodle 5.2 on PHP 8.3, with MariaDB and PostgreSQL.
 
 ### Changed
 
