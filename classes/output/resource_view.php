@@ -87,8 +87,13 @@ final class resource_view implements \renderable, \templatable {
         $cmid = (int)$this->activity->cm()->id;
         $type = $this->resource->type();
         $protectedurl = $this->resource->protected_url($cmid);
-        $primaryvideourl = $this->resource->protected_url($cmid, 'transcoded');
-        $fallbackvideourl = $this->resource->protected_url($cmid, 'source');
+        $primaryvideourl = $this->resource->is_video()
+            ? $this->resource->protected_url($cmid, 'transcoded')->out(false)
+            : '';
+        $fallbackvideourl = $this->resource->is_video()
+            ? $this->resource->protected_url($cmid, 'source')->out(false)
+            : '';
+        $config = get_config('mod_videoplayer');
 
         $typestringkey = 'type' . $type;
         $typestring = get_string_manager()->string_exists($typestringkey, 'mod_videoplayer')
@@ -96,8 +101,8 @@ final class resource_view implements \renderable, \templatable {
             : get_string('typefile', 'mod_videoplayer');
 
         $playerstyle = '';
-        if (get_config('mod_videoplayer', 'playercolormode') === 'custom') {
-            $playercolor = trim((string)get_config('mod_videoplayer', 'playercolor'));
+        if (($config->playercolormode ?? '') === 'custom') {
+            $playercolor = trim((string)($config->playercolor ?? ''));
             if (preg_match('/^#[0-9a-fA-F]{6}$/', $playercolor)) {
                 $playerstyle = '--mod-videoplayer-player-color: ' . $playercolor . ';';
             }
@@ -119,24 +124,21 @@ final class resource_view implements \renderable, \templatable {
 
         return [
             'type' => $type,
-            'source' => $this->resource->source(),
             'cmid' => $cmid,
             'title' => format_string($instance->name, true, ['context' => $this->activity->context()]),
-            'showresourcetype' => (string)get_config('mod_videoplayer', 'showresourcetype') !== '0',
-            'trackprogress' => !isguestuser() && (string)get_config('mod_videoplayer', 'enabletracking') !== '0',
+            'showresourcetype' => (string)($config->showresourcetype ?? '1') !== '0',
+            'trackprogress' => !isguestuser() && (string)($config->enabletracking ?? '1') !== '0',
             'resourcetype' => get_string('resourcetype', 'mod_videoplayer') . ': ' . $typestring,
             'protectedurl' => $protectedurl->out(false),
             'pdfurl' => $protectedurl->out(false),
-            'videourl' => $primaryvideourl->out(false),
-            'videofallbackurl' => $fallbackvideourl->out(false),
+            'videourl' => $primaryvideourl,
+            'videofallbackurl' => $fallbackvideourl,
             'audiourl' => $protectedurl->out(false),
             'imageurl' => $protectedurl->out(false),
             'playerstyle' => $playerstyle,
-            'disabledownload' => !empty($instance->disabledownload),
             'disablecontextmenu' => !empty($instance->disablecontextmenu),
             'enablewatermark' => !empty($instance->enablewatermark),
             'enablegamification' => !empty($instance->enablegamification),
-            'pointsperpage' => max(0, (int)($instance->pointsperpage ?? 1)),
             'initialpage' => $initialpage,
             'totalpages' => $totalpages,
             'initialposition' => round($lastposition, 3),
