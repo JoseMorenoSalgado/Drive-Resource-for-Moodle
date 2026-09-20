@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.1.32-rc10 - 2026-09-20
+
+### Fixed
+
+- Restored the proven `drive.google.com/uc?export=download&id=...` route as the initial protected transport for shared video files.
+- Preserved server-side large-file confirmation handling: validated Google warning forms may still continue through `drive.usercontent.google.com` without exposing either URL to learners.
+- Added regression coverage for the legacy-compatible video endpoint and Drive resource-key preservation.
+
+### Changed
+
+- Bumped Drive Resource to `1.1.32-rc10` / `2026092006`.
+
 ## v1.1.32-rc9 - 2026-09-19
 
 ### Added
