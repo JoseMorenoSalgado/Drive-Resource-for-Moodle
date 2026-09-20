@@ -193,4 +193,6 @@ Google confirmation HTML is untrusted. RC8 accepts only a bounded allow-list of 
 
 Playback diagnostics probe only the Moodle protected endpoint. They consume safe status headers such as `X-Drive-Resource-Status` and do not reveal the Drive file ID, confirmation token, upstream URL, cookies or Google response body.
 
+Both protected proxy and cache-warming cURL paths restrict origin and redirect protocols to HTTPS when the installed cURL runtime exposes the protocol controls. TLS peer and host verification remain mandatory.
+
 Codec incompatibility is a presentation/runtime concern, not an authorization fallback. The plugin must never bypass `require_login()`, capability checks or the protected proxy just because the browser cannot decode the original media.
