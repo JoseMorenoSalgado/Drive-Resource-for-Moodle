@@ -62,6 +62,8 @@ jobs:
           code=$?
           set -e
           echo "Grunt exit code: $code"
+          cp -f moodle/mod/videoplayer/amd/build/*.min.js plugin/amd/build/
+          cp -f moodle/mod/videoplayer/amd/build/*.min.js.map plugin/amd/build/
           test -f plugin/amd/build/pdfviewer.min.js
           test -f plugin/amd/build/pdfviewer.min.js.map
 
