@@ -22,6 +22,7 @@ All notable changes to Drive Resource are documented here. The Moodle component 
 - Added native HTML5 audio playback and resume/progress tracking.
 - Fixed responsive video orientation class application and hardened fullscreen handling across browser implementations.
 - Added resilient buffering recovery: delayed loading UI, persistent-stall detection, position-preserving stream reload, signed-URL refresh and protected source fallback.
+- Rebuilt the production AMD bundle after the buffering-recovery changes so deployed Moodle sites execute the same logic as `amd/src/nativevideo.js`.
 
 ### PDF and resources
 
