@@ -300,3 +300,7 @@ If the protected endpoint returns HTTP 502, enable Moodle developer debugging te
 After updating the plugin, run the Moodle upgrade so version `2026092002` seeds any missing Drive Resource configuration defaults and changes the database default resource type to Video. Purge Moodle caches afterwards.
 
 For an existing standard Google Drive video link using `/file/d/.../view`, verify both an older activity stored as `auto` and a newly created activity. The learner page must render the HTML5/Plyr video viewer, `protected.php` must not report `protectedmodedisabled` unless the administrator explicitly disabled protected mode, and Range requests should return usable HTTP 206 responses or the bounded synthetic fallback.
+## Recovery from the RC6 indexed-field upgrade error
+
+If the Moodle upgrade reports `ddldependencyerror` for `videoplayer->type` with dependency `vide_typ_ix` / `type_idx`, deploy Drive Resource `1.1.32-rc7` (`2026092003`) and rerun the normal Moodle upgrade. Do **not** manually drop the database index. RC7 temporarily removes the XMLDB index, changes the field default, restores the index, seeds the missing plugin defaults and records the new savepoint. After the upgrade succeeds, purge Moodle caches and verify video playback again.
+

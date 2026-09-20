@@ -249,7 +249,10 @@ jobs:
           fi
           grep -Fq "\$mform->setDefault('type', 'video')" plugin/mod_form.php
           grep -q 'DEFAULT="video"' plugin/db/install.xml
-          grep -q '2026092002' plugin/db/upgrade.php
+          grep -q '2026092003' plugin/db/upgrade.php
+          grep -Fq "new xmldb_index('type_idx', XMLDB_INDEX_NOTUNIQUE, ['type'])" plugin/db/upgrade.php
+          grep -Fq '$dbman->drop_index($table, $typeindex);' plugin/db/upgrade.php
+          grep -Fq '$dbman->add_index($table, $typeindex);' plugin/db/upgrade.php
           grep -q "protectedmode.*=== '0'" plugin/protected.php
           if grep -R -nE 'drive\.google\.com/.*/preview|iframeurl|preview_url'               plugin/view.php plugin/templates plugin/classes/local; then
             echo 'Obsolete Google Drive preview/iframe path detected.' >&2
