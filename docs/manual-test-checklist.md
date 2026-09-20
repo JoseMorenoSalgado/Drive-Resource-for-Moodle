@@ -145,3 +145,11 @@ Do not merge/tag if the known-working Drive video regresses, any protected URL l
 ## Hardening evidence header
 
 Before signing off this checklist, record the commit SHA, Moodle/PHP/database versions, web server/reverse proxy, browser/device versions, tested resource sizes, and any load-test concurrency/duration/error-rate figures. A pass without reproducible environment evidence is not sufficient for stable promotion.
+
+## Canonical type-resolution regression
+
+- Existing opaque Drive video with `type=auto` is shown as Video on the course index.
+- The same activity renders the HTML5 video player in the learner view.
+- Explicit PDF/image/audio/document/spreadsheet/presentation/file types remain unchanged.
+- An invalid stored explicit type degrades to generic file behavior rather than selecting an unsafe viewer.
+- Deleting a Drive PDF activity invalidates its local cache entry.
