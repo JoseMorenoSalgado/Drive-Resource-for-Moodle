@@ -195,7 +195,7 @@ On upgraded sites, missing plugin configuration is treated as the documented def
 
 Release `1.1.32-rc8` hardens Google Drive shared-video playback. Standard `/file/d/.../view?usp=drivesdk` links are supported, Drive confirmation responses can preserve current bounded confirmation fields and embedded `downloadUrl` variants, and byte-range responses are checked against the browser's requested range.
 
-The player now distinguishes protected-stream failures from browser codec failures. A successful protected `MEDIA` probe followed by an HTML5 media error is reported as a likely codec incompatibility instead of leaving the learner at a black `00:00 / 00:00` player. Direct protected playback requires browser-compatible source media; MP4 is only a container, so codecs such as TechSmith Screen Codec 2 (TSCC2) are not natively playable in mainstream browsers. For broad compatibility use H.264/AVC video with AAC audio, or deploy a separate transcoding pipeline.
+The audit confirmed that successful protected byte transport does not guarantee HTML5 decoding. Direct proxy mode serves the original protected media bytes; MP4 is only a container, so codecs such as TechSmith Screen Codec 2 (TSCC2) are not natively playable in mainstream browsers. For broad compatibility use H.264/AVC video with AAC audio, or deploy a separate asynchronous transcoding pipeline.
 
 ## RC7 XMLDB upgrade hotfix
 
