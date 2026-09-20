@@ -39,6 +39,9 @@ final class upstream_url_policy_test extends \advanced_testcase {
         $this->assertTrue(upstream_url_policy::is_allowed('https://r1---sn-test.googlevideo.com/videoplayback?id=abc'));
         $this->assertTrue(upstream_url_policy::is_allowed('https://doc-00-00-docs.googleusercontent.com/docs/securesc/abc'));
         $this->assertTrue(upstream_url_policy::is_allowed('https://lh3.c.drive.google.com/videoplayback?id=abc'));
+        $this->assertTrue(upstream_url_policy::is_allowed(
+            'https://content-workspacevideo-pa.googleapis.com/v1/drive/media/abc/playback'
+        ));
     }
 
     /**
