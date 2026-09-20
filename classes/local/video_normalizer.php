@@ -320,7 +320,17 @@ final class video_normalizer {
      */
     public static function probe_is_web_compatible(array $probe): bool {
         $streams = $probe['streams'] ?? null;
-        if (!is_array($streams)) {
+        $formatname = strtolower((string)($probe['format']['format_name'] ?? ''));
+        if (!is_array($streams) || $formatname === '') {
+            return false;
+        }
+
+        // FFprobe reports ISO BMFF variants as a comma-separated family such
+        // as "mov,mp4,m4a,3gp,3g2,mj2". Require that family so H.264/AAC
+        // inside Matroska, MPEG-TS or another less portable container is
+        // normalized rather than incorrectly marked for browser passthrough.
+        $formats = array_filter(array_map('trim', explode(',', $formatname)));
+        if (!in_array('mp4', $formats, true) && !in_array('mov', $formats, true)) {
             return false;
         }
 
@@ -342,7 +352,7 @@ final class video_normalizer {
         }
 
         $pixfmt = strtolower((string)($video['pix_fmt'] ?? ''));
-        if ($pixfmt !== '' && strpos($pixfmt, 'yuv420p') !== 0) {
+        if ($pixfmt !== 'yuv420p') {
             return false;
         }
 
@@ -435,7 +445,7 @@ final class video_normalizer {
                 '-v',
                 'error',
                 '-show_entries',
-                'stream=codec_type,codec_name,pix_fmt',
+                'format=format_name:stream=codec_type,codec_name,pix_fmt',
                 '-of',
                 'json',
                 $path,
