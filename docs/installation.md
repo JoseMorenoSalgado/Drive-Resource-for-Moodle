@@ -288,3 +288,9 @@ On a clean Moodle 4.5 staging site running PHP 8.2 or 8.3, install the same plug
 After deploying `1.1.31-beta` (`2026090901`), purge Moodle caches and reset PHP OPcache. Open a protected Google Drive video and verify initial playback, duration detection and seeks near the beginning, middle and end. A browser `Range` request must receive `206 Partial Content`; if Google ignores the upstream Range header, Drive Resource should still return a synthesized `206` rather than `502 UPSTREAM_RANGE_UNSUPPORTED`. Test Android Chrome and iPhone Safari on the physical devices used by learners.
 
 For Moodle 4.5 release validation, the shared PHPUnit suite must remain annotation-based so PHPCS and PHPUnit 9 can complete the same gate that runs on Moodle 5.x/PHPUnit 11.
+
+## Video streaming verification after upgrade
+
+After upgrading to release 1.1.32-rc5 or newer, purge Moodle caches and test at least one large Google Drive MP4 from an enrolled learner account. Confirm that playback starts, duration becomes available, seeking produces HTTP 206 responses from `/mod/videoplayer/protected.php`, and no Google Drive URL is visible in the page source.
+
+If the protected endpoint returns HTTP 502, enable Moodle developer debugging temporarily and inspect the safe `X-Drive-Resource-Status` response value plus the server log. Do not disable Moodle authentication/capability checks or expose the upstream Drive link as a workaround.
