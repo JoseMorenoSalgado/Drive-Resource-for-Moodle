@@ -6,7 +6,8 @@
 - Minimum core version `2024100700`.
 - PHP 8.2 or 8.3 for Moodle 4.5/5.0; Moodle 5.2 requires PHP 8.3+.
 - PHP cURL and the standard extensions required by the installed supported Moodle branch.
-- HTTPS, working Moodle cron and writable `$CFG->localcachedir` / `$CFG->cachedir`.\n- FFmpeg and FFprobe are optional for direct H.264/AAC sources, but required to normalize TSCC2 and other browser-incompatible codecs.
+- HTTPS, working Moodle cron and writable `$CFG->localcachedir` / `$CFG->cachedir`.
+- FFmpeg and FFprobe are optional for direct MP4/MOV H.264/yuv420p + AAC sources, but required to normalize TSCC2 and other browser-incompatible codecs.
 
 Moodle 4.5 is supported from release `1.1.30-beta`. Moodle 4.4 and older remain unsupported.
 
@@ -98,7 +99,7 @@ Validation commands on the server:
 php admin/cli/cron.php
 ```
 
-After a TSCC2 activity is created or first viewed, the task downloads the protected source server-side, probes it, and creates a private H.264/AAC MP4 only when required. Compatible H.264/AAC sources are marked for direct protected passthrough and are not duplicated in the normalized cache.
+After a TSCC2 activity is created or first viewed, the task downloads the protected source server-side, probes it, and creates a private H.264/AAC MP4 only when required. Compatible MP4/MOV H.264/yuv420p + AAC sources are marked for direct protected passthrough and are not duplicated in the normalized cache.
 
 ## Google Drive access requirements
 
