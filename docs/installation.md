@@ -6,7 +6,7 @@
 - Minimum core version `2024100700`.
 - PHP 8.2 or 8.3 for Moodle 4.5/5.0; Moodle 5.2 requires PHP 8.3+.
 - PHP cURL and the standard extensions required by the installed supported Moodle branch.
-- HTTPS, working Moodle cron and writable `$CFG->localcachedir`.
+- HTTPS, working Moodle cron and writable `$CFG->localcachedir` / `$CFG->cachedir`.\n- FFmpeg and FFprobe are optional for direct H.264/AAC sources, but required to normalize TSCC2 and other browser-incompatible codecs.
 
 Moodle 4.5 is supported from release `1.1.30-beta`. Moodle 4.4 and older remain unsupported.
 
@@ -69,6 +69,36 @@ The `2026080600` database upgrade:
 - preserves activity URLs, local files, progress, completion and rewards.
 
 The activity form no longer offers PageFlip or legacy book modes. Existing activities do not need to be recreated.
+
+## FFmpeg video normalization
+
+Drive Resource does not depend on Google Drive's preview/transcoding viewer. If a source MP4 contains a desktop codec such as TSCC2, install FFmpeg with FFprobe on the Moodle application/cron host and configure the executable path in:
+
+```text
+Site administration
+→ Plugins
+→ Activity modules
+→ Drive Resource
+→ FFmpeg executable path
+```
+
+Typical Linux path:
+
+```text
+/usr/bin/ffmpeg
+```
+
+FFprobe must be executable in the same directory (for the example above, `/usr/bin/ffprobe`). Keep **Normalize incompatible videos** enabled. Moodle cron processes the ad-hoc normalization task; therefore cron must run continuously/frequently.
+
+Validation commands on the server:
+
+```bash
+/usr/bin/ffmpeg -version
+/usr/bin/ffprobe -version
+php admin/cli/cron.php
+```
+
+After a TSCC2 activity is created or first viewed, the task downloads the protected source server-side, probes it, and creates a private H.264/AAC MP4 only when required. Compatible H.264/AAC sources are marked for direct protected passthrough and are not duplicated in the normalized cache.
 
 ## Google Drive access requirements
 
