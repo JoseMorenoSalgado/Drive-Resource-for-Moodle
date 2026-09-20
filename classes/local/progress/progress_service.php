@@ -181,12 +181,16 @@ final class progress_service {
             ],
         ])->trigger();
 
-        if (!empty($record->completed) && !$wascompleted) {
+        if (!empty($record->completed) && !empty($instance->completionprogressenabled)) {
             $completion = new \completion_info($course);
-            if ($completion->is_enabled($cm)) {
+            if ($completion->is_enabled($cm) === COMPLETION_TRACKING_AUTOMATIC) {
+                // Progress is monotonic, so this change can only make the
+                // custom rule complete, never revert an existing completion.
                 $completion->update_state($cm, COMPLETION_COMPLETE, $userid);
             }
+        }
 
+        if (!empty($record->completed) && !$wascompleted) {
             \mod_videoplayer\event\resource_completed::create([
                 'objectid' => $record->id,
                 'context' => $context,
