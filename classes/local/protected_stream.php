@@ -45,7 +45,7 @@ final class protected_stream {
      * @return int Cache TTL in seconds.
      */
     public static function pdf_cache_ttl(): int {
-        $ttl = (int)get_config('mod_videoplayer', 'pdfcachettl');
+        $ttl = (int) get_config('mod_videoplayer', 'pdfcachettl');
         return $ttl > 0 ? $ttl : self::DEFAULT_PDF_CACHE_TTL;
     }
 
@@ -174,7 +174,7 @@ final class protected_stream {
             $filename,
             'application/pdf',
             $file->get_contenthash(),
-            (int)$file->get_timemodified(),
+            (int) $file->get_timemodified(),
             'LOCAL'
         );
     }
@@ -355,7 +355,7 @@ final class protected_stream {
             return '';
         }
 
-        $candidate = trim((string)$_SERVER['HTTP_RANGE']);
+        $candidate = trim((string) $_SERVER['HTTP_RANGE']);
         return preg_match('/^bytes=\d*-\d*$/', $candidate) ? $candidate : '';
     }
 
@@ -374,7 +374,7 @@ final class protected_stream {
         [$startpart, $endpart] = explode('-', substr($range, 6), 2);
 
         if ($startpart === '') {
-            $suffixlength = (int)$endpart;
+            $suffixlength = (int) $endpart;
             if ($suffixlength <= 0) {
                 self::send_range_not_satisfiable($size);
             }
@@ -383,8 +383,8 @@ final class protected_stream {
             return [$size - $suffixlength, $size - 1, 206];
         }
 
-        $start = (int)$startpart;
-        $end = $endpart === '' ? $size - 1 : min((int)$endpart, $size - 1);
+        $start = (int) $startpart;
+        $end = $endpart === '' ? $size - 1 : min((int) $endpart, $size - 1);
 
         if ($start < 0 || $start >= $size || $start > $end) {
             self::send_range_not_satisfiable($size);
