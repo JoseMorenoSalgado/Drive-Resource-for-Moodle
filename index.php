@@ -85,10 +85,7 @@ foreach ($cms as $cm) {
         continue;
     }
 
-    $type = empty($instance->type) ? drive::TYPE_AUTO : clean_param($instance->type, PARAM_ALPHANUMEXT);
-    if ($type === drive::TYPE_AUTO) {
-        $type = drive::detect_type((string)($instance->videourl ?? ''));
-    }
+    $type = drive::resolve_record_type($instance);
     $typestring = get_string_manager()->string_exists('type' . $type, 'mod_videoplayer')
         ? get_string('type' . $type, 'mod_videoplayer')
         : get_string('typefile', 'mod_videoplayer');
