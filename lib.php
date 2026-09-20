@@ -25,7 +25,6 @@
 
 use mod_videoplayer\local\drive;
 use mod_videoplayer\local\protected_stream;
-use mod_videoplayer\local\resource\resource_descriptor;
 
 /**
  * File area used for protected local PDF resources.
@@ -105,7 +104,9 @@ function videoplayer_normalise_instance_data(stdClass $data): stdClass {
         $data->displaymode = 'standard';
     }
 
-    $data->disabledownload = empty($data->disabledownload) ? 0 : 1;
+    // Direct-download UI is not supported by the protected-only architecture.
+    // Keep the legacy database field pinned for backup/restore compatibility.
+    $data->disabledownload = 1;
     $data->disablecontextmenu = empty($data->disablecontextmenu) ? 0 : 1;
     $data->enablewatermark = empty($data->enablewatermark) ? 0 : 1;
     $data->enablegamification = empty($data->enablegamification) ? 0 : 1;
