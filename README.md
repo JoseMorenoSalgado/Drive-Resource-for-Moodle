@@ -191,6 +191,10 @@ Standard Google Drive sharing URLs such as `/file/d/{id}/view` do not expose a f
 
 On upgraded sites, missing plugin configuration is treated as the documented default rather than as a disabled feature. In particular, an absent `protectedmode` value no longer blocks all video requests. Byte-range retries abort ignored full-response bodies immediately before trying the next strategy, avoiding redundant full video transfers.
 
+## RC7 XMLDB upgrade hotfix
+
+Release `1.1.32-rc7` fixes upgrades on databases where Moodle protects indexed columns from DDL changes. The `videoplayer.type` default migration now temporarily removes the XMLDB `type_idx` index, changes the default to `video`, and recreates the index safely. A failed RC6 upgrade can be retried after deploying RC7; no manual database edit is required.
+
 ## Development
 
 AMD sources are under `amd/src/` and production bundles under `amd/build/`.
@@ -212,8 +216,8 @@ Any AMD source change must include its rebuilt production bundle. The generated 
 
 ## Release
 
-- Release: `1.1.32-rc6`
-- Moodle plugin version: `2026092002`
+- Release: `1.1.32-rc7`
+- Moodle plugin version: `2026092003`
 - Component: `mod_videoplayer`
 - Product: Drive Resource
 - Supported Moodle branches: 4.5–5.2
