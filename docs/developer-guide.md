@@ -71,7 +71,7 @@ Never return raw Google Drive IDs, direct download URLs, preview URLs or upstrea
 
 `classes/local/video_normalizer.php` must remain asynchronous. Never execute FFmpeg from `protected.php` or `view.php`. The learner request may only queue a duplicate-suppressed ad-hoc task and continue with an already-ready normalized file or the direct protected source.
 
-Direct-play classification is intentionally conservative: H.264 video, yuv420p-family pixel format, and AAC or no audio. Anything else is eligible for H.264/AAC normalization. External processes must be started with an argument vector through `proc_open`, never a shell-concatenated command. Temporary files must remain under Moodle private cache storage and be atomically promoted only after FFprobe validates the result.
+Direct-play classification is intentionally conservative: an ISO-BMFF MP4/MOV-family container, H.264 video with 8-bit `yuv420p`, and AAC or no audio. Anything else is eligible for H.264/AAC normalization. External processes must be started with an argument vector through `proc_open`, never a shell-concatenated command. Temporary files must remain under Moodle private cache storage and be atomically promoted only after FFprobe validates the result.
 
 ## Video playback health contract
 
