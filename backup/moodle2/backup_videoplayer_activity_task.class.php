@@ -27,15 +27,34 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/mod/videoplayer/backup/moodle2/backup_videoplayer_stepslib.php');
 
+/**
+ * Backup task implementation for Drive Resource.
+ */
 class backup_videoplayer_activity_task extends backup_activity_task {
+    /**
+     * Define module-specific backup settings.
+     *
+     * @return void
+     */
     protected function define_my_settings() {
         // No specific settings for this module.
     }
 
+    /**
+     * Define the backup execution steps.
+     *
+     * @return void
+     */
     protected function define_my_steps() {
         $this->add_step(new backup_videoplayer_activity_structure_step('videoplayer_structure', 'videoplayer.xml'));
     }
 
+    /**
+     * Encode Drive Resource links for backup portability.
+     *
+     * @param string $content Content containing activity links.
+     * @return string Encoded backup content.
+     */
     public static function encode_content_links($content) {
         global $CFG;
 

@@ -18,7 +18,6 @@ namespace mod_videoplayer\local;
 
 use mod_videoplayer\local\stream\upstream_url_policy;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Resolve a short-lived progressive Google Drive playback stream.

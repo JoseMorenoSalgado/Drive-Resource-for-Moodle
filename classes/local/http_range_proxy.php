@@ -18,7 +18,6 @@ namespace mod_videoplayer\local;
 
 use mod_videoplayer\local\stream\upstream_url_policy;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Resilient HTTP byte-range proxy for protected Drive resources.

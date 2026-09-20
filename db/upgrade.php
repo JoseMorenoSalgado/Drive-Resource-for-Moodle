@@ -22,7 +22,6 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Execute upgrade steps.
@@ -77,7 +76,10 @@ function xmldb_videoplayer_upgrade($oldversion) {
             $DB->execute("UPDATE {videoplayer} SET source = 'googledrive' WHERE source IS NULL OR source = ''");
             $DB->execute("UPDATE {videoplayer} SET videourl = '' WHERE videourl IS NULL");
             $DB->execute("UPDATE {videoplayer} SET type = 'auto' WHERE type IS NULL OR type = ''");
-            $DB->execute("UPDATE {videoplayer} SET completionpercentage = 80 WHERE completionpercentage IS NULL OR completionpercentage = 0");
+            $sql = "UPDATE {videoplayer}
+                       SET completionpercentage = 80
+                     WHERE completionpercentage IS NULL OR completionpercentage = 0";
+            $DB->execute($sql);
 
             // XMLDB does not allow changing an indexed field while a dependent index exists.
             // Drop the logical indexes first; Moodle resolves the actual database-specific names.
@@ -91,25 +93,61 @@ function xmldb_videoplayer_upgrade($oldversion) {
                 $dbman->drop_index($table, $typeindex);
             }
 
-            $videourlfield = new xmldb_field('videourl', XMLDB_TYPE_CHAR, '1024', null, XMLDB_NOTNULL, null, '', 'source');
+            $videourlfield = new xmldb_field(
+                'videourl',
+                XMLDB_TYPE_CHAR,
+                '1024',
+                null,
+                XMLDB_NOTNULL,
+                null,
+                '',
+                'source'
+            );
             if ($dbman->field_exists($table, $videourlfield)) {
                 $dbman->change_field_type($table, $videourlfield);
                 $dbman->change_field_default($table, $videourlfield);
             }
 
-            $sourcefield = new xmldb_field('source', XMLDB_TYPE_CHAR, '32', null, XMLDB_NOTNULL, null, 'googledrive', 'introformat');
+            $sourcefield = new xmldb_field(
+                'source',
+                XMLDB_TYPE_CHAR,
+                '32',
+                null,
+                XMLDB_NOTNULL,
+                null,
+                'googledrive',
+                'introformat'
+            );
             if ($dbman->field_exists($table, $sourcefield)) {
                 $dbman->change_field_type($table, $sourcefield);
                 $dbman->change_field_default($table, $sourcefield);
             }
 
-            $typefield = new xmldb_field('type', XMLDB_TYPE_CHAR, '32', null, XMLDB_NOTNULL, null, 'auto', 'videourl');
+            $typefield = new xmldb_field(
+                'type',
+                XMLDB_TYPE_CHAR,
+                '32',
+                null,
+                XMLDB_NOTNULL,
+                null,
+                'auto',
+                'videourl'
+            );
             if ($dbman->field_exists($table, $typefield)) {
                 $dbman->change_field_type($table, $typefield);
                 $dbman->change_field_default($table, $typefield);
             }
 
-            $completionfield = new xmldb_field('completionpercentage', XMLDB_TYPE_INTEGER, '3', null, XMLDB_NOTNULL, null, '80', 'endtime');
+            $completionfield = new xmldb_field(
+                'completionpercentage',
+                XMLDB_TYPE_INTEGER,
+                '3',
+                null,
+                XMLDB_NOTNULL,
+                null,
+                '80',
+                'endtime'
+            );
             if ($dbman->field_exists($table, $completionfield)) {
                 $dbman->change_field_type($table, $completionfield);
                 $dbman->change_field_default($table, $completionfield);

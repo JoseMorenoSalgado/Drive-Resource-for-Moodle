@@ -22,12 +22,14 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
 
 use mod_videoplayer\local\drive;
 use mod_videoplayer\local\protected_stream;
 use mod_videoplayer\local\resource\resource_descriptor;
 
+/**
+ * File area used for protected local PDF resources.
+ */
 const VIDEOPLAYER_LOCALPDF_FILEAREA = 'localpdf';
 
 /**

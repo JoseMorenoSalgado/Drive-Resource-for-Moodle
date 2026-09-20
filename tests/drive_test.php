@@ -25,6 +25,7 @@ use mod_videoplayer\local\drive;
  * @category   test
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \mod_videoplayer\local\drive
  */
 final class drive_test extends \advanced_testcase {
     /**

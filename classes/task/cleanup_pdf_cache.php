@@ -16,7 +16,6 @@
 
 namespace mod_videoplayer\task;
 
-defined('MOODLE_INTERNAL') || die();
 
 use mod_videoplayer\local\protected_stream;
 

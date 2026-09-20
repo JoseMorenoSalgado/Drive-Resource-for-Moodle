@@ -25,6 +25,7 @@ use mod_videoplayer\local\stream\upstream_url_policy;
  * @category   test
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \mod_videoplayer\local\stream\upstream_url_policy
  */
 final class upstream_url_policy_test extends \advanced_testcase {
     /**

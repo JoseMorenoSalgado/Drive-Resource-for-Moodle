@@ -27,15 +27,33 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/mod/videoplayer/backup/moodle2/restore_videoplayer_stepslib.php');
 
+/**
+ * Restore task implementation for Drive Resource.
+ */
 class restore_videoplayer_activity_task extends restore_activity_task {
+    /**
+     * Define module-specific restore settings.
+     *
+     * @return void
+     */
     protected function define_my_settings() {
         // No specific settings for this module.
     }
 
+    /**
+     * Define the restore execution steps.
+     *
+     * @return void
+     */
     protected function define_my_steps() {
         $this->add_step(new restore_videoplayer_activity_structure_step('videoplayer_structure', 'videoplayer.xml'));
     }
 
+    /**
+     * Define content fields that Moodle must decode during restore.
+     *
+     * @return restore_decode_content[]
+     */
     public static function define_decode_contents() {
         $contents = [];
 
@@ -44,6 +62,11 @@ class restore_videoplayer_activity_task extends restore_activity_task {
         return $contents;
     }
 
+    /**
+     * Define link decoding rules for restored activities.
+     *
+     * @return restore_decode_rule[]
+     */
     public static function define_decode_rules() {
         $rules = [];
 
