@@ -102,3 +102,9 @@ Before upgrading a commercial production site, take a database backup and code b
 For a commercial production rollout, installation success is necessary but not sufficient. Execute the complete gate in `docs/hardening-validation.md` on staging, including physical mobile-device playback, network interruption/recovery, byte-range protocol checks, long-play soak, PDF/document export paths, Privacy/Backup/Completion verification and production-like concurrency measurements.
 
 Record the tested commit SHA and environment. Do not promote an RC build while any release-blocking hardening criterion remains unresolved.
+
+## RC18 deep-cleanup validation
+
+When upgrading from RC17, no schema change is required for the canonical type-resolution cleanup. Purge Moodle caches after deploying the updated code and verify at least one existing activity stored as `type=auto` with a normal `drive.google.com/file/d/.../view` URL. It must resolve consistently in the course index and learner view.
+
+Legacy `displaymode` and `disabledownload` columns remain in the database for restore compatibility; administrators should not manually remove them.
