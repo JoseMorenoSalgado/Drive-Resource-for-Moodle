@@ -227,7 +227,11 @@ jobs:
           grep -q 'CURLINFO_COOKIELIST' plugin/classes/local/http_range_proxy.php
           grep -q 'resolve_content_type' plugin/classes/local/http_range_proxy.php
           grep -q 'resolve_download_warning_url' plugin/classes/local/drive.php
+          grep -q 'resolve_record_type' plugin/classes/local/drive.php
+          grep -q 'resolve_record_type' plugin/view.php
+          grep -q 'resolve_record_type' plugin/protected.php
           grep -q 'MAX_CONFIRMATION_HOPS' plugin/classes/local/http_range_proxy.php
+          grep -q 'Retrying a refused Range must not' plugin/classes/local/http_range_proxy.php
           grep -q 'X-Accel-Buffering: no' plugin/classes/local/http_range_proxy.php
           grep -q 'max-width: none !important' plugin/styles_pdf_mobile.css
           grep -q 'mod-videoplayer-pdfjs-canvas-stage' plugin/templates/pdfjs.mustache
@@ -239,6 +243,14 @@ jobs:
         run: |
           test ! -f plugin/templates/resource.mustache
           test ! -f plugin/templates/pdf.mustache
+          if grep -q "mod_videoplayer/resource" plugin/classes/output/renderer.php; then
+            echo 'Dead renderer path to the removed generic resource template detected.' >&2
+            exit 1
+          fi
+          grep -Fq "\$mform->setDefault('type', 'video')" plugin/mod_form.php
+          grep -q 'DEFAULT="video"' plugin/db/install.xml
+          grep -q '2026092002' plugin/db/upgrade.php
+          grep -q "protectedmode.*=== '0'" plugin/protected.php
           if grep -R -nE 'drive\.google\.com/.*/preview|iframeurl|preview_url'               plugin/view.php plugin/templates plugin/classes/local; then
             echo 'Obsolete Google Drive preview/iframe path detected.' >&2
             exit 1
