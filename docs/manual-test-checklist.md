@@ -287,6 +287,10 @@ Test on a physical iPhone:
 - Verify the test on Moodle 4.5 and at least one Moodle 5.x target, plus physical Android Chrome and iPhone Safari where available.
 - Temporarily remove the stored `mod_videoplayer/protectedmode` config on staging and confirm the documented default remains enabled; then explicitly set it to 0 and confirm the protected non-PDF path is rejected.
 - Confirm no browser-visible request contains a Google Drive download URL or file ID.
+- Force a protected transport failure and confirm the player shows the protected-source/network state plus the retry action.
+- Test an MP4 container encoded with a browser-incompatible codec and confirm a healthy `X-Drive-Resource-Status: MEDIA` response is reported as a codec/format compatibility problem rather than a generic `00:00` player.
+- During diagnostics, verify the health module requests only `/mod/videoplayer/protected.php` with `Range: bytes=0-1`; no Google URL, file ID, token or upstream response body may be exposed.
+- Trigger a retry after seeking and confirm the player attempts to restore the previous playback second after metadata reload.
 
 ## RC8 shared-video and codec checks
 
