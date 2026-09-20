@@ -150,7 +150,7 @@ Cron must process ad-hoc tasks frequently. The PHP/web user must be able to crea
 
 After installation or upgrade, verify:
 
-1. Administration reports Drive Resource `1.1.32-rc9` and version `2026092005`.
+1. Administration reports Drive Resource `1.1.32-rc10` and version `2026092006`.
 2. A teacher can create and edit a Drive Resource.
 3. The saved `displaymode` is `pdfjs`.
 4. An enrolled learner can open the activity.
@@ -308,6 +308,10 @@ If the Moodle upgrade reports `ddldependencyerror` for `videoplayer->type` with 
 ## RC9 video health verification
 
 After deploying Drive Resource `1.1.32-rc9` (`2026092005`), run the Moodle upgrade and purge caches. Test one browser-compatible H.264/AAC video and one deliberately unsupported-codec sample.
+
+## 1.1.32-rc10 upgrade verification
+
+After deploying Drive Resource `1.1.32-rc10` (`2026092006`), run the Moodle upgrade and purge caches. Retest a previously working public Drive video using the same `/file/d/.../view` sharing URL. The browser must see only `protected.php`; the server starts with the legacy-compatible `drive.google.com/uc` route and follows only validated Google confirmation responses when required.
 
 For a healthy video, playback must start without a health overlay and seeking must continue to use protected `206 Partial Content` responses.
 
