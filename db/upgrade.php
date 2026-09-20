@@ -744,5 +744,11 @@ function xmldb_videoplayer_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026092005, 'videoplayer');
     }
 
+    if ($oldversion < 2026092006) {
+        // No schema change is required. This savepoint invalidates caches for
+        // the RC10 Google Drive media transport compatibility restoration.
+        upgrade_mod_savepoint(true, 2026092006, 'videoplayer');
+    }
+
     return true;
 }
