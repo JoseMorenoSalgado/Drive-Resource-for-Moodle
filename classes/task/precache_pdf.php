@@ -18,6 +18,7 @@ namespace mod_videoplayer\task;
 
 
 use mod_videoplayer\local\drive;
+use mod_videoplayer\local\plugin_config;
 use mod_videoplayer\local\protected_stream;
 
 /**
@@ -48,7 +49,7 @@ class precache_pdf extends \core\task\adhoc_task {
 
         $type = drive::resolve_record_type($record);
 
-        if (!drive::is_pdf_type($type) || (string)get_config('mod_videoplayer', 'pdfcacheenabled') === '0') {
+        if (!drive::is_pdf_type($type) || !plugin_config::pdf_cache_enabled()) {
             return;
         }
 
