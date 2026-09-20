@@ -395,9 +395,12 @@ final class protected_stream {
             $isexpiredpdf = preg_match('/\.pdf$/', $basename) && $modified + $ttl < $now;
             $isstaletmp = strpos($basename, '.tmp.') !== false && $modified + self::STALE_TMP_TTL < $now;
             $isstalecookie = strpos($basename, '.cookies.') !== false && $modified + self::STALE_TMP_TTL < $now;
+            $isstalelock = str_ends_with($basename, '.lock') && $modified + self::STALE_TMP_TTL < $now;
 
             if ($isexpiredpdf || $isstaletmp || $isstalecookie) {
                 self::delete_if_file($file);
+            } else if ($isstalelock) {
+                self::delete_stale_lock_file($file);
             }
         }
     }
