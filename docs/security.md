@@ -202,4 +202,6 @@ Google confirmation HTML is untrusted. RC8 accepts only a bounded allow-list of 
 
 Both protected proxy and cache-warming cURL paths restrict origin and redirect protocols to HTTPS when the installed cURL runtime exposes the protocol controls. TLS peer and host verification remain mandatory.
 
+The legacy-compatible `drive.google.com/uc` starting route does not weaken the boundary: it is constructed exclusively from a validated Drive file ID and optional sanitized resource key, is never sent to the browser, and may redirect only through HTTPS. Any confirmation continuation is still constrained by the Google-host and parameter allow-lists.
+
 Codec incompatibility is a presentation/runtime concern, not an authorization fallback. The plugin must never bypass `require_login()`, capability checks or the protected proxy just because the browser cannot decode the original media.
