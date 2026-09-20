@@ -78,6 +78,32 @@ Handles Google Drive upstream delivery, including:
 - chunked cURL output;
 - no complete-file PHP buffering.
 
+## Video normalization boundary
+
+RC11 introduces an optional asynchronous normalization layer before browser decoding:
+
+```text
+Google Drive blob
+↓
+drive_downloader (trusted HTTPS hosts only)
+↓
+private temporary file
+↓
+FFprobe
+├─ H.264 + yuv420p + AAC/no audio → passthrough marker → protected upstream proxy
+└─ incompatible codec (for example TSCC2) → FFmpeg H.264/AAC MP4
+                                              ↓
+                                      private Moodle cache
+                                              ↓
+                                      protected.php Range/206
+                                              ↓
+                                      native HTML5 + Plyr
+```
+
+Normalization is queued through Moodle ad-hoc tasks and never runs inside the learner HTTP request. Source and output files are streamed to disk; PHP does not hold the complete media file in memory. The normalized cache key is derived server-side and does not expose a Drive file ID. FFmpeg output uses H.264, AAC, yuv420p and `+faststart` for broad Chrome/Safari/Firefox/Android/iOS compatibility.
+
+If FFmpeg/FFprobe is unavailable, the subsystem is inert and the RC10 direct protected proxy remains the fallback. Google preview/iframe endpoints are not used.
+
 ## Video health and recovery boundary
 
 `mod_videoplayer/videohealth` is an independent AMD layer around the native HTML5 element. It does not replace Plyr and does not receive Google Drive URLs.
