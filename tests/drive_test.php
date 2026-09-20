@@ -290,6 +290,36 @@ final class drive_test extends \advanced_testcase {
     }
 
     /**
+     * Canonical resource types and automatic mode must be accepted consistently.
+     *
+     * @covers ::is_supported_configured_type
+     */
+    public function test_supported_configured_types_are_canonical(): void {
+        $this->assertTrue(drive::is_supported_configured_type(drive::TYPE_AUTO));
+        foreach (drive::RESOURCE_TYPES as $type) {
+            $this->assertTrue(drive::is_supported_configured_type($type));
+        }
+
+        $this->assertFalse(drive::is_supported_configured_type('iframe'));
+        $this->assertFalse(drive::is_supported_configured_type('unknown'));
+    }
+
+    /**
+     * Invalid explicit types must degrade safely to the generic file type.
+     *
+     * @covers ::resolve_record_type
+     */
+    public function test_invalid_explicit_type_falls_back_to_file(): void {
+        $record = (object) [
+            'source' => drive::SOURCE_GOOGLEDRIVE,
+            'type' => 'iframe',
+            'videourl' => 'https://drive.google.com/file/d/1AbC_def-123/view',
+        ];
+
+        $this->assertSame(drive::TYPE_FILE, drive::resolve_record_type($record));
+    }
+
+    /**
      * Resource detection must stay deterministic for typed Workspace URLs.
      *
      * @covers ::detect_type
