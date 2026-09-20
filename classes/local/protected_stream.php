@@ -35,9 +35,6 @@ final class protected_stream {
     /** @var int Stream chunk size in bytes. */
     private const STREAM_CHUNK_SIZE = 262144;
 
-    /** @var int Default PDF cache lifetime: 30 days. */
-    private const DEFAULT_PDF_CACHE_TTL = 2592000;
-
     /** @var int Temporary cache file stale lifetime. */
     private const STALE_TMP_TTL = 3600;
 
@@ -59,8 +56,7 @@ final class protected_stream {
      * @return int Cache TTL in seconds.
      */
     public static function pdf_cache_ttl(): int {
-        $ttl = (int)get_config('mod_videoplayer', 'pdfcachettl');
-        return $ttl > 0 ? $ttl : self::DEFAULT_PDF_CACHE_TTL;
+        return plugin_config::pdf_cache_ttl();
     }
 
     /**
