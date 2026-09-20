@@ -231,3 +231,9 @@ The production-candidate learner path is:
 No learner template receives a Google Drive preview URL or file ID. Google Docs, Sheets and Slides are exported server-side as PDF and rendered by the local PDF.js bundle. Video requests preserve HTTP byte-range semantics; when an upstream server returns `200` to a browser Range request, the proxy can synthesize a standards-compliant `206 Partial Content` response without buffering the complete video in PHP memory.
 
 Progress is content-aware. PDF state persists visited pages and last page. Video state persists normalized watched ranges, last playback second and total duration. Generic active-presence tracking is reserved for other supported resource types so it cannot inflate PDF/video completion.
+
+## Large Google Drive video confirmation flow
+
+Large public videos may return an HTML confirmation page instead of media bytes. The protected proxy now captures only a bounded warning body, parses the Google Drive download form, validates the form action against an HTTPS Google host allow-list, replays the generated confirmation parameters, preserves response cookies server-side, and then retries the original byte-range request.
+
+The browser continues to see only `protected.php`. Google file identifiers, confirmation UUIDs, cookies, redirect URLs and final download URLs remain server-side. The proxy never buffers the full video in PHP memory; successful media responses are streamed incrementally and browser Range semantics remain authoritative.

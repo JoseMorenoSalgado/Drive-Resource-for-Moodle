@@ -148,6 +148,173 @@ class drive {
     }
 
     /**
+     * Resolve a Google Drive large-file confirmation page to its protected download URL.
+     *
+     * Google may return an HTML virus-scan warning for large public files even
+     * when confirm=t is present. The warning contains a server-generated UUID
+     * and other hidden fields that must be replayed before byte-range streaming
+     * can begin. Only known Google Drive download hosts and a strict parameter
+     * allow-list are accepted so the upstream response cannot turn the Moodle
+     * proxy into an SSRF primitive.
+     *
+     * @param string $html Google Drive warning HTML.
+     * @param string $fallbackurl Current trusted Google Drive URL.
+     * @return string|null Confirmed Google Drive URL, or null when the HTML is not a valid warning form.
+     */
+    public static function resolve_download_warning_url(string $html, string $fallbackurl): ?string {
+        if ($html === '' || stripos($html, '<form') === false || !class_exists('DOMDocument')) {
+            return null;
+        }
+
+        $previouserrors = libxml_use_internal_errors(true);
+        try {
+            $document = new \DOMDocument();
+            if (!$document->loadHTML($html, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING)) {
+                return null;
+            }
+
+            $xpath = new \DOMXPath($document);
+            $forms = $xpath->query('//form');
+            if ($forms === false) {
+                return null;
+            }
+
+            foreach ($forms as $form) {
+                if (!$form instanceof \DOMElement) {
+                    continue;
+                }
+
+                $action = trim($form->getAttribute('action'));
+                $actionurl = self::normalize_download_action($action, $fallbackurl);
+                if ($actionurl === null) {
+                    continue;
+                }
+
+                $params = [];
+                $actionquery = (string) parse_url($action, PHP_URL_QUERY);
+                if ($actionquery !== '') {
+                    $actionparams = [];
+                    parse_str($actionquery, $actionparams);
+                    foreach (['id', 'export', 'confirm', 'uuid', 'resourcekey'] as $name) {
+                        if (!empty($actionparams[$name])) {
+                            $params[$name] = (string) $actionparams[$name];
+                        }
+                    }
+                }
+
+                $inputs = $xpath->query('.//input[@name]', $form);
+                if ($inputs === false) {
+                    continue;
+                }
+
+                foreach ($inputs as $input) {
+                    if (!$input instanceof \DOMElement) {
+                        continue;
+                    }
+
+                    $name = strtolower(trim($input->getAttribute('name')));
+                    if (!in_array($name, ['id', 'export', 'confirm', 'uuid', 'resourcekey'], true)) {
+                        continue;
+                    }
+
+                    $value = trim($input->getAttribute('value'));
+                    if ($value !== '') {
+                        $params[$name] = $value;
+                    }
+                }
+
+                $fallbackquery = (string) parse_url($fallbackurl, PHP_URL_QUERY);
+                if ($fallbackquery !== '') {
+                    $fallbackparams = [];
+                    parse_str($fallbackquery, $fallbackparams);
+                    foreach (['id', 'resourcekey'] as $name) {
+                        if (empty($params[$name]) && !empty($fallbackparams[$name])) {
+                            $params[$name] = (string) $fallbackparams[$name];
+                        }
+                    }
+                }
+
+                $fileid = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) ($params['id'] ?? ''));
+                if ($fileid === '') {
+                    continue;
+                }
+
+                $safeparams = [
+                    'id' => $fileid,
+                    'export' => 'download',
+                ];
+                foreach (['confirm', 'uuid', 'resourcekey'] as $name) {
+                    if (empty($params[$name])) {
+                        continue;
+                    }
+
+                    $value = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $params[$name]);
+                    if ($value !== '') {
+                        $safeparams[$name] = $value;
+                    }
+                }
+
+                if (empty($safeparams['confirm'])) {
+                    continue;
+                }
+
+                return $actionurl . '?' . http_build_query($safeparams, '', '&', PHP_QUERY_RFC3986);
+            }
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previouserrors);
+        }
+
+        return null;
+    }
+
+    /**
+     * Normalize and validate a Drive warning form action.
+     *
+     * @param string $action Form action.
+     * @param string $fallbackurl Trusted current URL.
+     * @return string|null Absolute validated action URL.
+     */
+    private static function normalize_download_action(string $action, string $fallbackurl): ?string {
+        if ($action === '') {
+            return null;
+        }
+
+        if (strpos($action, '/') === 0 && strpos($action, '//') !== 0) {
+            $scheme = (string) parse_url($fallbackurl, PHP_URL_SCHEME);
+            $host = (string) parse_url($fallbackurl, PHP_URL_HOST);
+            if ($scheme !== 'https' || $host === '') {
+                return null;
+            }
+            $action = $scheme . '://' . $host . $action;
+        }
+
+        if (!filter_var($action, FILTER_VALIDATE_URL)) {
+            return null;
+        }
+
+        $scheme = strtolower((string) parse_url($action, PHP_URL_SCHEME));
+        $host = strtolower((string) parse_url($action, PHP_URL_HOST));
+        if (
+            $scheme !== 'https' ||
+            !in_array(
+                $host,
+                ['drive.usercontent.google.com', 'drive.google.com', 'docs.google.com'],
+                true
+            )
+        ) {
+            return null;
+        }
+
+        $path = (string) parse_url($action, PHP_URL_PATH);
+        if ($path === '') {
+            return null;
+        }
+
+        return $scheme . '://' . $host . $path;
+    }
+
+    /**
      * Return the default MIME type for a resource type.
      *
      * @param string $type Resource type.

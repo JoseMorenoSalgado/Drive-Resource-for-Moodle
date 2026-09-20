@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.1.32-rc5 - 2026-09-20
+
+### Fixed
+
+- Added server-side handling for Google Drive large-file confirmation pages, including the generated `uuid`/confirmation fields and cookies, before protected byte-range streaming begins.
+- Preserved browser `Range` requests after Drive confirmation so large videos can load metadata, seek and start playback without exposing the Google URL.
+- Improved MIME negotiation for generic Drive responses by inferring MP4, WebM and MOV types from the upstream filename when available.
+- Kept confirmation redirects restricted to allow-listed HTTPS Google Drive hosts to prevent SSRF through malformed upstream HTML.
+
 ## v1.1.32-rc4 - 2026-09-20
 
 ### Fixed

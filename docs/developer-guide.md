@@ -257,3 +257,9 @@ Production changes must preserve these invariants:
 - AMD source and production bundles must be regenerated together for release packaging.
 
 The supported CI matrix covers Moodle 4.5, 5.0 and 5.2, PHP 8.2/8.3, MariaDB and PostgreSQL. Do not promote `MATURITY_RC` to `MATURITY_STABLE` until the manual staging/device release gate passes.
+
+## Debugging Google Drive videos that stay at 0:00
+
+When a Drive video renders but metadata never loads, inspect the protected endpoint response rather than the Plyr UI first. A healthy initial request should return media with `Content-Type: video/*` (or an inferred safe video type), `Accept-Ranges: bytes`, and either HTTP 200 for a normal request or HTTP 206 with a valid `Content-Range` for a range request.
+
+The proxy recognizes Drive large-file confirmation HTML and automatically follows the validated confirmation form with its generated parameters and cookies. Tests for this behavior live in `tests/drive_test.php` and `tests/http_range_proxy_test.php`. Do not reintroduce direct Google URLs, iframe previews or client-side confirmation handling.
