@@ -50,9 +50,13 @@
             data-watched-ranges="{{watchedranges}}"
             data-initial-completion="{{completionpercent}}"
             data-initial-completed="{{#completed}}1{{/completed}}{{^completed}}0{{/completed}}"
+            data-error-codec="{{videoerrorcodec}}"
+            data-error-network="{{videoerrornetwork}}"
+            data-error-generic="{{videoerrorgeneric}}"
             title="{{title}}">
             <source src="{{videourl}}"{{#videomimetype}} type="{{videomimetype}}"{{/videomimetype}}>
             {{#str}} videonotsupported, mod_videoplayer {{/str}}
         </video>
+        <div class="alert alert-warning mt-3 d-none" data-region="video-error" role="alert" aria-live="polite"></div>
     </div>
 </div>
