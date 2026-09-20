@@ -1,5 +1,47 @@
 # Changelog
 
+## v1.1.32-rc3 - 2026-09-19
+
+### Fixed
+
+- Sorted English and Spanish language-string keys to satisfy Moodle Coding Style with zero warnings.
+- Updated the CI PostgreSQL service from 15 to 16 so Moodle 5.2 can initialize its PHPUnit environment.
+- Kept Moodle 4.5 and 5.0 in the same cross-version matrix while using a database baseline accepted by all tested branches.
+
+## v1.1.32-rc2 - 2026-09-19
+
+### Fixed
+
+- Corrected the activity-index event namespace so PHP lint can execute on every supported Moodle branch.
+- Removed invalid Moodle 5.2 + PHP 8.2 CI jobs; Moodle 5.2 is validated on PHP 8.3, while Moodle 4.5 and 5.0 remain validated on PHP 8.2 and 8.3.
+- Aligned release documentation with the actual Moodle/PHP runtime compatibility boundary.
+
+## v1.1.32-rc1 - 2026-09-19
+
+### Added
+
+- Exact video progress from normalized playback ranges, persisted resume second and duration.
+- Exact PDF completion from pages actually viewed, with local PDF.js text search.
+- Standard `course_module_instance_list_viewed` event for the activity index.
+- Moodle-owned protected image viewer.
+- CI coverage for Moodle 4.5 and 5.0 on PHP 8.2/8.3, plus Moodle 5.2 on PHP 8.3, with MariaDB and PostgreSQL.
+
+### Changed
+
+- Google Docs, Sheets and Slides are exported server-side and rendered through local PDF.js.
+- Generic presence tracking no longer competes with dedicated PDF/video tracking.
+- Privacy, Backup/Restore and reports include precise PDF/video progress state.
+- Release maturity moved to `MATURITY_RC` while live staging/device validation remains the final stable-release gate.
+
+### Removed
+
+- Google Drive preview URL helper and the legacy generic iframe viewer.
+- Legacy native PDF object/iframe template.
+
+### Fixed
+
+- Preserves the Moodle 4.5 protected-video Range/206 fallback, including synthetic partial-content handling when Google ignores the browser Range request.
+
 ## 1.1.31-beta - 2026-09-09
 
 ### Fixed

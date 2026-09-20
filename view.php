@@ -60,7 +60,6 @@ $completion->set_module_viewed($cm);
 
 $source = $videoplayer->source ?? 'googledrive';
 $type = 'pdf';
-$previewurl = null;
 $protectedurl = new moodle_url('/mod/videoplayer/protected.php', [
     'id' => $cm->id,
     'v' => $videoplayer->timemodified ?? time(),
@@ -94,8 +93,12 @@ if ($source === 'localpdf') {
     $type = empty($videoplayer->type) || $videoplayer->type === 'auto'
         ? drive::detect_type($videoplayer->videourl)
         : clean_param($videoplayer->type, PARAM_ALPHANUMEXT);
-    $previewurl = drive::preview_url($fileid);
 }
+
+$ispdfcompatible = drive::is_pdf_type($type);
+$isvideo = $type === 'video';
+$isimage = $type === 'image';
+$trackingenabled = (string) get_config('mod_videoplayer', 'enabletracking') !== '0';
 
 $typestringkey = 'type' . $type;
 $typestring = get_string_manager()->string_exists($typestringkey, 'mod_videoplayer')
@@ -103,7 +106,7 @@ $typestring = get_string_manager()->string_exists($typestringkey, 'mod_videoplay
     : get_string('typefile', 'mod_videoplayer');
 
 $progressrecord = null;
-if (!isguestuser()) {
+if (!isguestuser() && $trackingenabled) {
     $progressrecord = $DB->get_record('videoplayer_views', [
         'videoplayerid' => $videoplayer->id,
         'userid' => $USER->id,
@@ -111,11 +114,12 @@ if (!isguestuser()) {
 }
 
 $initialprogress = $progressrecord ? (float) $progressrecord->progress : 0;
+$initialtimespent = $progressrecord ? (int) ($progressrecord->timespent ?? 0) : 0;
 $completed = $progressrecord ? (bool) $progressrecord->completed : false;
 $requiredseconds = max(60, ((int) ($videoplayer->completionpercentage ?? 80)) * 6);
 $displaymode = videoplayer_get_safe_pdf_displaymode($videoplayer->displaymode ?? null);
 
-if (!isguestuser()) {
+if (!isguestuser() && $trackingenabled && !$ispdfcompatible && !$isvideo) {
     $PAGE->requires->js_call_amd('mod_videoplayer/progress', 'init', [[
         'cmid' => $cm->id,
         'requiredSeconds' => $requiredseconds,
@@ -125,11 +129,11 @@ if (!isguestuser()) {
     ]]);
 }
 
-if ($type === 'pdf') {
+if ($ispdfcompatible) {
     $PAGE->requires->css('/mod/videoplayer/styles_pdf_overlay.css');
     $PAGE->requires->css('/mod/videoplayer/styles_pdf_mobile.css');
     $PAGE->requires->js_call_amd('mod_videoplayer/pdfviewer', 'init');
-} else if ($type === 'video') {
+} else if ($isvideo) {
     $PAGE->requires->css('/mod/videoplayer/thirdpartylibs/plyr/plyr.css');
     $PAGE->requires->js_call_amd('mod_videoplayer/plyr', 'init');
 }
@@ -142,10 +146,20 @@ if (get_config('mod_videoplayer', 'playercolormode') === 'custom') {
     }
 }
 
-$initialpage = 1;
-$totalpages = $source === 'localpdf'
-    ? 0
-    : ($progressrecord && !empty($progressrecord->totalpages) ? (int) $progressrecord->totalpages : 0);
+$initialpage = $progressrecord && !empty($progressrecord->lastpage)
+    ? max(1, (int) $progressrecord->lastpage)
+    : 1;
+$totalpages = $progressrecord && !empty($progressrecord->totalpages)
+    ? max(0, (int) $progressrecord->totalpages)
+    : 0;
+$visitedpages = $progressrecord && !empty($progressrecord->visitedpages)
+    ? (string) $progressrecord->visitedpages
+    : '[]';
+$lastsecond = $progressrecord ? max(0, (float) ($progressrecord->lastsecond ?? 0)) : 0;
+$totalseconds = $progressrecord ? max(0, (float) ($progressrecord->totalseconds ?? 0)) : 0;
+$watchedranges = $progressrecord && !empty($progressrecord->watchedranges)
+    ? (string) $progressrecord->watchedranges
+    : '[]';
 $points = $progressrecord && !empty($progressrecord->points) ? (int) $progressrecord->points : 0;
 $completionpercent = $progressrecord ? (float) $progressrecord->completionpercentage : 0;
 $watermark = fullname($USER) . ' · ' . userdate(time(), get_string('strftimedatetimeshort', 'langconfig'));
@@ -154,10 +168,12 @@ $templatecontext = [
     'type' => $type,
     'source' => $source,
     'cmid' => $cm->id,
+    'trackingcmid' => $trackingenabled && !isguestuser() ? $cm->id : 0,
+    'trackingenabled' => $trackingenabled,
     'resourcetype' => get_string('resourcetype', 'mod_videoplayer') . ': ' . $typestring,
-    'iframeurl' => $previewurl ? $previewurl->out(false) : '',
     'pdfurl' => $protectedurl->out(false),
     'videourl' => $protectedurl->out(false),
+    'imageurl' => $protectedurl->out(false),
     'videomimetype' => drive::default_mimetype($type),
     'title' => format_string($videoplayer->name),
     'playerstyle' => $playerstyle,
@@ -170,7 +186,13 @@ $templatecontext = [
     'enablegamification' => !empty($videoplayer->enablegamification),
     'pointsperpage' => (int) ($videoplayer->pointsperpage ?? 1),
     'initialpage' => $initialpage,
+    'initialprogress' => $initialprogress,
+    'initialtimespent' => $initialtimespent,
     'totalpages' => $totalpages,
+    'visitedpages' => $visitedpages,
+    'lastsecond' => $lastsecond,
+    'totalseconds' => $totalseconds,
+    'watchedranges' => $watchedranges,
     'points' => $points,
     'completionpercent' => round($completionpercent, 2),
     'watermark' => $watermark,
@@ -186,12 +208,14 @@ if (!empty($videoplayer->intro)) {
     );
 }
 
-if ($type === 'pdf') {
+if ($ispdfcompatible) {
     echo $OUTPUT->render_from_template('mod_videoplayer/pdfjs', $templatecontext);
-} else if ($type === 'video') {
+} else if ($isvideo) {
     echo $OUTPUT->render_from_template('mod_videoplayer/video', $templatecontext);
+} else if ($isimage) {
+    echo $OUTPUT->render_from_template('mod_videoplayer/image', $templatecontext);
 } else {
-    echo $OUTPUT->render_from_template('mod_videoplayer/resource', $templatecontext);
+    echo html_writer::div(get_string('unsupportedprotectedresource', 'mod_videoplayer'), 'alert alert-warning');
 }
 
 echo $OUTPUT->footer();

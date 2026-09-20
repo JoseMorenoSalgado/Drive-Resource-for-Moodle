@@ -95,3 +95,44 @@
         display: none;
     }
 }
+
+
+/* Local PDF text search. */
+.mod-videoplayer-pdfjs-searchbar {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .75rem;
+    border-bottom: 1px solid rgba(0, 0, 0, .08);
+    background: var(--bs-body-bg, #fff);
+}
+
+.mod-videoplayer-pdfjs-search-input {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.mod-videoplayer-pdfjs-search-button {
+    flex: 0 0 auto;
+}
+
+.mod-videoplayer-pdfjs-search-status {
+    min-width: 0;
+    font-size: .875rem;
+    line-height: 1.25;
+}
+
+@media (max-width: 767.98px) {
+    .mod-videoplayer-pdfjs-searchbar {
+        flex-wrap: wrap;
+        padding: .5rem;
+    }
+
+    .mod-videoplayer-pdfjs-search-input {
+        flex-basis: calc(100% - 5.5rem);
+    }
+
+    .mod-videoplayer-pdfjs-search-status {
+        flex-basis: 100%;
+    }
+}

@@ -6,8 +6,8 @@ Drive Resource is a Moodle activity module. Its stable internal component is `mo
 
 - Moodle 4.5–5.2.
 - Minimum Moodle build `2024100700`.
-- PHP 8.2 and 8.3.
-- MariaDB 10.11 and PostgreSQL 15 in CI.
+- PHP 8.2 and 8.3 for Moodle 4.5/5.0; Moodle 5.2 is validated on PHP 8.3.
+- MariaDB 10.11 and PostgreSQL 16 in CI.
 
 The shared production branch is constrained to APIs available on both `MOODLE_405_STABLE` and `MOODLE_500_STABLE`. A newer Moodle-only API must be feature-detected or isolated before entering the shared release branch while Moodle 4.5 remains supported.
 
@@ -221,3 +221,13 @@ Moodle 4.5 becomes the lowest supported core branch. The plugin metadata, PHPUni
 The proxy uses three ordered strategies for browser byte ranges: libcurl `CURLOPT_RANGE`, an explicit `Range` header across redirects, and a synthetic range fallback. The synthetic fallback is used only when Google returns a complete `200` response with a known `Content-Length`; Moodle discards bytes before the requested offset and streams only the requested window as `206 Partial Content`. It does not buffer the complete video in PHP memory. MIME validation, login, module context and capability checks remain unchanged.
 
 The compatibility gate intentionally keeps PHPUnit metadata annotation-based in shared tests. This is test-infrastructure only and does not fork or weaken the protected streaming runtime between Moodle 4.5 and 5.x.
+
+## 1.1.32 RC protected delivery architecture
+
+The production-candidate learner path is:
+
+`Google Drive link -> Drive Resource -> protected.php -> authorization -> streamed/exported upstream content -> Moodle-owned viewer`.
+
+No learner template receives a Google Drive preview URL or file ID. Google Docs, Sheets and Slides are exported server-side as PDF and rendered by the local PDF.js bundle. Video requests preserve HTTP byte-range semantics; when an upstream server returns `200` to a browser Range request, the proxy can synthesize a standards-compliant `206 Partial Content` response without buffering the complete video in PHP memory.
+
+Progress is content-aware. PDF state persists visited pages and last page. Video state persists normalized watched ranges, last playback second and total duration. Generic active-presence tracking is reserved for other supported resource types so it cannot inflate PDF/video completion.

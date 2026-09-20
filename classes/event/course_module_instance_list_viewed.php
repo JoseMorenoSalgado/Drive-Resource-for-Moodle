@@ -14,20 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
+namespace mod_videoplayer\event;
+
 /**
- * Version metadata for Drive Resource.
+ * Event triggered when the course list of Drive Resource instances is viewed.
  *
  * @package    mod_videoplayer
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-
-defined('MOODLE_INTERNAL') || die();
-
-$plugin = new stdClass();
-$plugin->component = 'mod_videoplayer';
-$plugin->version = 2026091902;
-$plugin->release = '1.1.32-rc3';
-$plugin->requires = 2024100700;
-$plugin->supported = [405, 502];
-$plugin->maturity = MATURITY_RC;
+class course_module_instance_list_viewed extends \core\event\course_module_instance_list_viewed {
+}

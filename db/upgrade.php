@@ -638,5 +638,44 @@ function xmldb_videoplayer_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026080600, 'videoplayer');
     }
 
+    if ($oldversion < 2026091900) {
+        $table = new xmldb_table('videoplayer_views');
+
+        if ($dbman->table_exists($table)) {
+            $fields = [
+                new xmldb_field('visitedpages', XMLDB_TYPE_TEXT, null, null, null, null, null, 'totalpages'),
+                new xmldb_field(
+                    'lastsecond',
+                    XMLDB_TYPE_NUMBER,
+                    '10, 2',
+                    null,
+                    XMLDB_NOTNULL,
+                    null,
+                    '0',
+                    'visitedpages'
+                ),
+                new xmldb_field(
+                    'totalseconds',
+                    XMLDB_TYPE_NUMBER,
+                    '10, 2',
+                    null,
+                    XMLDB_NOTNULL,
+                    null,
+                    '0',
+                    'lastsecond'
+                ),
+                new xmldb_field('watchedranges', XMLDB_TYPE_TEXT, null, null, null, null, null, 'totalseconds'),
+            ];
+
+            foreach ($fields as $field) {
+                if (!$dbman->field_exists($table, $field)) {
+                    $dbman->add_field($table, $field);
+                }
+            }
+        }
+
+        upgrade_mod_savepoint(true, 2026091900, 'videoplayer');
+    }
+
     return true;
 }

@@ -73,6 +73,10 @@ class backup_videoplayer_activity_structure_step extends backup_activity_structu
             'completionpercentage',
             'lastpage',
             'totalpages',
+            'visitedpages',
+            'lastsecond',
+            'totalseconds',
+            'watchedranges',
             'timespent',
             'points',
         ]);

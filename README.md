@@ -10,8 +10,8 @@ The internal Moodle component remains `mod_videoplayer` for upgrade, capability,
 |---|---|
 | Moodle | 4.5, 5.0, 5.1 and 5.2 |
 | Minimum Moodle build | `2024100700` |
-| PHP | 8.2 and 8.3 |
-| Databases validated by CI | MariaDB 10.11 and PostgreSQL 15 |
+| PHP | 8.2/8.3 according to the Moodle branch; Moodle 5.2 requires PHP 8.3 |
+| Databases validated by CI | MariaDB 10.11 and PostgreSQL 16 |
 | Browser libraries | Bundled locally; no runtime CDN |
 
 `version.php` declares `$plugin->supported = [405, 502]`. Moodle 4.5 is the minimum supported Moodle branch.
@@ -31,7 +31,7 @@ The internal Moodle component remains `mod_videoplayer` for upgrade, capability,
 ## Requirements
 
 - Moodle 4.5 or newer within the declared supported range.
-- PHP 8.2+ with the extensions required by the supported Moodle branch, including cURL, DOM, Fileinfo, GD, Intl, Mbstring, OpenSSL, SimpleXML, Sodium, XML and ZIP.
+- PHP 8.2+ with the extensions required by the supported Moodle branch; Moodle 5.2 is validated only on PHP 8.3 because the Moodle 5.2 core requires PHP 8.3+.
 - HTTPS in production.
 - Moodle cron running frequently.
 - Writable `$CFG->localcachedir`.
@@ -179,9 +179,9 @@ Viewer presentation is loaded only from activity-scoped styles such as `styles_a
 
 GitHub Actions runs `.github/workflows/moodle-supported-ci.yml` against:
 
-- Moodle `MOODLE_405_STABLE` and `MOODLE_500_STABLE`;
-- PHP 8.2 and 8.3;
-- MariaDB 10.11 and PostgreSQL 15.
+- Moodle `MOODLE_405_STABLE` and `MOODLE_500_STABLE` on PHP 8.2 and 8.3;
+- Moodle `MOODLE_502_STABLE` on PHP 8.3;
+- MariaDB 10.11 and PostgreSQL 16.
 
 The workflow performs PHP lint, Moodle coding style, PHPDoc validation, plugin validation, upgrade-savepoint checks, Mustache validation, AMD/JavaScript validation, the PDF.js native-ESM loader contract, the stable PDF.js production-path contract and PHPUnit tests.
 
@@ -206,8 +206,8 @@ Any AMD source change must include its rebuilt production bundle. The generated 
 
 ## Release
 
-- Release: `1.1.31-beta`
-- Moodle plugin version: `2026090901`
+- Release: `1.1.32-rc3`
+- Moodle plugin version: `2026091902`
 - Component: `mod_videoplayer`
 - Product: Drive Resource
 - Supported Moodle branches: 4.5–5.2
@@ -239,3 +239,13 @@ Drive Resource now declares Moodle 4.5 as the minimum supported branch and keeps
 Protected video now has a third byte-range strategy. If Google Drive ignores both normal Range forwarding strategies and returns a complete `200` response, Moodle synthesizes the requested `206 Partial Content` window from the streamed upstream response. The proxy never buffers the whole video in memory and keeps Drive URLs server-side.
 
 Cross-version CI note: the shared Moodle 4.5–5.x PHPUnit suite uses docblock metadata for providers and coverage so the same tests run under PHPUnit 9 and PHPUnit 11 without version-specific test branches.
+
+## 1.1.32 RC3 production gate
+
+Drive Resource 1.1.32 RC3 is the production-candidate line for Moodle 4.5–5.2.
+
+The learner-facing architecture does not use Google Drive preview iframes. Videos, PDFs, images, Google Docs, Google Sheets and Google Slides are requested through Moodle's protected endpoint after login, course-module and capability checks. PDF-compatible resources render with the bundled local PDF.js viewer; videos use the local Plyr-enhanced HTML5 player; images use a Moodle-owned protected viewer.
+
+Video completion is derived from unique playback ranges actually watched and persists the last playback second for resume. PDF completion is derived from pages actually viewed and persists the last page. Privacy API and Backup/Restore include these progress fields.
+
+Repository CI validates Moodle 4.5 and 5.0 on PHP 8.2/8.3, and Moodle 5.2 on PHP 8.3, with MariaDB and PostgreSQL. A stable release still requires the manual staging/device gate documented in `docs/manual-test-checklist.md`, including a real Google Drive asset and physical iPhone/Safari verification.

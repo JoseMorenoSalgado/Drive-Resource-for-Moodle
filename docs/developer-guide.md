@@ -9,8 +9,8 @@ The Moodle component remains `mod_videoplayer`. Do not rename it: installed site
 - Moodle 4.5–5.2.
 - Compatibility baselines `MOODLE_405_STABLE` and `MOODLE_500_STABLE`.
 - Minimum Moodle version `2024100700`.
-- PHP 8.2 and 8.3.
-- CI databases MariaDB 10.11 and PostgreSQL 15.
+- PHP 8.2 and 8.3 for Moodle 4.5/5.0; Moodle 5.2 CI uses PHP 8.3.
+- CI databases MariaDB 10.11 and PostgreSQL 16.
 
 Moodle 4.5 is supported from the shared release branch. Older Moodle 4.x branches remain unsupported.
 
@@ -244,3 +244,16 @@ Moodle 4.5 uses PHPUnit 9 while Moodle 5.0 uses PHPUnit 11. Cross-version tests 
 ## Synthetic range fallback
 
 `http_range_proxy` must prefer native upstream range support. `RANGE_MODE_SYNTHETIC` is a last-resort compatibility path for Google responses that ignore `Range`. `resolve_range_window()` validates open, bounded and suffix ranges against a known total size. Do not replace this with full-file buffering or temporary whole-video downloads. For bounded requests, stop the cURL transfer after the requested window has been emitted.
+
+## 1.1.32 RC engineering invariants
+
+Production changes must preserve these invariants:
+
+- Never pass a Google Drive file ID, direct download URL or preview URL into learner-facing HTML/JavaScript.
+- Never reintroduce `templates/resource.mustache`, the legacy native PDF iframe template, or Google preview rendering.
+- Keep `protected.php` authorization and the Range/206 proxy as the only learner delivery boundary for remote binary content.
+- PDF completion is based on the union of observed pages; video completion is based on the union of normalized watched playback ranges.
+- Changes to persisted progress fields must be reflected in XMLDB upgrade/install definitions, External API, Privacy API, Backup/Restore, reporting and language strings.
+- AMD source and production bundles must be regenerated together for release packaging.
+
+The supported CI matrix covers Moodle 4.5, 5.0 and 5.2, PHP 8.2/8.3, MariaDB and PostgreSQL. Do not promote `MATURITY_RC` to `MATURITY_STABLE` until the manual staging/device release gate passes.

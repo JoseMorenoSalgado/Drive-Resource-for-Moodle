@@ -1,5 +1,5 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
+// This file is part of Moodle - http://moodle.org/.
 //
 // Moodle is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
  * Progress report for mod_videoplayer.
@@ -21,6 +21,8 @@
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+use mod_videoplayer\local\drive;
 
 require(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/tablelib.php');
@@ -40,23 +42,43 @@ $PAGE->set_url('/mod/videoplayer/report.php', ['id' => $cm->id]);
 $PAGE->set_title(get_string('progressreport', 'mod_videoplayer'));
 $PAGE->set_heading(format_string($course->fullname));
 $PAGE->set_context($context);
-$PAGE->navbar->add(
-    format_string($videoplayer->name),
-    new moodle_url('/mod/videoplayer/view.php', ['id' => $cm->id])
-);
+$PAGE->navbar->add(format_string($videoplayer->name), new moodle_url('/mod/videoplayer/view.php', ['id' => $cm->id]));
 $PAGE->navbar->add(get_string('progressreport', 'mod_videoplayer'));
+
+$source = $videoplayer->source ?? 'googledrive';
+if ($source === 'localpdf') {
+    $type = 'pdf';
+} else if (empty($videoplayer->type) || $videoplayer->type === drive::TYPE_AUTO) {
+    $type = drive::detect_type((string) ($videoplayer->videourl ?? ''));
+} else {
+    $type = clean_param($videoplayer->type, PARAM_ALPHANUMEXT);
+}
+
+$ispdf = drive::is_pdf_type($type);
+$isvideo = $type === 'video';
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('progressreport', 'mod_videoplayer') . ': ' . format_string($videoplayer->name));
 
 $table = new flexible_table('mod-videoplayer-report-' . $cm->id);
-$table->define_columns(['fullname', 'email', 'progress', 'completionpercentage', 'completed', 'timemodified']);
+$table->define_columns([
+    'fullname',
+    'email',
+    'progress',
+    'completionpercentage',
+    'completed',
+    'lastposition',
+    'timespent',
+    'timemodified',
+]);
 $table->define_headers([
     get_string('fullnameuser'),
     get_string('email'),
     get_string('progress', 'mod_videoplayer'),
     get_string('completionpercentage', 'mod_videoplayer'),
     get_string('completed', 'completion'),
+    get_string('lastposition', 'mod_videoplayer'),
+    get_string('timespent', 'mod_videoplayer'),
     get_string('lastmodified'),
 ]);
 $table->define_baseurl($PAGE->url);
@@ -65,14 +87,15 @@ $table->collapsible(false);
 $table->set_attribute('class', 'generaltable generalbox mod-videoplayer-report');
 $table->setup();
 
-$fields = user_picture::fields('u', ['email']);
-$sql = "SELECT {$fields}, vv.progress, vv.completionpercentage, vv.completed, vv.timemodified
+$userfields = user_picture::fields('u', ['email']);
+$sql = "SELECT {$userfields}, vv.progress, vv.completionpercentage, vv.completed,
+               vv.lastpage, vv.totalpages, vv.visitedpages, vv.lastsecond,
+               vv.totalseconds, vv.timespent, vv.timemodified
           FROM {videoplayer_views} vv
           JOIN {user} u ON u.id = vv.userid
          WHERE vv.videoplayerid = :videoplayerid
       ORDER BY u.lastname ASC, u.firstname ASC";
-$params = ['videoplayerid' => $videoplayer->id];
-$records = $DB->get_records_sql($sql, $params);
+$records = $DB->get_records_sql($sql, ['videoplayerid' => $videoplayer->id]);
 
 if (!$records) {
     echo $OUTPUT->notification(get_string('noprogressrecords', 'mod_videoplayer'), 'info');
@@ -81,27 +104,65 @@ if (!$records) {
         $user = (object) $record;
         $profileurl = new moodle_url('/user/view.php', ['id' => $record->id, 'course' => $course->id]);
         $completed = !empty($record->completed)
-            ? html_writer::span(get_string('yes'), 'badge badge-success')
-            : html_writer::span(get_string('no'), 'badge badge-secondary');
+            ? html_writer::span(get_string('yes'), 'badge badge-success bg-success')
+            : html_writer::span(get_string('no'), 'badge badge-secondary bg-secondary');
+
+        $progresslabel = format_time((int) round((float) $record->progress));
+        $lastposition = '-';
+
+        if ($ispdf) {
+            $visitedpages = json_decode((string) ($record->visitedpages ?? ''), true);
+            $validpages = [];
+            if (is_array($visitedpages)) {
+                foreach ($visitedpages as $page) {
+                    $page = (int) $page;
+                    if ($page > 0) {
+                        $validpages[$page] = true;
+                    }
+                }
+            }
+            $progresslabel = get_string('pagesviewed', 'mod_videoplayer', count($validpages));
+            if ((int) $record->totalpages > 0) {
+                $lastposition = get_string('pageposition', 'mod_videoplayer', (object) [
+                    'page' => (int) $record->lastpage,
+                    'total' => (int) $record->totalpages,
+                ]);
+            }
+        } else if ($isvideo) {
+            $progresslabel = get_string(
+                'secondswatched',
+                'mod_videoplayer',
+                format_float((float) $record->progress, 2)
+            );
+            if ((float) $record->totalseconds > 0) {
+                $lastposition = get_string('secondposition', 'mod_videoplayer', (object) [
+                    'second' => format_float((float) $record->lastsecond, 2),
+                    'total' => format_float((float) $record->totalseconds, 2),
+                ]);
+            }
+        }
 
         $table->add_data([
             html_writer::link($profileurl, fullname($user)),
             s($record->email),
-            format_float((float) $record->progress, 2) . 's',
+            $progresslabel,
             format_float((float) $record->completionpercentage, 2) . '%',
             $completed,
+            $lastposition,
+            format_time((int) $record->timespent),
             userdate($record->timemodified),
         ]);
     }
     $table->finish_output();
 }
 
-$backurl = new moodle_url('/mod/videoplayer/view.php', ['id' => $cm->id]);
-$backlink = html_writer::link(
-    $backurl,
-    get_string('backtoresource', 'mod_videoplayer'),
-    ['class' => 'btn btn-secondary mt-3']
+echo html_writer::div(
+    html_writer::link(
+        new moodle_url('/mod/videoplayer/view.php', ['id' => $cm->id]),
+        get_string('backtoresource', 'mod_videoplayer'),
+        ['class' => 'btn btn-secondary mt-3']
+    ),
+    'mod-videoplayer-report-actions'
 );
-echo html_writer::div($backlink, 'mod-videoplayer-report-actions');
 
 echo $OUTPUT->footer();
