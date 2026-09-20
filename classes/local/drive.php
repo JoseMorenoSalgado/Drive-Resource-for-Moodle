@@ -105,7 +105,7 @@ class drive {
         }
 
         parse_str($query, $params);
-        $resourcekey = trim((string)($params['resourcekey'] ?? ''));
+        $resourcekey = trim((string) ($params['resourcekey'] ?? ''));
         if ($resourcekey === '') {
             return null;
         }
