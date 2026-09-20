@@ -407,12 +407,11 @@ class drive {
             return null;
         }
 
-        $candidate = stripcslashes($matches[1]);
-        $candidate = str_replace(
-            ['\\u003d', '\\u0026', '\\u002f', '&amp;'],
-            ['=', '&', '/', '&'],
-            $candidate
-        );
+        $decoded = json_decode('"' . $matches[1] . '"');
+        if (!is_string($decoded) || $decoded === '') {
+            return null;
+        }
+        $candidate = html_entity_decode($decoded, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
         $actionurl = self::normalize_download_action($candidate, $fallbackurl);
         if ($actionurl === null) {
