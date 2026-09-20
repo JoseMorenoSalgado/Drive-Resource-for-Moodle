@@ -183,9 +183,6 @@ $templatecontext = [
     // the browser must negotiate against that response instead of trusting an
     // incorrect hard-coded video/mp4 hint.
     'videomimetype' => '',
-    'videoerrorcodec' => get_string('videoerrorcodec', 'mod_videoplayer'),
-    'videoerrornetwork' => get_string('videoerrornetwork', 'mod_videoplayer'),
-    'videoerrorgeneric' => get_string('videoerrorgeneric', 'mod_videoplayer'),
     'title' => format_string($videoplayer->name),
     'playerstyle' => $playerstyle,
     'displaymode' => $displaymode,
