@@ -92,6 +92,71 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
         return ['slow-2g', '2g'].indexOf(connection.effectiveType || '') === -1;
     };
 
+    var setVideoError = function(node, message) {
+        var container = node.closest('.mod-videoplayer-container') || document;
+        var region = container.querySelector('[data-region="video-error"]');
+        if (!region) {
+            return;
+        }
+
+        region.textContent = message || node.getAttribute('data-error-generic') || '';
+        if (region.textContent) {
+            region.classList.remove('d-none');
+        }
+    };
+
+    var clearVideoError = function(node) {
+        var container = node.closest('.mod-videoplayer-container') || document;
+        var region = container.querySelector('[data-region="video-error"]');
+        if (!region) {
+            return;
+        }
+
+        region.textContent = '';
+        region.classList.add('d-none');
+    };
+
+    var diagnoseVideoError = function(node) {
+        var codecMessage = node.getAttribute('data-error-codec') || '';
+        var networkMessage = node.getAttribute('data-error-network') || '';
+        var genericMessage = node.getAttribute('data-error-generic') || '';
+        var source = node.currentSrc || '';
+        var sourceNode = node.querySelector('source');
+
+        if (!source && sourceNode) {
+            source = sourceNode.src || sourceNode.getAttribute('src') || '';
+        }
+
+        if (!source || !window.fetch) {
+            var mediaError = node.error;
+            if (mediaError && (mediaError.code === 3 || mediaError.code === 4)) {
+                setVideoError(node, codecMessage || genericMessage);
+            } else {
+                setVideoError(node, genericMessage || networkMessage);
+            }
+            return;
+        }
+
+        window.fetch(source, {
+            method: 'GET',
+            credentials: 'same-origin',
+            cache: 'no-store',
+            headers: {
+                Range: 'bytes=0-1'
+            }
+        }).then(function(response) {
+            var status = response.headers.get('X-Drive-Resource-Status') || '';
+            if ((response.status === 200 || response.status === 206) && status === 'MEDIA') {
+                setVideoError(node, codecMessage || genericMessage);
+                return;
+            }
+
+            setVideoError(node, networkMessage || genericMessage);
+        }).catch(function() {
+            setVideoError(node, genericMessage || networkMessage);
+        });
+    };
+
     var markOrientation = function(node) {
         var wrapper = node.closest('.mod-videoplayer-native-frame');
         if (!wrapper || !node.videoWidth || !node.videoHeight) {
@@ -288,7 +353,11 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
             node.addEventListener('selectstart', blockBrowserMediaActions, true);
         }
         node.addEventListener('loadedmetadata', function() {
+            clearVideoError(node);
             markOrientation(node);
+        });
+        node.addEventListener('error', function() {
+            diagnoseVideoError(node);
         });
         registerSeekRecovery(node);
     };
