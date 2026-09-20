@@ -69,7 +69,7 @@ final class drive_downloader {
                 self::delete_if_file($targetpath);
                 $last = self::request_to_file($currenturl, $targetpath, $cookiejar);
 
-                $status = (int)$last['httpcode'];
+                $status = (int) $last['httpcode'];
                 if ($status >= 300 && $status < 400) {
                     $location = (string)($last['location'] ?? '');
                     $nexturl = drive::resolve_trusted_download_url($location, $currenturl);
@@ -78,7 +78,7 @@ final class drive_downloader {
                         return self::failure(
                             $nexturl === null ? 'untrusted_redirect' : 'too_many_redirects',
                             $status,
-                            (string)$last['contenttype'],
+                            (string) $last['contenttype'],
                             $currenturl
                         );
                     }
@@ -104,7 +104,7 @@ final class drive_downloader {
                     return self::failure(
                         'unexpected_drive_warning',
                         $status,
-                        (string)$last['contenttype'],
+                        (string) $last['contenttype'],
                         $currenturl
                     );
                 }
@@ -113,7 +113,7 @@ final class drive_downloader {
                     'ok' => true,
                     'httpcode' => $status,
                     'error' => '',
-                    'contenttype' => (string)$last['contenttype'],
+                    'contenttype' => (string) $last['contenttype'],
                     'effectiveurl' => $currenturl,
                 ];
             }
@@ -163,7 +163,7 @@ final class drive_downloader {
                 $length = strlen($header);
                 $trimmed = trim($header);
                 if (preg_match('/^HTTP\/\S+\s+(\d+)/i', $trimmed, $matches)) {
-                    $headers = ['status' => (int)$matches[1]];
+                    $headers = ['status' => (int) $matches[1]];
                     return $length;
                 }
                 if (preg_match('/^Location:\s*(.+)$/i', $trimmed, $matches)) {
@@ -188,13 +188,13 @@ final class drive_downloader {
         curl_setopt_array($ch, $options);
         $result = curl_exec($ch);
         $error = curl_error($ch);
-        $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $contenttype = (string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
         curl_close($ch);
         fclose($handle);
 
         if (!empty($headers['content-type'])) {
-            $contenttype = (string)$headers['content-type'];
+            $contenttype = (string) $headers['content-type'];
         }
 
         return [
