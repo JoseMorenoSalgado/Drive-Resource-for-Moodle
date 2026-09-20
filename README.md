@@ -185,6 +185,12 @@ GitHub Actions runs `.github/workflows/moodle-supported-ci.yml` against:
 
 The workflow performs PHP lint, Moodle coding style, PHPDoc validation, plugin validation, upgrade-savepoint checks, Mustache validation, AMD/JavaScript validation, the PDF.js native-ESM loader contract, the stable PDF.js production-path contract and PHPUnit tests.
 
+## Video runtime compatibility
+
+Standard Google Drive sharing URLs such as `/file/d/{id}/view` do not expose a filename or MIME type. Drive Resource now centralizes resource-type resolution: explicit types always win, typed Google Docs/Sheets/Slides URLs are detected automatically, and opaque `auto` Drive links fall back to Video for backward compatibility with the original Video Player module. New activities default explicitly to Video.
+
+On upgraded sites, missing plugin configuration is treated as the documented default rather than as a disabled feature. In particular, an absent `protectedmode` value no longer blocks all video requests. Byte-range retries abort ignored full-response bodies immediately before trying the next strategy, avoiding redundant full video transfers.
+
 ## Development
 
 AMD sources are under `amd/src/` and production bundles under `amd/build/`.
@@ -206,8 +212,8 @@ Any AMD source change must include its rebuilt production bundle. The generated 
 
 ## Release
 
-- Release: `1.1.32-rc5`
-- Moodle plugin version: `2026092001`
+- Release: `1.1.32-rc6`
+- Moodle plugin version: `2026092002`
 - Component: `mod_videoplayer`
 - Product: Drive Resource
 - Supported Moodle branches: 4.5–5.2
