@@ -17,6 +17,7 @@
 namespace mod_videoplayer\local\progress;
 
 use mod_videoplayer\local\gamification\reward_service;
+use mod_videoplayer\local\plugin_config;
 
 /**
  * Drive Resource progress, resume and completion service.
@@ -106,7 +107,7 @@ final class progress_service {
         $record = $DB->get_record('videoplayer_views', $conditions);
         $wascompleted = $record ? !empty($record->completed) : false;
         $timespent = $this->bounded_timespent($clienttimespent, $record ?: null, $now);
-        $requiredseconds = max(60, (int)get_config('mod_videoplayer', 'defaultrequiredseconds'));
+        $requiredseconds = plugin_config::required_seconds();
         $derivedpercentage = $this->derive_percentage(
             $lastpage,
             $totalpages,
