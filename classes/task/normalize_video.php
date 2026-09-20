@@ -33,7 +33,7 @@ class normalize_video extends \core\task\adhoc_task {
             return;
         }
 
-        $record = $DB->get_record('videoplayer', ['id' => (int)$data->instanceid]);
+        $record = $DB->get_record('videoplayer', ['id' => (int) $data->instanceid]);
         if (!$record) {
             return;
         }
