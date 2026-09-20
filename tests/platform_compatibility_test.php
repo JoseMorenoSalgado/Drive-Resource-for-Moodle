@@ -41,6 +41,24 @@ final class platform_compatibility_test extends \advanced_testcase {
     }
 
     /**
+     * New Google Drive records must default safely to video and PDF.js.
+     */
+    public function test_instance_normalisation_uses_safe_defaults(): void {
+        global $CFG;
+        require_once($CFG->dirroot . '/mod/videoplayer/lib.php');
+
+        $data = (object) [
+            'source' => 'googledrive',
+            'videourl' => 'https://drive.google.com/file/d/1AbC_def-123/view',
+        ];
+
+        $normalised = \videoplayer_normalise_instance_data($data);
+
+        $this->assertSame('video', $normalised->type);
+        $this->assertSame('pdfjs', $normalised->displaymode);
+    }
+
+    /**
      * Core APIs used by Drive Resource must exist on every supported branch.
      *
      */
