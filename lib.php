@@ -44,6 +44,7 @@ function videoplayer_supports($feature) {
         case FEATURE_MOD_INTRO:
         case FEATURE_SHOW_DESCRIPTION:
         case FEATURE_COMPLETION_TRACKS_VIEWS:
+        case FEATURE_COMPLETION_HAS_RULES:
         case FEATURE_BACKUP_MOODLE2:
             return true;
         case FEATURE_GRADE_HAS_GRADE:
@@ -52,6 +53,48 @@ function videoplayer_supports($feature) {
         default:
             return null;
     }
+}
+
+/**
+ * Populate cached course-module data, including custom completion rules.
+ *
+ * @param stdClass $coursemodule Course module record.
+ * @return cached_cm_info|false
+ */
+function videoplayer_get_coursemodule_info($coursemodule) {
+    global $DB;
+
+    $fields = 'id, name, intro, introformat, completionprogressenabled, completionpercentage';
+    $instance = $DB->get_record(
+        'videoplayer',
+        ['id' => (int)$coursemodule->instance],
+        $fields,
+        IGNORE_MISSING
+    );
+    if (!$instance) {
+        return false;
+    }
+
+    $result = new cached_cm_info();
+    $result->name = $instance->name;
+
+    if (!empty($coursemodule->showdescription)) {
+        $result->content = format_module_intro(
+            'videoplayer',
+            $instance,
+            (int)$coursemodule->id,
+            false
+        );
+    }
+
+    if ((int)$coursemodule->completion === COMPLETION_TRACKING_AUTOMATIC) {
+        $threshold = !empty($instance->completionprogressenabled)
+            ? max(1, min(100, (int)$instance->completionpercentage))
+            : 0;
+        $result->customdata['customcompletionrules']['completionprogress'] = $threshold;
+    }
+
+    return $result;
 }
 
 /**
