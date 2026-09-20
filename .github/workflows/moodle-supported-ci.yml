@@ -64,6 +64,26 @@ jobs:
             php: '8.3'
             database: pgsql
           - moodle:
+              label: '5.1'
+              branch: MOODLE_501_STABLE
+            php: '8.2'
+            database: mariadb
+          - moodle:
+              label: '5.1'
+              branch: MOODLE_501_STABLE
+            php: '8.2'
+            database: pgsql
+          - moodle:
+              label: '5.1'
+              branch: MOODLE_501_STABLE
+            php: '8.3'
+            database: mariadb
+          - moodle:
+              label: '5.1'
+              branch: MOODLE_501_STABLE
+            php: '8.3'
+            database: pgsql
+          - moodle:
               label: '5.2'
               branch: MOODLE_502_STABLE
             php: '8.3'
@@ -227,12 +247,26 @@ jobs:
           grep -q 'CURLINFO_COOKIELIST' plugin/classes/local/http_range_proxy.php
           grep -q 'resolve_content_type' plugin/classes/local/http_range_proxy.php
           grep -q 'resolve_download_warning_url' plugin/classes/local/drive.php
+          grep -q 'resolve_embedded_download_url' plugin/classes/local/drive.php
+          grep -q "'authuser'" plugin/classes/local/drive.php
+          grep -q "'at'" plugin/classes/local/drive.php
+          grep -q 'usp=drivesdk' plugin/tests/drive_test.php
+          test -f plugin/amd/src/videohealth.js
+          test -f plugin/amd/build/videohealth.min.js
+          grep -q "mod_videoplayer/videohealth" plugin/view.php
+          grep -q 'X-Drive-Resource-Status' plugin/amd/src/videohealth.js
+          grep -q 'bytes=0-1' plugin/amd/src/videohealth.js
+          grep -q 'video-health' plugin/templates/video.mustache
+          grep -q 'retry-video' plugin/templates/video.mustache
+          grep -q 'has-video-error' plugin/styles_activity.css
           grep -q 'resolve_record_type' plugin/classes/local/drive.php
           grep -q 'resolve_record_type' plugin/view.php
           grep -q 'resolve_record_type' plugin/protected.php
           grep -q 'MAX_CONFIRMATION_HOPS' plugin/classes/local/http_range_proxy.php
           grep -q 'Retrying a refused Range must not' plugin/classes/local/http_range_proxy.php
           grep -q 'X-Accel-Buffering: no' plugin/classes/local/http_range_proxy.php
+          grep -q 'CURLPROTO_HTTPS' plugin/classes/local/http_range_proxy.php
+          grep -q 'CURLPROTO_HTTPS' plugin/classes/local/protected_stream.php
           grep -q 'max-width: none !important' plugin/styles_pdf_mobile.css
           grep -q 'mod-videoplayer-pdfjs-canvas-stage' plugin/templates/pdfjs.mustache
           grep -q 'mod-videoplayer-pdfjs-canvas-stage' plugin/styles_pdf_overlay.css
@@ -249,7 +283,7 @@ jobs:
           fi
           grep -Fq "\$mform->setDefault('type', 'video')" plugin/mod_form.php
           grep -q 'DEFAULT="video"' plugin/db/install.xml
-          grep -q '2026092003' plugin/db/upgrade.php
+          grep -q '2026092005' plugin/db/upgrade.php
           grep -Fq "new xmldb_index('type_idx', XMLDB_INDEX_NOTUNIQUE, ['type'])" plugin/db/upgrade.php
           grep -Fq '$dbman->drop_index($table, $typeindex);' plugin/db/upgrade.php
           grep -Fq '$dbman->add_index($table, $typeindex);' plugin/db/upgrade.php

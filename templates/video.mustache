@@ -54,5 +54,25 @@
             <source src="{{videourl}}"{{#videomimetype}} type="{{videomimetype}}"{{/videomimetype}}>
             {{#str}} videonotsupported, mod_videoplayer {{/str}}
         </video>
+
+        <div
+            class="mod-videoplayer-video-health"
+            data-region="video-health"
+            data-message-codec="{{#str}} videocodecunsupported, mod_videoplayer {{/str}}"
+            data-message-generic="{{#str}} videogenericerror, mod_videoplayer {{/str}}"
+            data-message-network="{{#str}} videonetworkerror, mod_videoplayer {{/str}}"
+            data-message-unavailable="{{#str}} videoprotectedunavailable, mod_videoplayer {{/str}}"
+            role="status"
+            aria-live="polite"
+            hidden>
+            <div class="mod-videoplayer-video-health-card">
+                <div class="mod-videoplayer-video-health-icon" aria-hidden="true">!</div>
+                <strong class="mod-videoplayer-video-health-title">{{#str}} videoplaybackproblem, mod_videoplayer {{/str}}</strong>
+                <p class="mod-videoplayer-video-health-message" data-region="video-health-message"></p>
+                <button type="button" class="btn btn-light mod-videoplayer-video-health-retry" data-action="retry-video">
+                    {{#str}} videoretry, mod_videoplayer {{/str}}
+                </button>
+            </div>
+        </div>
     </div>
 </div>

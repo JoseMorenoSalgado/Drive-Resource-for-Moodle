@@ -4,7 +4,7 @@ Drive Resource is a protected Moodle delivery layer. Browser restrictions are de
 
 ## Supported security baseline
 
-The current release supports Moodle 4.5–5.2. Security validation covers Moodle 4.5 and 5.0 on PHP 8.2/8.3 and Moodle 5.2 on PHP 8.3, matching the runtime requirements of each Moodle branch. Running the plugin on an undeclared Moodle or PHP combination is unsupported because API behavior and security fixes may differ.
+The current release supports Moodle 4.5–5.2. Security validation covers Moodle 4.5, 5.0 and 5.1 on PHP 8.2/8.3 and Moodle 5.2 on PHP 8.3, matching the runtime requirements of each Moodle branch. Running the plugin on an undeclared Moodle or PHP combination is unsupported because API behavior and security fixes may differ.
 
 ## Authorisation
 
@@ -62,6 +62,14 @@ Protected responses use:
 - correct `Content-Length`, `Content-Range` and `Accept-Ranges` metadata.
 
 Valid ranges preserve `206`. Unsatisfiable ranges return `416` without leaking upstream details. HTML login/error responses must never be returned as successful PDF or media bytes.
+
+## Video diagnostic safety
+
+The browser-side health monitor performs diagnostics only against the Moodle-owned `protected.php` URL. It must never receive a raw Drive ID, confirmation token, cookie, direct download URL or redirect destination.
+
+The diagnostic request is same-origin and bounded to `Range: bytes=0-1`. Client code may use only safe response metadata such as HTTP status, validated `Content-Type` and `X-Drive-Resource-Status`. Upstream error bodies and effective URLs remain server-side.
+
+A retry reloads the existing protected Moodle source. It must not weaken `require_login`, enrolment/capability checks, host validation, MIME validation or Range validation.
 
 ## Stable PDF asset boundary
 
@@ -187,3 +195,11 @@ Missing site configuration is not treated as an authorization decision. In parti
 
 Database upgrade failures must not encourage administrators to bypass Moodle's XMLDB layer or manually remove production indexes. RC7 performs the indexed `videoplayer.type` migration through Moodle's database manager and restores `type_idx` even when the field alteration throws. The change does not relax authentication, capability checks, protected delivery, or modify learner progress data.
 
+## RC8 Drive confirmation hardening
+
+Google confirmation HTML is untrusted. RC8 accepts only a bounded allow-list of download query fields, validates values, and continues to restrict confirmation targets to approved HTTPS Google hosts. Escaped embedded `downloadUrl` values are decoded as JSON before validation; they are never emitted to learner HTML.
+
+
+Both protected proxy and cache-warming cURL paths restrict origin and redirect protocols to HTTPS when the installed cURL runtime exposes the protocol controls. TLS peer and host verification remain mandatory.
+
+Codec incompatibility is a presentation/runtime concern, not an authorization fallback. The plugin must never bypass `require_login()`, capability checks or the protected proxy just because the browser cannot decode the original media.

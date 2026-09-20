@@ -7,9 +7,9 @@ The Moodle component remains `mod_videoplayer`. Do not rename it: installed site
 ## Supported development target
 
 - Moodle 4.5–5.2.
-- Compatibility baselines `MOODLE_405_STABLE` and `MOODLE_500_STABLE`.
+- Compatibility baselines `MOODLE_405_STABLE`, `MOODLE_500_STABLE`, `MOODLE_501_STABLE` and `MOODLE_502_STABLE`.
 - Minimum Moodle version `2024100700`.
-- PHP 8.2 and 8.3 for Moodle 4.5/5.0; Moodle 5.2 CI uses PHP 8.3.
+- PHP 8.2 and 8.3 for Moodle 4.5/5.0/5.1; Moodle 5.2 CI uses PHP 8.3.
 - CI databases MariaDB 10.11 and PostgreSQL 16.
 
 Moodle 4.5 is supported from the shared release branch. Older Moodle 4.x branches remain unsupported.
@@ -64,6 +64,16 @@ required activity id
 Never return raw Google Drive IDs, direct download URLs, preview URLs or upstream error bodies.
 
 `protected_stream` owns Moodle-private/cache files. `http_range_proxy` owns upstream HTTP streaming. Do not send both a manually constructed `Range` header and `CURLOPT_RANGE` for the same upstream request.
+
+## Video playback health contract
+
+The native `<video>` element is the playback authority; Plyr is presentation enhancement only. `mod_videoplayer/videohealth` must remain usable even when Plyr fails to load.
+
+The health module may probe only the already-authorised Moodle `protected.php` URL. Keep the diagnostic request bounded to a minimal byte range and same-origin credentials. Use the safe `X-Drive-Resource-Status` header to distinguish protected delivery failures from browser decode/source errors.
+
+Do not attempt to infer a codec from the MP4 container extension or MIME type. A transport-success + media decode/source error must be treated as a compatibility failure. Arbitrary codec support requires a real transcoding subsystem.
+
+Recovery must be user-triggered, bounded and preserve the last usable playback second when possible. Never retry by exposing, redirecting the browser to, or reconstructing a Google Drive URL.
 
 ## PDF renderer contract
 
@@ -256,7 +266,7 @@ Production changes must preserve these invariants:
 - Changes to persisted progress fields must be reflected in XMLDB upgrade/install definitions, External API, Privacy API, Backup/Restore, reporting and language strings.
 - AMD source and production bundles must be regenerated together for release packaging.
 
-The supported CI matrix covers Moodle 4.5, 5.0 and 5.2, PHP 8.2/8.3, MariaDB and PostgreSQL. Do not promote `MATURITY_RC` to `MATURITY_STABLE` until the manual staging/device release gate passes.
+The supported CI matrix covers Moodle 4.5, 5.0, 5.1 and 5.2, PHP 8.2/8.3, MariaDB and PostgreSQL. Do not promote `MATURITY_RC` to `MATURITY_STABLE` until the manual staging/device release gate passes.
 
 ## Debugging Google Drive videos that stay at 0:00
 
@@ -275,3 +285,12 @@ When a browser Range request receives upstream HTTP 200, retry strategies must n
 
 Never call `change_field_type()`, `change_field_default()` or related field-altering XMLDB methods on a field that still has an index/key dependency. Define the dependency with `xmldb_index`/`xmldb_key`, drop it through Moodle's database manager, perform the alteration, then restore it. For critical upgrades use `try/finally` so an exception does not leave the site with a missing index. RC7 applies this rule to `videoplayer.type` and `type_idx`.
 
+## Video failure diagnosis
+
+Treat a black player or `00:00 / 00:00` as a symptom, not a single failure class. Diagnose the protected transport independently from browser decoding.
+
+- A successful protected request returning HTTP `200/206` with `X-Drive-Resource-Status: MEDIA` means Moodle authorization and protected byte delivery succeeded.
+- A non-success protected response belongs to Drive resolution, permissions, MIME validation or byte-range handling.
+- If protected transport succeeds but the browser still raises a media decode error, inspect the source codec. An `.mp4` extension identifies a container, not guaranteed browser-compatible video.
+
+The browser must never receive the raw Drive URL as part of troubleshooting. Keep all upstream identifiers server-side. For broad direct playback compatibility, normalize source media to H.264/AVC video with AAC audio. Arbitrary codec support requires a real server-side transcoding layer rather than a frontend workaround.

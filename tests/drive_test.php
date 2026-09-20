@@ -53,6 +53,10 @@ final class drive_test extends \advanced_testcase {
                 'https://drive.google.com/file/d/1AbC_def-123/view?usp=sharing',
                 '1AbC_def-123',
             ],
+            'drive sdk share link' => [
+                'https://drive.google.com/file/d/1AbC_def-123/view?usp=drivesdk',
+                '1AbC_def-123',
+            ],
             'drive open' => [
                 'https://drive.google.com/open?id=1AbC_def-123',
                 '1AbC_def-123',
@@ -157,6 +161,52 @@ final class drive_test extends \advanced_testcase {
             drive::resolve_download_warning_url(
                 $html,
                 'https://drive.usercontent.google.com/download?id=1AbC_def-123&export=download&confirm=t'
+            )
+        );
+    }
+
+    /**
+     * Drive confirmation tokens used by current share-link downloads must survive.
+     *
+     * @covers ::resolve_download_warning_url
+     */
+    public function test_preserves_current_confirmation_tokens(): void {
+        $html = '<form id="download-form" action="https://drive.usercontent.google.com/download" method="get">' .
+            '<input type="hidden" name="id" value="1AbC_def-123">' .
+            '<input type="hidden" name="export" value="download">' .
+            '<input type="hidden" name="confirm" value="t">' .
+            '<input type="hidden" name="uuid" value="19ebee42-9335-42ed-b652-68b7f0208782">' .
+            '<input type="hidden" name="authuser" value="0">' .
+            '<input type="hidden" name="at" value="AN8xHOr_example-token_123">' .
+            '</form>';
+
+        $resolved = drive::resolve_download_warning_url(
+            $html,
+            'https://drive.usercontent.google.com/download?id=1AbC_def-123&export=download'
+        );
+
+        $this->assertNotNull($resolved);
+        $this->assertStringContainsString('id=1AbC_def-123', $resolved);
+        $this->assertStringContainsString('confirm=t', $resolved);
+        $this->assertStringContainsString('authuser=0', $resolved);
+        $this->assertStringContainsString('at=AN8xHOr_example-token_123', $resolved);
+    }
+
+    /**
+     * Embedded downloadUrl responses must resolve without requiring a form.
+     *
+     * @covers ::resolve_download_warning_url
+     */
+    public function test_resolves_embedded_download_url(): void {
+        $html = '<script>window.data={"downloadUrl":' .
+            '"https:\\/\\/drive.usercontent.google.com\\/download?id=1AbC_def-123' .
+            '\\u0026export=download\\u0026confirm=t\\u0026authuser=0"};</script>';
+
+        $this->assertSame(
+            'https://drive.usercontent.google.com/download?id=1AbC_def-123&export=download&confirm=t&authuser=0',
+            drive::resolve_download_warning_url(
+                $html,
+                'https://drive.usercontent.google.com/download?id=1AbC_def-123'
             )
         );
     }

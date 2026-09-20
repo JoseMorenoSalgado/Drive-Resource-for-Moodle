@@ -1,5 +1,35 @@
 # Changelog
 
+## v1.1.32-rc9 - 2026-09-19
+
+### Added
+
+- Added a dedicated same-origin video health monitor independent of Plyr so native HTML5 playback failures remain diagnosable.
+- Added explicit handling for media network, decode and unsupported-source failures with a learner-facing recovery state.
+- Added a bounded user-triggered retry path that reloads only the Moodle protected URL and attempts to restore the previous playback position.
+- Added a two-byte protected transport probe using `Range: bytes=0-1` and the safe `X-Drive-Resource-Status` header to separate proxy/source failures from browser codec failures.
+- Expanded the CI matrix to explicitly validate Moodle 5.1 on PHP 8.2/8.3 with MariaDB and PostgreSQL.
+
+### Changed
+
+- Bumped Drive Resource to `1.1.32-rc9` / `2026092005`.
+- Aligned release, security, architecture and installation documentation with the real Moodle 4.5–5.2 CI matrix.
+
+
+## v1.1.32-rc8 - 2026-09-19
+
+### Fixed
+
+- Added support for Google Drive shared links using the normal `/file/d/.../view?usp=drivesdk` form.
+- Preserved bounded current Google download confirmation fields and supported escaped embedded `downloadUrl` responses while keeping the host allow-list intact.
+- Hardened `Content-Range` validation so a mismatched upstream `206` response cannot be forwarded as if it satisfied the browser request.
+- Restricted cURL origin and redirect protocols to HTTPS where supported by the runtime.
+- Documented that direct byte-proxy playback requires browser-supported codecs; MP4 container files encoded with TSCC2 and similar desktop codecs require transcoding to a web codec such as H.264/AVC + AAC.
+
+### Changed
+
+- Bumped Drive Resource to `1.1.32-rc8` / `2026092004`.
+
 ## v1.1.32-rc7 - 2026-09-19
 
 ### Fixed
@@ -60,7 +90,7 @@
 - Exact PDF completion from pages actually viewed, with local PDF.js text search.
 - Standard `course_module_instance_list_viewed` event for the activity index.
 - Moodle-owned protected image viewer.
-- CI coverage for Moodle 4.5 and 5.0 on PHP 8.2/8.3, plus Moodle 5.2 on PHP 8.3, with MariaDB and PostgreSQL.
+- CI coverage for Moodle 4.5, 5.0 and 5.1 on PHP 8.2/8.3, plus Moodle 5.2 on PHP 8.3, with MariaDB and PostgreSQL.
 
 ### Changed
 

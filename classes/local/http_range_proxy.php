@@ -441,6 +441,12 @@ final class http_range_proxy {
         if (defined('CURL_HTTP_VERSION_2TLS')) {
             $options[CURLOPT_HTTP_VERSION] = CURL_HTTP_VERSION_2TLS;
         }
+        if (defined('CURLOPT_PROTOCOLS') && defined('CURLPROTO_HTTPS')) {
+            $options[CURLOPT_PROTOCOLS] = CURLPROTO_HTTPS;
+        }
+        if (defined('CURLOPT_REDIR_PROTOCOLS') && defined('CURLPROTO_HTTPS')) {
+            $options[CURLOPT_REDIR_PROTOCOLS] = CURLPROTO_HTTPS;
+        }
         if (defined('CURLOPT_TCP_KEEPALIVE')) {
             $options[CURLOPT_TCP_KEEPALIVE] = 1;
         }
@@ -575,8 +581,47 @@ final class http_range_proxy {
             return in_array($status, [200, 206], true);
         }
 
-        return $status === 206 &&
-            preg_match('/^bytes\s+\d+-\d+\/(?:\d+|\*)$/i', trim($contentrange)) === 1;
+        if (
+            $status !== 206 ||
+            !preg_match('/^bytes\s+(\d+)-(\d+)\/(\d+|\*)$/i', trim($contentrange), $responsematches)
+        ) {
+            return false;
+        }
+
+        $responsestart = (int) $responsematches[1];
+        $responseend = (int) $responsematches[2];
+        if ($responseend < $responsestart) {
+            return false;
+        }
+
+        if (preg_match('/^bytes=(\d+)-(\d*)$/', $range, $requestmatches)) {
+            $requeststart = (int) $requestmatches[1];
+            if ($responsestart !== $requeststart) {
+                return false;
+            }
+
+            if ($requestmatches[2] !== '' && $responseend > (int) $requestmatches[2]) {
+                return false;
+            }
+
+            return true;
+        }
+
+        if (
+            preg_match('/^bytes=-(\d+)$/', $range, $requestmatches) &&
+            $responsematches[3] !== '*'
+        ) {
+            $suffixlength = (int) $requestmatches[1];
+            $total = (int) $responsematches[3];
+            if ($suffixlength <= 0 || $total <= 0) {
+                return false;
+            }
+
+            $expectedstart = max(0, $total - min($suffixlength, $total));
+            return $responsestart === $expectedstart && $responseend === $total - 1;
+        }
+
+        return false;
     }
 
     /**

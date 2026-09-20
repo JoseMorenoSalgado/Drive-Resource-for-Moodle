@@ -26,6 +26,7 @@ mod/videoplayer/protected.php
 mod/videoplayer/templates/pdfjs.mustache
 mod/videoplayer/amd/build/pdfjsloader.min.js
 mod/videoplayer/amd/build/pdfviewer.min.js
+mod/videoplayer/amd/build/videohealth.min.js
 mod/videoplayer/thirdpartylibs/pdfjs/pdf.min.mjs
 mod/videoplayer/thirdpartylibs/pdfjs/pdf.worker.min.mjs
 mod/videoplayer/thirdpartylibs/plyr/plyr.css
@@ -149,7 +150,7 @@ Cron must process ad-hoc tasks frequently. The PHP/web user must be able to crea
 
 After installation or upgrade, verify:
 
-1. Administration reports Drive Resource `1.1.32-rc3` and version `2026091902`.
+1. Administration reports Drive Resource `1.1.32-rc9` and version `2026092005`.
 2. A teacher can create and edit a Drive Resource.
 3. The saved `displaymode` is `pdfjs`.
 4. An enrolled learner can open the activity.
@@ -257,7 +258,7 @@ Unsatisfiable ranges must return `416` with `Content-Range: bytes */<size>` wher
 
 ## Automated validation
 
-`.github/workflows/moodle-supported-ci.yml` tests Moodle 4.5 and 5.0 on PHP 8.2/8.3, and Moodle 5.2 on PHP 8.3, with:
+`.github/workflows/moodle-supported-ci.yml` tests Moodle 4.5, 5.0 and 5.1 on PHP 8.2/8.3, and Moodle 5.2 on PHP 8.3, with:
 
 - MariaDB 10.11 and PostgreSQL 16;
 - PHP lint, Moodle Coding Style, PHPDoc, plugin validation and XMLDB savepoints;
@@ -304,3 +305,26 @@ For an existing standard Google Drive video link using `/file/d/.../view`, verif
 
 If the Moodle upgrade reports `ddldependencyerror` for `videoplayer->type` with dependency `vide_typ_ix` / `type_idx`, deploy Drive Resource `1.1.32-rc7` (`2026092003`) and rerun the normal Moodle upgrade. Do **not** manually drop the database index. RC7 temporarily removes the XMLDB index, changes the field default, restores the index, seeds the missing plugin defaults and records the new savepoint. After the upgrade succeeds, purge Moodle caches and verify video playback again.
 
+## RC9 video health verification
+
+After deploying Drive Resource `1.1.32-rc9` (`2026092005`), run the Moodle upgrade and purge caches. Test one browser-compatible H.264/AAC video and one deliberately unsupported-codec sample.
+
+For a healthy video, playback must start without a health overlay and seeking must continue to use protected `206 Partial Content` responses.
+
+For a transport failure, the player must show a protected-source/network message and an `Intentar de nuevo` / `Try again` action. The diagnostic request must target only `/mod/videoplayer/protected.php` with a two-byte range.
+
+For a source whose protected endpoint returns `X-Drive-Resource-Status: MEDIA` but the browser raises a decode/source error, the player must report a format/codec compatibility problem rather than presenting an unexplained `00:00` state. No raw Google Drive URL or file ID may appear in HTML, JavaScript, network redirects initiated by the module or visible error text.
+
+## RC8 video compatibility verification
+
+After deploying Drive Resource `1.1.32-rc8` (`2026092004`), run the Moodle upgrade and purge caches. Test a standard Google Drive shared video link such as `https://drive.google.com/file/d/<id>/view?usp=drivesdk`.
+
+Verify that:
+
+1. the learner HTML contains only the Moodle `protected.php` URL, never the raw Drive URL or file ID;
+2. initial metadata and seeks receive valid `200/206` responses;
+3. `206 Content-Range` starts at the byte requested by the browser;
+4. the protected endpoint exposes only safe diagnostic status headers such as `X-Drive-Resource-Status` and never leaks upstream URLs or tokens;
+5. when a source does not decode in the browser, verify protected transport independently and confirm the source codec before treating it as a proxy failure.
+
+For direct browser playback, use MP4 with H.264/AVC video and AAC audio. An MP4 container can still contain a desktop codec such as TSCC2 that Chrome, Safari, Firefox, Android and iOS do not decode natively. Such a file must be transcoded before direct protected HTML5 playback can be guaranteed.

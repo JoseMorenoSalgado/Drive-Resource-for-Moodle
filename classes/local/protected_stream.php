@@ -521,6 +521,12 @@ final class protected_stream {
             CURLOPT_COOKIEFILE => $cookiejar,
             CURLOPT_FILE => $handle,
         ]);
+        if (defined('CURLOPT_PROTOCOLS') && defined('CURLPROTO_HTTPS')) {
+            curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTPS);
+        }
+        if (defined('CURLOPT_REDIR_PROTOCOLS') && defined('CURLPROTO_HTTPS')) {
+            curl_setopt($ch, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTPS);
+        }
 
         $result = curl_exec($ch);
         $curlerror = curl_error($ch);

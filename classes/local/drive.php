@@ -48,6 +48,20 @@ class drive {
         self::TYPE_FILE,
     ];
 
+    /** @var array<string> Server-side Google download confirmation parameters. */
+    private const DOWNLOAD_CONFIRMATION_PARAMS = [
+        'id',
+        'export',
+        'confirm',
+        'uuid',
+        'resourcekey',
+        'authuser',
+        'at',
+    ];
+
+    /** @var int Maximum accepted confirmation parameter length. */
+    private const MAX_CONFIRMATION_PARAM_LENGTH = 2048;
+
     /**
      * Extract a Google Drive file ID from supported sharing URLs.
      *
@@ -221,7 +235,16 @@ class drive {
      * @return string|null Confirmed Google Drive URL, or null when the HTML is not a valid warning form.
      */
     public static function resolve_download_warning_url(string $html, string $fallbackurl): ?string {
-        if ($html === '' || stripos($html, '<form') === false || !class_exists('DOMDocument')) {
+        if ($html === '') {
+            return null;
+        }
+
+        $embeddedurl = self::resolve_embedded_download_url($html, $fallbackurl);
+        if ($embeddedurl !== null) {
+            return $embeddedurl;
+        }
+
+        if (stripos($html, '<form') === false || !class_exists('DOMDocument')) {
             return null;
         }
 
@@ -254,9 +277,13 @@ class drive {
                 if ($actionquery !== '') {
                     $actionparams = [];
                     parse_str($actionquery, $actionparams);
-                    foreach (['id', 'export', 'confirm', 'uuid', 'resourcekey'] as $name) {
-                        if (!empty($actionparams[$name])) {
-                            $params[$name] = (string) $actionparams[$name];
+                    foreach (self::DOWNLOAD_CONFIRMATION_PARAMS as $name) {
+                        if (!array_key_exists($name, $actionparams)) {
+                            continue;
+                        }
+                        $value = self::sanitize_confirmation_param($name, (string) $actionparams[$name]);
+                        if ($value !== null) {
+                            $params[$name] = $value;
                         }
                     }
                 }
@@ -272,12 +299,12 @@ class drive {
                     }
 
                     $name = strtolower(trim($input->getAttribute('name')));
-                    if (!in_array($name, ['id', 'export', 'confirm', 'uuid', 'resourcekey'], true)) {
+                    if (!in_array($name, self::DOWNLOAD_CONFIRMATION_PARAMS, true)) {
                         continue;
                     }
 
-                    $value = trim($input->getAttribute('value'));
-                    if ($value !== '') {
+                    $value = self::sanitize_confirmation_param($name, $input->getAttribute('value'));
+                    if ($value !== null) {
                         $params[$name] = $value;
                     }
                 }
@@ -293,8 +320,8 @@ class drive {
                     }
                 }
 
-                $fileid = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) ($params['id'] ?? ''));
-                if ($fileid === '') {
+                $fileid = self::sanitize_confirmation_param('id', (string) ($params['id'] ?? ''));
+                if ($fileid === null) {
                     continue;
                 }
 
@@ -302,13 +329,13 @@ class drive {
                     'id' => $fileid,
                     'export' => 'download',
                 ];
-                foreach (['confirm', 'uuid', 'resourcekey'] as $name) {
-                    if (empty($params[$name])) {
+                foreach (['confirm', 'uuid', 'resourcekey', 'authuser', 'at'] as $name) {
+                    if (!array_key_exists($name, $params)) {
                         continue;
                     }
 
-                    $value = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $params[$name]);
-                    if ($value !== '') {
+                    $value = self::sanitize_confirmation_param($name, (string) $params[$name]);
+                    if ($value !== null) {
                         $safeparams[$name] = $value;
                     }
                 }
@@ -325,6 +352,105 @@ class drive {
         }
 
         return null;
+    }
+
+    /**
+     * Sanitize one Google Drive confirmation parameter.
+     *
+     * Confirmation HTML is untrusted input. Parameters are accepted only from
+     * a bounded allow-list and never become a host/path component, which keeps
+     * the protected proxy from becoming an SSRF primitive while preserving
+     * current Drive tokens such as authuser and at.
+     *
+     * @param string $name Parameter name.
+     * @param string $value Raw parameter value.
+     * @return string|null Sanitized value or null when rejected.
+     */
+    private static function sanitize_confirmation_param(string $name, string $value): ?string {
+        $value = trim($value);
+        if (
+            $value === '' ||
+            strlen($value) > self::MAX_CONFIRMATION_PARAM_LENGTH ||
+            preg_match('/[\x00-\x1F\x7F]/', $value)
+        ) {
+            return null;
+        }
+
+        if ($name === 'authuser') {
+            return preg_match('/^\d{1,6}$/', $value) ? $value : null;
+        }
+
+        if ($name === 'at') {
+            return preg_match('/^[A-Za-z0-9._~:+\/=\-]{1,2048}$/', $value) ? $value : null;
+        }
+
+        if (in_array($name, ['id', 'export', 'confirm', 'uuid', 'resourcekey'], true)) {
+            return preg_match('/^[A-Za-z0-9_-]{1,2048}$/', $value) ? $value : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolve a Drive downloadUrl embedded in warning HTML/JSON.
+     *
+     * Google can return the confirmation target as an escaped downloadUrl
+     * instead of a form. The URL is decoded, restricted to trusted Google
+     * download hosts and rebuilt from a strict query allow-list.
+     *
+     * @param string $html Warning response body.
+     * @param string $fallbackurl Trusted current URL.
+     * @return string|null Safe confirmed URL or null.
+     */
+    private static function resolve_embedded_download_url(string $html, string $fallbackurl): ?string {
+        if (!preg_match('/"downloadUrl"\s*:\s*"([^"]+)"/', $html, $matches)) {
+            return null;
+        }
+
+        $decoded = json_decode('"' . $matches[1] . '"');
+        if (!is_string($decoded) || $decoded === '') {
+            return null;
+        }
+        $candidate = html_entity_decode($decoded, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        $actionurl = self::normalize_download_action($candidate, $fallbackurl);
+        if ($actionurl === null) {
+            return null;
+        }
+
+        $query = (string) parse_url($candidate, PHP_URL_QUERY);
+        $params = [];
+        if ($query !== '') {
+            parse_str($query, $params);
+        }
+
+        $fallbackquery = (string) parse_url($fallbackurl, PHP_URL_QUERY);
+        $fallbackparams = [];
+        if ($fallbackquery !== '') {
+            parse_str($fallbackquery, $fallbackparams);
+        }
+
+        $safeparams = [];
+        foreach (self::DOWNLOAD_CONFIRMATION_PARAMS as $name) {
+            $rawvalue = $params[$name] ?? $fallbackparams[$name] ?? null;
+            if ($rawvalue === null || is_array($rawvalue)) {
+                continue;
+            }
+
+            $value = self::sanitize_confirmation_param($name, (string) $rawvalue);
+            if ($value !== null) {
+                $safeparams[$name] = $value;
+            }
+        }
+
+        if (empty($safeparams['id']) || empty($safeparams['confirm'])) {
+            return null;
+        }
+        if (empty($safeparams['export'])) {
+            $safeparams['export'] = 'download';
+        }
+
+        return $actionurl . '?' . http_build_query($safeparams, '', '&', PHP_QUERY_RFC3986);
     }
 
     /**

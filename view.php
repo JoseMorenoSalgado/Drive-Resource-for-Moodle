@@ -137,6 +137,7 @@ if ($ispdfcompatible) {
     $PAGE->requires->js_call_amd('mod_videoplayer/pdfviewer', 'init');
 } else if ($isvideo) {
     $PAGE->requires->css('/mod/videoplayer/thirdpartylibs/plyr/plyr.css');
+    $PAGE->requires->js_call_amd('mod_videoplayer/videohealth', 'init');
     $PAGE->requires->js_call_amd('mod_videoplayer/plyr', 'init');
 }
 
