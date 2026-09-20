@@ -191,6 +191,12 @@ Standard Google Drive sharing URLs such as `/file/d/{id}/view` do not expose a f
 
 On upgraded sites, missing plugin configuration is treated as the documented default rather than as a disabled feature. In particular, an absent `protectedmode` value no longer blocks all video requests. Byte-range retries abort ignored full-response bodies immediately before trying the next strategy, avoiding redundant full video transfers.
 
+## RC8 video runtime hardening
+
+Release `1.1.32-rc8` hardens Google Drive shared-video playback. Standard `/file/d/.../view?usp=drivesdk` links are supported, Drive confirmation responses can preserve current bounded confirmation fields and embedded `downloadUrl` variants, and byte-range responses are checked against the browser's requested range.
+
+The player now distinguishes protected-stream failures from browser codec failures. A successful protected `MEDIA` probe followed by an HTML5 media error is reported as a likely codec incompatibility instead of leaving the learner at a black `00:00 / 00:00` player. Direct protected playback requires browser-compatible source media; MP4 is only a container, so codecs such as TechSmith Screen Codec 2 (TSCC2) are not natively playable in mainstream browsers. For broad compatibility use H.264/AVC video with AAC audio, or deploy a separate transcoding pipeline.
+
 ## RC7 XMLDB upgrade hotfix
 
 Release `1.1.32-rc7` fixes upgrades on databases where Moodle protects indexed columns from DDL changes. The `videoplayer.type` default migration now temporarily removes the XMLDB `type_idx` index, changes the default to `video`, and recreates the index safely. A failed RC6 upgrade can be retried after deploying RC7; no manual database edit is required.
@@ -216,8 +222,8 @@ Any AMD source change must include its rebuilt production bundle. The generated 
 
 ## Release
 
-- Release: `1.1.32-rc7`
-- Moodle plugin version: `2026092003`
+- Release: `1.1.32-rc8`
+- Moodle plugin version: `2026092004`
 - Component: `mod_videoplayer`
 - Product: Drive Resource
 - Supported Moodle branches: 4.5–5.2
