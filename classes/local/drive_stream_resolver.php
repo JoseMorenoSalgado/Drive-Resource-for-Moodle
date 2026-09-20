@@ -195,42 +195,75 @@ final class drive_stream_resolver {
      * @return string|null
      */
     private static function fetch(string $url, bool $json): ?string {
-        $ch = curl_init($url);
-        if ($ch === false) {
-            return null;
-        }
-
+        $currenturl = $url;
         $accept = $json ? 'application/json,text/plain,*/*;q=0.8' : 'text/plain,*/*;q=0.8';
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_MAXREDIRS => 4,
-            CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_TIMEOUT => 20,
-            CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_SSL_VERIFYHOST => 2,
-            CURLOPT_ENCODING => '',
-            CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-                . '(KHTML, like Gecko) Chrome/128.0 Safari/537.36',
-            CURLOPT_REFERER => 'https://drive.google.com/',
-            CURLOPT_HTTPHEADER => [
-                'Accept: ' . $accept,
-                'Accept-Language: en-US,en;q=0.8',
-                'Origin: https://drive.google.com',
-            ],
-        ]);
 
-        $body = curl_exec($ch);
-        $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $error = curl_error($ch);
-        curl_close($ch);
+        for ($redirects = 0; $redirects <= 4; $redirects++) {
+            if (!upstream_url_policy::is_allowed($currenturl)) {
+                debugging('Drive Resource stream lookup rejected an upstream URL.', DEBUG_DEVELOPER);
+                return null;
+            }
 
-        if (!is_string($body) || $status < 200 || $status >= 300) {
-            debugging('Drive Resource stream lookup failed: HTTP ' . $status . ' ' . $error, DEBUG_DEVELOPER);
-            return null;
+            $location = '';
+            $ch = curl_init($currenturl);
+            if ($ch === false) {
+                return null;
+            }
+
+            $options = [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => false,
+                CURLOPT_CONNECTTIMEOUT => 10,
+                CURLOPT_TIMEOUT => 20,
+                CURLOPT_NOSIGNAL => true,
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_SSL_VERIFYHOST => 2,
+                CURLOPT_ENCODING => '',
+                CURLOPT_USERAGENT => 'DriveResourceMoodleResolver/1.1.33',
+                CURLOPT_REFERER => 'https://drive.google.com/',
+                CURLOPT_HTTPHEADER => [
+                    'Accept: ' . $accept,
+                    'Accept-Language: en-US,en;q=0.8',
+                    'Origin: https://drive.google.com',
+                ],
+                CURLOPT_HEADERFUNCTION => static function ($curl, string $header) use (&$location): int {
+                    $length = strlen($header);
+                    if (preg_match('/^Location:\\s*(.+)$/i', trim($header), $matches)) {
+                        $location = trim($matches[1]);
+                    }
+                    return $length;
+                },
+            ];
+
+            if (defined('CURLOPT_PROTOCOLS') && defined('CURLPROTO_HTTPS')) {
+                $options[CURLOPT_PROTOCOLS] = CURLPROTO_HTTPS;
+            }
+
+            curl_setopt_array($ch, $options);
+            $body = curl_exec($ch);
+            $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
+            curl_close($ch);
+
+            if ($status >= 300 && $status < 400) {
+                $redirecturl = upstream_url_policy::resolve_redirect($currenturl, $location);
+                if ($redirecturl === null || $redirects >= 4) {
+                    debugging('Drive Resource stream lookup rejected an upstream redirect.', DEBUG_DEVELOPER);
+                    return null;
+                }
+                $currenturl = $redirecturl;
+                continue;
+            }
+
+            if (!is_string($body) || $status < 200 || $status >= 300) {
+                debugging('Drive Resource stream lookup failed: HTTP ' . $status . ' ' . $error, DEBUG_DEVELOPER);
+                return null;
+            }
+
+            return $body;
         }
 
-        return $body;
+        return null;
     }
 
     /**
