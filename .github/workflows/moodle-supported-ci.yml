@@ -251,6 +251,14 @@ jobs:
           grep -q "'authuser'" plugin/classes/local/drive.php
           grep -q "'at'" plugin/classes/local/drive.php
           grep -q 'usp=drivesdk' plugin/tests/drive_test.php
+          test -f plugin/amd/src/videohealth.js
+          test -f plugin/amd/build/videohealth.min.js
+          grep -q "mod_videoplayer/videohealth" plugin/view.php
+          grep -q 'X-Drive-Resource-Status' plugin/amd/src/videohealth.js
+          grep -q 'bytes=0-1' plugin/amd/src/videohealth.js
+          grep -q 'video-health' plugin/templates/video.mustache
+          grep -q 'retry-video' plugin/templates/video.mustache
+          grep -q 'has-video-error' plugin/styles_activity.css
           grep -q 'resolve_record_type' plugin/classes/local/drive.php
           grep -q 'resolve_record_type' plugin/view.php
           grep -q 'resolve_record_type' plugin/protected.php
@@ -275,7 +283,7 @@ jobs:
           fi
           grep -Fq "\$mform->setDefault('type', 'video')" plugin/mod_form.php
           grep -q 'DEFAULT="video"' plugin/db/install.xml
-          grep -q '2026092004' plugin/db/upgrade.php
+          grep -q '2026092005' plugin/db/upgrade.php
           grep -Fq "new xmldb_index('type_idx', XMLDB_INDEX_NOTUNIQUE, ['type'])" plugin/db/upgrade.php
           grep -Fq '$dbman->drop_index($table, $typeindex);' plugin/db/upgrade.php
           grep -Fq '$dbman->add_index($table, $typeindex);' plugin/db/upgrade.php
