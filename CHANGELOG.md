@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.1.32-rc4 - 2026-09-20
+
+### Fixed
+
+- Removed the guessed `video/mp4` source hint from protected Google Drive videos so mobile browsers negotiate the actual validated MIME type returned by `protected.php`.
+- Prevented valid WebM, MOV and M4V resources from remaining at `0:00` because their HTML source metadata incorrectly declared MP4.
+
 ## v1.1.32-rc3 - 2026-09-19
 
 ### Fixed
