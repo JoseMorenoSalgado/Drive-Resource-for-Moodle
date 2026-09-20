@@ -51,9 +51,10 @@ final class drive_stream_resolver {
      * Resolve the best browser-compatible progressive stream.
      *
      * @param string $fileid Google Drive file id.
+     * @param bool $forcerefresh Bypass and replace any cached signed stream URL.
      * @return string|null
      */
-    public static function resolve(string $fileid): ?string {
+    public static function resolve(string $fileid, bool $forcerefresh = false): ?string {
         $fileid = clean_param($fileid, PARAM_ALPHANUMEXT);
         if ($fileid === '') {
             return null;
@@ -62,9 +63,13 @@ final class drive_stream_resolver {
         $cache = null;
         try {
             $cache = \cache::make('mod_videoplayer', 'drivestream');
-            $cached = $cache->get($fileid);
-            if (is_string($cached) && upstream_url_policy::is_allowed($cached)) {
-                return $cached;
+            if ($forcerefresh) {
+                $cache->delete($fileid);
+            } else {
+                $cached = $cache->get($fileid);
+                if (is_string($cached) && upstream_url_policy::is_allowed($cached)) {
+                    return $cached;
+                }
             }
         } catch (\Throwable $exception) {
             debugging('Drive Resource stream cache unavailable: ' . $exception->getMessage(), DEBUG_DEVELOPER);
