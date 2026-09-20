@@ -64,7 +64,7 @@ class restore_videoplayer_activity_structure_step extends restore_activity_struc
             $data->source = 'googledrive';
         }
         if (empty($data->type)) {
-            $data->type = $data->source === 'localpdf' ? 'pdf' : 'auto';
+            $data->type = $data->source === 'localpdf' ? 'pdf' : 'video';
         }
 
         // Legacy backups may contain standard, ebook or book. The stable
