@@ -268,3 +268,12 @@ Test on a physical iPhone:
 - Confirm malformed range and header inputs are rejected safely.
 - Confirm Moodle developer debugging has no warnings/errors.
 - Confirm browser console is clean on desktop and physical mobile devices.
+
+## Large Drive video confirmation regression
+
+- Use a Google Drive video large enough to trigger the Drive virus-scan/download confirmation path.
+- Open the activity as an enrolled learner and verify the video duration appears and playback starts.
+- Seek forward and backward several times; the protected endpoint must continue returning usable byte ranges.
+- Verify Chrome/Android and Safari/iOS where available.
+- Confirm page source and browser-visible requests contain only the Moodle protected endpoint, not the Google Drive download URL.
+- Confirm right-click/download restrictions remain presentation-layer deterrents only and do not weaken authorization.
