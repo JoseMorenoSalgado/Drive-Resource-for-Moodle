@@ -19,6 +19,7 @@ namespace mod_videoplayer\local\stream;
 use mod_videoplayer\local\drive;
 use mod_videoplayer\local\drive_stream_resolver;
 use mod_videoplayer\local\http_range_proxy;
+use mod_videoplayer\local\plugin_config;
 use mod_videoplayer\local\protected_stream;
 use mod_videoplayer\local\resource\resource_descriptor;
 use mod_videoplayer\task\precache_pdf;
@@ -75,7 +76,7 @@ final class protected_resource_service {
         }
 
         $cachestatus = 'BYPASS';
-        if ($resource->is_pdf_like() && (string)get_config('mod_videoplayer', 'pdfcacheenabled') !== '0') {
+        if ($resource->is_pdf_like() && plugin_config::pdf_cache_enabled()) {
             $cachefile = protected_stream::cache_file_for($fileid, $resource->type());
             if (protected_stream::is_fresh_pdf_cache($cachefile)) {
                 protected_stream::send_file(
