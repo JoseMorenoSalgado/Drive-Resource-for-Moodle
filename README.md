@@ -14,6 +14,7 @@ The historical Moodle component name remains `mod_videoplayer` to preserve upgra
 - Video runtime: native HTML5 Media API
 - PDF runtime: local PDF.js 6.0.227
 - CDN dependencies: none
+- Hardening gate: `.github/workflows/hardening.yml`
 
 ## Supported resources
 
@@ -31,6 +32,12 @@ Drive Resource supports Google Drive links for:
 It also supports a PDF uploaded to Moodle private file storage.
 
 Google Docs, Sheets and Slides are exported to PDF on the server side and rendered with the bundled PDF.js viewer. The browser is not sent a Google Drive viewer URL.
+
+## Release hardening
+
+The commercial release gate is defined in `docs/hardening-validation.md`. It adds explicit security, streaming, browser/device, PDF/document, Moodle API, performance/soak and packaging exit criteria on top of the normal Moodle CI matrix.
+
+`Drive Resource Hardening Gate` continuously protects critical invariants such as Moodle-only browser URLs, no iframe/Google viewer regression, local PDF.js, bounded video-stall recovery and protected byte-range delivery.
 
 ## Architecture
 
