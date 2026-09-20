@@ -147,9 +147,9 @@ function videoplayer_save_localpdf_file(stdClass $data, int $instanceid): void {
         return;
     }
 
-    $context = context_module::instance((int)$data->coursemodule);
+    $context = context_module::instance((int) $data->coursemodule);
     file_save_draft_area_files(
-        (int)$data->localpdffile,
+        (int) $data->localpdffile,
         $context->id,
         'mod_videoplayer',
         VIDEOPLAYER_LOCALPDF_FILEAREA,
@@ -177,9 +177,9 @@ function videoplayer_add_instance($data, $mform = null) {
     $data->timemodified = $data->timecreated;
 
     $id = $DB->insert_record('videoplayer', $data);
-    videoplayer_save_localpdf_file($data, (int)$id);
-    videoplayer_queue_pdf_precache((int)$id);
-    videoplayer_queue_video_normalization((int)$id);
+    videoplayer_save_localpdf_file($data, (int) $id);
+    videoplayer_queue_pdf_precache((int) $id);
+    videoplayer_queue_video_normalization((int) $id);
 
     return $id;
 }
@@ -200,9 +200,9 @@ function videoplayer_update_instance($data, $mform = null) {
 
     $result = $DB->update_record('videoplayer', $data);
     if ($result) {
-        videoplayer_save_localpdf_file($data, (int)$data->id);
-        videoplayer_queue_pdf_precache((int)$data->id);
-        videoplayer_queue_video_normalization((int)$data->id);
+        videoplayer_save_localpdf_file($data, (int) $data->id);
+        videoplayer_queue_pdf_precache((int) $data->id);
+        videoplayer_queue_video_normalization((int) $data->id);
     }
 
     return $result;
