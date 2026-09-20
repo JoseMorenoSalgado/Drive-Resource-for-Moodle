@@ -49,7 +49,10 @@ jobs:
           echo "$(pwd)/ci/vendor/bin" >> "$GITHUB_PATH"
 
       - name: Install Moodle 4.5
-        run: moodle-plugin-ci install --plugin ./plugin --db-type=mysqli --db-host=127.0.0.1
+        env:
+          DB: mariadb
+          MOODLE_BRANCH: MOODLE_405_STABLE
+        run: moodle-plugin-ci install --plugin ./plugin --db-host=127.0.0.1
 
       - name: Rebuild AMD assets
         shell: bash
