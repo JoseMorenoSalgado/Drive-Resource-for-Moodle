@@ -26,6 +26,10 @@ defined('MOODLE_INTERNAL') || die();
 
 $string['audionotsupported'] = 'Your browser cannot play this audio.';
 $string['backtoresource'] = 'Back to resource';
+$string['completionprogressdesc'] = 'Reach at least {$a}% progress';
+$string['completionprogressenabled'] = 'Require progress percentage';
+$string['completionprogressgroup'] = 'Required progress';
+$string['completionprogressgroup_help'] = 'When automatic completion is enabled, require the learner to reach this percentage of the resource. Video and audio use playback position, PDFs use page progress, and generic resources use active viewing time.';
 $string['completionpercentage'] = 'Required completion percentage';
 $string['completionpercentage_help'] = 'Percentage required to consider this resource completed when progress tracking is available. For PDF ebooks, the percentage is calculated from pages read.';
 $string['disablecontextmenu'] = 'Disable right click and basic copy actions';
