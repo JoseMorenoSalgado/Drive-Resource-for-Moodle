@@ -1,0 +1,55 @@
+name: RC17 Moodle code auto-fix
+
+on:
+  push:
+    branches:
+      - refactor/html5-core-1.1.33-rc17
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rc17-phpcbf
+  cancel-in-progress: true
+
+jobs:
+  fix:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: curl, intl, mbstring, mysqli, pgsql, soap, zip
+          coverage: none
+
+      - name: Install Moodle Plugin CI
+        run: composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci ^4
+
+      - name: Apply Moodle PHPCBF fixes
+        shell: bash
+        run: |
+          set +e
+          ci/bin/moodle-plugin-ci phpcbf .
+          code=$?
+          set -e
+          if [ "$code" -gt 2 ]; then
+            exit "$code"
+          fi
+
+      - name: Commit automatic fixes
+        shell: bash
+        run: |
+          rm -f .github/workflows/rc17-phpcbf.yml
+          rm -rf ci
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No automatic fixes."
+            exit 0
+          fi
+          git commit -m "style: apply Moodle PHPCBF fixes"
+          git push
