@@ -441,6 +441,12 @@ final class http_range_proxy {
         if (defined('CURL_HTTP_VERSION_2TLS')) {
             $options[CURLOPT_HTTP_VERSION] = CURL_HTTP_VERSION_2TLS;
         }
+        if (defined('CURLOPT_PROTOCOLS') && defined('CURLPROTO_HTTPS')) {
+            $options[CURLOPT_PROTOCOLS] = CURLPROTO_HTTPS;
+        }
+        if (defined('CURLOPT_REDIR_PROTOCOLS') && defined('CURLPROTO_HTTPS')) {
+            $options[CURLOPT_REDIR_PROTOCOLS] = CURLPROTO_HTTPS;
+        }
         if (defined('CURLOPT_TCP_KEEPALIVE')) {
             $options[CURLOPT_TCP_KEEPALIVE] = 1;
         }
