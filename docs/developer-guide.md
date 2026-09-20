@@ -271,3 +271,7 @@ Do not implement resource-type detection independently in an entry point. Use `d
 Plugin checkbox settings must distinguish an absent config value from an explicitly disabled value. Settings whose documented default is enabled should use `(string) $value === '0'` only to detect an explicit disable, or ensure the upgrade step seeds the default first.
 
 When a browser Range request receives upstream HTTP 200, retry strategies must not consume the complete response body. The first incompatible full-response chunk is intentionally aborted before the next strategy. The synthetic strategy remains the only path allowed to consume the upstream full stream for a requested byte window.
+## DDL dependency rule
+
+Never call `change_field_type()`, `change_field_default()` or related field-altering XMLDB methods on a field that still has an index/key dependency. Define the dependency with `xmldb_index`/`xmldb_key`, drop it through Moodle's database manager, perform the alteration, then restore it. For critical upgrades use `try/finally` so an exception does not leave the site with a missing index. RC7 applies this rule to `videoplayer.type` and `type_idx`.
+
