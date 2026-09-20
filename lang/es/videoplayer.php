@@ -127,6 +127,7 @@ $string['setting_showresourcetype_desc'] = 'Muestra el tipo de recurso detectado
 $string['sourcegoogledrive'] = 'Google Drive';
 $string['sourcelocalpdf'] = 'PDF local protegido';
 $string['task_cleanup_pdf_cache'] = 'Limpiar caché PDF de Drive Resource';
+$string['trackingdisabled'] = 'El seguimiento de progreso está desactivado en este sitio.';
 $string['timespent'] = 'Tiempo activo';
 $string['typeaudio'] = 'Audio';
 $string['typeauto'] = 'Automático';
