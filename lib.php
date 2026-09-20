@@ -130,7 +130,7 @@ function videoplayer_normalise_instance_data(stdClass $data): stdClass {
     $data->disablecontextmenu = empty($data->disablecontextmenu) ? 0 : 1;
     $data->enablewatermark = empty($data->enablewatermark) ? 0 : 1;
     $data->enablegamification = empty($data->enablegamification) ? 0 : 1;
-    $data->pointsperpage = max(0, min(100, (int)($data->pointsperpage ?? 1)));
+    $data->pointsperpage = max(0, min(100, (int) ($data->pointsperpage ?? 1)));
 
     return $data;
 }
