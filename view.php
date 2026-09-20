@@ -28,6 +28,7 @@ require(__DIR__ . '/../../config.php');
 require_once(__DIR__ . '/lib.php');
 
 use mod_videoplayer\local\access\activity_context;
+use mod_videoplayer\local\plugin_config;
 use mod_videoplayer\local\resource\resource_descriptor;
 use mod_videoplayer\output\resource_view;
 
@@ -73,8 +74,8 @@ if ($resource->is_available()) {
         $PAGE->requires->js_call_amd('mod_videoplayer/nativeaudio', 'init');
     } else {
         $PAGE->requires->js_call_amd('mod_videoplayer/protectedui', 'init');
-        if (!isguestuser() && (bool)get_config('mod_videoplayer', 'enabletracking')) {
-            $requiredseconds = max(60, (int)get_config('mod_videoplayer', 'defaultrequiredseconds'));
+        if (!isguestuser() && plugin_config::tracking_enabled()) {
+            $requiredseconds = plugin_config::required_seconds();
             $PAGE->requires->js_call_amd('mod_videoplayer/progress', 'init', [[
                 'cmid' => $cm->id,
                 'requiredSeconds' => $requiredseconds,
