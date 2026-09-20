@@ -8,7 +8,7 @@ The historical Moodle component name remains `mod_videoplayer` to preserve upgra
 
 - Product: Drive Resource
 - Moodle component: `mod_videoplayer`
-- Release: `1.1.33-rc17-m45`
+- Release: `1.1.33-rc19-m45`
 - Target: Moodle 4.5 LTS
 - PHP baseline: PHP 8.1+
 - Video runtime: native HTML5 Media API
@@ -32,6 +32,10 @@ Drive Resource supports Google Drive links for:
 It also supports a PDF uploaded to Moodle private file storage.
 
 Google Docs, Sheets and Slides are exported to PDF on the server side and rendered with the bundled PDF.js viewer. The browser is not sent a Google Drive viewer URL.
+
+## Moodle 4.5 form compatibility
+
+RC19 fixes the custom completion form integration introduced during RC18 hardening. Custom completion controls now use Moodle 4.5's `get_suffix()` API, so activity creation/editing no longer fails while `standard_coursemodule_elements()` builds completion settings.
 
 ## Deep cleanup status
 
