@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.1.32-rc8 - 2026-09-19
+
+### Fixed
+
+- Added support for Google Drive shared links using the normal `/file/d/.../view?usp=drivesdk` form.
+- Preserved bounded current Google download confirmation fields and supported escaped embedded `downloadUrl` responses while keeping the host allow-list intact.
+- Hardened `Content-Range` validation so a mismatched upstream `206` response cannot be forwarded as if it satisfied the browser request.
+- Added safe in-player diagnostics that distinguish Drive/proxy failures from browser codec incompatibility.
+- Documented that direct byte-proxy playback requires browser-supported codecs; MP4 container files encoded with TSCC2 and similar desktop codecs require transcoding to a web codec such as H.264/AVC + AAC.
+
+### Changed
+
+- Bumped Drive Resource to `1.1.32-rc8` / `2026092004`.
+
 ## v1.1.32-rc7 - 2026-09-19
 
 ### Fixed
