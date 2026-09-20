@@ -4,6 +4,12 @@ All notable changes to Drive Resource are documented here. The Moodle component 
 
 ## Unreleased - commercial hardening and validation
 
+- Deep audit: centralized all runtime resource-type resolution through `drive::resolve_record_type()` and introduced canonical source/type constants.
+- Fixed inconsistent `auto` behavior where opaque Drive `/file/d/.../view` links could be treated as generic files in some code paths while other paths treated them as videos.
+- Removed redundant resource-type lists from the form/view layer and added a hardening invariant that blocks direct runtime use of `drive::detect_type()` outside the canonical resolver.
+- Removed obsolete `displaymode` form plumbing and the misleading active download toggle while retaining legacy database/backup fields for compatibility.
+- Reduced template-model noise by removing unused exported fields and repeated configuration reads.
+- Activity deletion now invalidates its PDF cache entry instead of leaving stale cache until TTL cleanup.
 - Fixed a production playback regression discovered during ASPETEN validation: the refactor had dropped Google Drive `resourcekey` propagation and large-file confirmation-page/cookie handling from the protected source fallback.
 - Restored the previously proven server-side Drive confirmation transport while retaining the refactored authorization boundary, bounded video recovery, low-speed termination and abandoned-range cancellation.
 - Restored regression coverage for Drive confirmation forms, embedded download URLs, resource keys, MIME validation and byte-range negotiation.
