@@ -191,6 +191,17 @@ class drive {
                 }
 
                 $params = [];
+                $actionquery = (string) parse_url($action, PHP_URL_QUERY);
+                if ($actionquery !== '') {
+                    $actionparams = [];
+                    parse_str($actionquery, $actionparams);
+                    foreach (['id', 'export', 'confirm', 'uuid', 'resourcekey'] as $name) {
+                        if (!empty($actionparams[$name])) {
+                            $params[$name] = (string) $actionparams[$name];
+                        }
+                    }
+                }
+
                 $inputs = $xpath->query('.//input[@name]', $form);
                 if ($inputs === false) {
                     continue;
