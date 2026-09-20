@@ -74,7 +74,8 @@ class mod_videoplayer_mod_form extends moodleform_mod {
             'file' => get_string('typefile', 'mod_videoplayer'),
         ];
         $mform->addElement('select', 'type', get_string('resourcetype', 'mod_videoplayer'), $types);
-        $mform->setDefault('type', 'auto');
+        $mform->addHelpButton('type', 'resourcetype', 'mod_videoplayer');
+        $mform->setDefault('type', 'video');
         $mform->disabledIf('type', 'source', 'eq', 'localpdf');
 
         $mform->addElement('hidden', 'displaymode', 'pdfjs');
