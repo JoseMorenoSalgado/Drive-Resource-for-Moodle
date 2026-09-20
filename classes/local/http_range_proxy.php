@@ -77,7 +77,7 @@ final class http_range_proxy {
         $ishead = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'HEAD';
         $validator = self::stable_validator($url);
         $currenturl = $url;
-        $requestcookies = '';
+        $requestcookies = [];
         $confirmationhops = 0;
         $lastresponse = null;
 
@@ -104,9 +104,9 @@ final class http_range_proxy {
                     die;
                 }
 
-                $requestcookies = self::merge_cookie_headers(
+                $requestcookies = self::merge_cookie_lists(
                     $requestcookies,
-                    (string) ($lastresponse['cookies'] ?? '')
+                    (array) ($lastresponse['cookies'] ?? [])
                 );
 
                 if ($lastresponse['invalidcontent']) {
@@ -172,7 +172,7 @@ final class http_range_proxy {
      * @param string $range Validated browser Range header.
      * @param string $rangemode Range transmission strategy.
      * @param bool $ishead Whether this is a HEAD request.
-     * @param string $requestcookies Cookies obtained from a Drive confirmation response.
+     * @param array $requestcookies Domain-scoped cookies obtained from Drive responses.
      * @return array{
      *     sent: bool,
      *     result: bool,
@@ -182,7 +182,7 @@ final class http_range_proxy {
      *     invalidcontent: bool,
      *     warningbody: string,
      *     effectiveurl: string,
-     *     cookies: string
+     *     cookies: array
      * }
      */
     private static function execute_attempt(
@@ -194,7 +194,7 @@ final class http_range_proxy {
         string $range,
         string $rangemode,
         bool $ishead,
-        string $requestcookies = ''
+        array $requestcookies = []
     ): array {
         $requestheaders = [
             'Accept: */*',
@@ -307,7 +307,7 @@ final class http_range_proxy {
                 'invalidcontent' => false,
                 'warningbody' => '',
                 'effectiveurl' => $url,
-                'cookies' => '',
+                'cookies' => [],
             ];
         }
 
@@ -427,9 +427,6 @@ final class http_range_proxy {
             },
         ];
 
-        if ($requestcookies !== '') {
-            $options[CURLOPT_COOKIE] = $requestcookies;
-        }
         if (defined('CURL_HTTP_VERSION_2TLS')) {
             $options[CURLOPT_HTTP_VERSION] = CURL_HTTP_VERSION_2TLS;
         }
@@ -444,12 +441,16 @@ final class http_range_proxy {
         }
 
         curl_setopt_array($ch, $options);
+        foreach ($requestcookies as $cookie) {
+            curl_setopt($ch, CURLOPT_COOKIELIST, $cookie);
+        }
+
         $result = curl_exec($ch);
         $curlerror = curl_error($ch);
         $curlcode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $effectiveurl = (string) curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
         $cookielist = defined('CURLINFO_COOKIELIST') ? curl_getinfo($ch, CURLINFO_COOKIELIST) : [];
-        $responsecookies = is_array($cookielist) ? self::cookie_header_from_curl_list($cookielist) : '';
+        $responsecookies = is_array($cookielist) ? $cookielist : [];
         curl_close($ch);
 
         if (
@@ -801,63 +802,53 @@ final class http_range_proxy {
     }
 
     /**
-     * Convert libcurl cookie-list entries into a request Cookie header.
+     * Merge cURL cookie-list entries while preserving their domain and path.
      *
-     * @param array $cookielist CURLINFO_COOKIELIST entries.
-     * @return string Cookie header value.
+     * Flattening these cookies into one Cookie header can leak a google.com
+     * cookie to a googleusercontent.com redirect and can trigger redirect loops.
+     * Only bounded Google-domain cookie records are retained.
+     *
+     * @param array $existing Existing cURL cookie-list entries.
+     * @param array $incoming New cURL cookie-list entries.
+     * @return array Domain-scoped cookie-list entries.
      */
-    private static function cookie_header_from_curl_list(array $cookielist): string {
+    private static function merge_cookie_lists(array $existing, array $incoming): array {
         $cookies = [];
-        foreach ($cookielist as $line) {
-            $parts = explode("\t", (string) $line);
+        foreach (array_merge($existing, $incoming) as $line) {
+            $line = (string) $line;
+            if ($line === '' || strlen($line) > 4096) {
+                continue;
+            }
+
+            $parts = explode("\t", $line);
             if (count($parts) < 7) {
                 continue;
             }
 
-            $name = preg_replace('/[^a-zA-Z0-9._-]/', '', (string) $parts[5]);
-            $value = preg_replace('/[^a-zA-Z0-9._%+\/-]/', '', (string) $parts[6]);
-            if ($name !== '' && $value !== '') {
-                $cookies[$name] = $value;
+            $domain = preg_replace('/^#HttpOnly_/', '', trim((string) $parts[0]));
+            $domain = ltrim(strtolower($domain), '.');
+            if (
+                $domain !== 'google.com' &&
+                substr($domain, -11) !== '.google.com' &&
+                $domain !== 'googleusercontent.com' &&
+                substr($domain, -22) !== '.googleusercontent.com'
+            ) {
+                continue;
+            }
+
+            $path = (string) $parts[2];
+            $name = (string) $parts[5];
+            if ($path === '' || $name === '') {
+                continue;
+            }
+
+            $cookies[$domain . '|' . $path . '|' . $name] = $line;
+            if (count($cookies) >= 32) {
+                break;
             }
         }
 
-        $pairs = [];
-        foreach ($cookies as $name => $value) {
-            $pairs[] = $name . '=' . $value;
-        }
-        return implode('; ', $pairs);
-    }
-
-    /**
-     * Merge two Cookie header values without duplicating cookie names.
-     *
-     * @param string $existing Existing Cookie header value.
-     * @param string $incoming New Cookie header value.
-     * @return string Merged Cookie header.
-     */
-    private static function merge_cookie_headers(string $existing, string $incoming): string {
-        $cookies = [];
-        foreach ([$existing, $incoming] as $header) {
-            foreach (explode(';', $header) as $pair) {
-                $pair = trim($pair);
-                if ($pair === '' || strpos($pair, '=') === false) {
-                    continue;
-                }
-
-                [$name, $value] = explode('=', $pair, 2);
-                $name = preg_replace('/[^a-zA-Z0-9._-]/', '', trim($name));
-                $value = preg_replace('/[^a-zA-Z0-9._%+\/-]/', '', trim($value));
-                if ($name !== '' && $value !== '') {
-                    $cookies[$name] = $value;
-                }
-            }
-        }
-
-        $pairs = [];
-        foreach ($cookies as $name => $value) {
-            $pairs[] = $name . '=' . $value;
-        }
-        return implode('; ', $pairs);
+        return array_values($cookies);
     }
 
     /**
