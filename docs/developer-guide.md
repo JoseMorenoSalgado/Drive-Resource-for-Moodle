@@ -274,6 +274,8 @@ When a Drive video renders but metadata never loads, inspect the protected endpo
 
 The proxy recognizes Drive large-file confirmation HTML and automatically follows the validated confirmation form with its generated parameters and cookies. Tests for this behavior live in `tests/drive_test.php` and `tests/http_range_proxy_test.php`. Do not reintroduce direct Google URLs, iframe previews or client-side confirmation handling.
 
+The first binary-media request intentionally uses `drive.google.com/uc?export=download&id=...` for compatibility with previously working plugin releases. Do not replace it with `drive.usercontent.google.com` as an unconditional starting URL. The latter remains an accepted server-side continuation target when Google itself returns a validated confirmation form.
+
 ## Video runtime invariants
 
 Do not implement resource-type detection independently in an entry point. Use `drive::resolve_record_type()` everywhere so rendering, streaming, progress and reporting agree on the same type.
