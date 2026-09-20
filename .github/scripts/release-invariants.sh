@@ -28,7 +28,7 @@ if grep -RniE     'drive\.google\.com|docs\.google\.com|googleusercontent\.com|g
 fi
 
 echo "Checking that Google/iframe viewers cannot re-enter presentation code..."
-if grep -RniE '<iframe|/preview([?"'"'"'[:space:]]|$)' templates amd/src; then
+if grep -RniE "<iframe|/preview([?\"'[:space:]]|$)" templates amd/src; then
     fail "Browser-facing presentation code contains an iframe/preview viewer path."
 fi
 
