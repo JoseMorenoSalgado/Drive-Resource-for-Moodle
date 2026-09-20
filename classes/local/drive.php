@@ -27,7 +27,10 @@ class drive {
     /** @var string Google Drive file source. */
     public const SOURCE_GOOGLEDRIVE = 'googledrive';
 
-    /** @var string Generic media type. */
+    /** @var string Moodle-local protected PDF source. */
+    public const SOURCE_LOCALPDF = 'localpdf';
+
+    /** @var string Automatic resource type. */
     public const TYPE_AUTO = 'auto';
 
     /** @var string Video resource type. */
@@ -36,9 +39,8 @@ class drive {
     /** @var string Generic unsupported file type. */
     public const TYPE_FILE = 'file';
 
-    /** @var array<string> Supported configured resource types. */
-    private const CONFIGURED_TYPES = [
-        self::TYPE_AUTO,
+    /** Canonical browser resource types supported by Drive Resource. */
+    public const RESOURCE_TYPES = [
         self::TYPE_VIDEO,
         'audio',
         'pdf',
@@ -167,13 +169,13 @@ class drive {
      * @return string Effective resource type.
      */
     public static function resolve_record_type(object $record): string {
-        if (($record->source ?? self::SOURCE_GOOGLEDRIVE) === 'localpdf') {
+        if (($record->source ?? self::SOURCE_GOOGLEDRIVE) === self::SOURCE_LOCALPDF) {
             return 'pdf';
         }
 
         $configured = clean_param((string) ($record->type ?? self::TYPE_AUTO), PARAM_ALPHANUMEXT);
         if ($configured !== '' && $configured !== self::TYPE_AUTO) {
-            return in_array($configured, self::CONFIGURED_TYPES, true) ? $configured : self::TYPE_FILE;
+            return in_array($configured, self::RESOURCE_TYPES, true) ? $configured : self::TYPE_FILE;
         }
 
         $detected = self::detect_type((string) ($record->videourl ?? ''));
@@ -187,7 +189,7 @@ class drive {
      * @return bool
      */
     public static function is_supported_configured_type(string $type): bool {
-        return in_array($type, self::CONFIGURED_TYPES, true);
+        return $type === self::TYPE_AUTO || in_array($type, self::RESOURCE_TYPES, true);
     }
 
     /**
