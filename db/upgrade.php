@@ -738,5 +738,11 @@ function xmldb_videoplayer_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026092004, 'videoplayer');
     }
 
+    if ($oldversion < 2026092005) {
+        // No schema change is required. This savepoint invalidates caches for
+        // the RC9 protected video health and recovery UI.
+        upgrade_mod_savepoint(true, 2026092005, 'videoplayer');
+    }
+
     return true;
 }
