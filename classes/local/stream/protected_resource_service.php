@@ -53,7 +53,7 @@ final class protected_resource_service {
             throw new \moodle_exception('protectedresourceunavailable', 'mod_videoplayer');
         }
 
-        if ($resource->source() === 'localpdf') {
+        if ($resource->source() === drive::SOURCE_LOCALPDF) {
             $file = $resource->local_file();
             if (!$file) {
                 throw new \moodle_exception('protectedresourceunavailable', 'mod_videoplayer');
