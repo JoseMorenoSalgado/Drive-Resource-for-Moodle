@@ -6,7 +6,7 @@ Drive Resource is a Moodle activity module. Its stable internal component is `mo
 
 - Moodle 4.5–5.2.
 - Minimum Moodle build `2024100700`.
-- PHP 8.2 and 8.3 for Moodle 4.5/5.0; Moodle 5.2 is validated on PHP 8.3.
+- PHP 8.2 and 8.3 for Moodle 4.5/5.0/5.1; Moodle 5.2 is validated on PHP 8.3.
 - MariaDB 10.11 and PostgreSQL 16 in CI.
 
 The shared production branch is constrained to APIs available on both `MOODLE_405_STABLE` and `MOODLE_500_STABLE`. A newer Moodle-only API must be feature-detected or isolated before entering the shared release branch while Moodle 4.5 remains supported.
@@ -44,7 +44,7 @@ Plugin-owned PDF and video viewers must not receive raw Google Drive file IDs, d
 - Builds only Moodle-owned protected URLs.
 - Selects the viewer by detected resource type.
 - Loads `mod_videoplayer/pdfviewer` for every PDF.
-- Loads local Plyr enhancement for video.
+- Loads `mod_videoplayer/videohealth` plus the local Plyr enhancement for video.
 - Renders the appropriate Mustache template.
 
 ### `protected.php`
@@ -77,6 +77,20 @@ Handles Google Drive upstream delivery, including:
 - rejection of HTML/login/error bodies presented as media;
 - chunked cURL output;
 - no complete-file PHP buffering.
+
+## Video health and recovery boundary
+
+`mod_videoplayer/videohealth` is an independent AMD layer around the native HTML5 element. It does not replace Plyr and does not receive Google Drive URLs.
+
+When the browser raises a media error or a sustained playback stall:
+
+1. the module probes only the Moodle-owned protected URL;
+2. the probe requests `Range: bytes=0-1` with same-origin credentials;
+3. it reads only the browser-safe response status, MIME type and `X-Drive-Resource-Status`;
+4. a healthy protected response plus `MEDIA_ERR_DECODE` / `MEDIA_ERR_SRC_NOT_SUPPORTED` is classified as browser codec incompatibility;
+5. protected transport failures are surfaced separately and may use a bounded user-triggered retry.
+
+Retries call `video.load()` on the same Moodle URL and attempt to restore the previous second after metadata reload. No client-side path can discover or construct the upstream Drive URL.
 
 ## Stable PDF rendering boundary
 
