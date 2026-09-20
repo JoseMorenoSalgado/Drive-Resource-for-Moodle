@@ -66,6 +66,12 @@ if grep -nE 'drive::detect_type\(' lib.php index.php classes/local/resource/reso
     fail "Runtime code bypasses drive::resolve_record_type() and duplicates resource type resolution."
 fi
 
+echo "Checking Moodle 4.5 completion form API compatibility..."
+if grep -n 'get_suffixed_name' mod_form.php; then
+    fail "mod_form.php uses get_suffixed_name(), which does not exist in Moodle 4.5 moodleform_mod."
+fi
+grep -q 'get_suffix()' mod_form.php     || fail "Custom completion controls no longer use Moodle 4.5 get_suffix()."
+
 echo "Checking release metadata..."
 grep -q "\$plugin->supported = \[405, 405\]" version.php     || fail "Moodle 4.5 support declaration changed unexpectedly."
 grep -q 'MATURITY_RC' version.php     || fail "Hardening branch must remain release-candidate maturity until all exit gates pass."
