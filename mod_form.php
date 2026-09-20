@@ -103,8 +103,8 @@ class mod_videoplayer_mod_form extends moodleform_mod {
             $defaultvalues['localpdffile'] = $draftitemid;
         }
 
-        $enabledname = $this->get_suffixed_name('completionprogressenabled');
-        $percentname = $this->get_suffixed_name('completionpercentage');
+        $enabledname = 'completionprogressenabled' . $this->get_suffix();
+        $percentname = 'completionpercentage' . $this->get_suffix();
         $defaultvalues[$enabledname] = !empty(
             $defaultvalues[$enabledname] ?? $defaultvalues['completionprogressenabled'] ?? 1
         ) ? 1 : 0;
@@ -132,8 +132,8 @@ class mod_videoplayer_mod_form extends moodleform_mod {
             return;
         }
 
-        $completionname = $this->get_suffixed_name('completion');
-        $enabledname = $this->get_suffixed_name('completionprogressenabled');
+        $completionname = 'completion' . $this->get_suffix();
+        $enabledname = 'completionprogressenabled' . $this->get_suffix();
         $autocompletion = !empty($data->{$completionname})
             && (int)$data->{$completionname} === COMPLETION_TRACKING_AUTOMATIC;
 
@@ -150,9 +150,9 @@ class mod_videoplayer_mod_form extends moodleform_mod {
      */
     public function add_completion_rules(): array {
         $mform = $this->_form;
-        $enabledname = $this->get_suffixed_name('completionprogressenabled');
-        $percentname = $this->get_suffixed_name('completionpercentage');
-        $groupname = $this->get_suffixed_name('completionprogressgroup');
+        $enabledname = 'completionprogressenabled' . $this->get_suffix();
+        $percentname = 'completionpercentage' . $this->get_suffix();
+        $groupname = 'completionprogressgroup' . $this->get_suffix();
 
         $group = [
             $mform->createElement(
@@ -169,7 +169,7 @@ class mod_videoplayer_mod_form extends moodleform_mod {
             ),
             $mform->createElement(
                 'static',
-                $this->get_suffixed_name('completionprogresssuffix'),
+                'completionprogresssuffix' . $this->get_suffix(),
                 '',
                 '%'
             ),
@@ -202,8 +202,8 @@ class mod_videoplayer_mod_form extends moodleform_mod {
      * @return bool
      */
     public function completion_rule_enabled($data): bool {
-        $enabledname = $this->get_suffixed_name('completionprogressenabled');
-        $percentname = $this->get_suffixed_name('completionpercentage');
+        $enabledname = 'completionprogressenabled' . $this->get_suffix();
+        $percentname = 'completionpercentage' . $this->get_suffix();
 
         return !empty($data[$enabledname])
             && !empty($data[$percentname])
@@ -244,7 +244,7 @@ class mod_videoplayer_mod_form extends moodleform_mod {
             }
         }
 
-        $percentname = $this->get_suffixed_name('completionpercentage');
+        $percentname = 'completionpercentage' . $this->get_suffix();
         if (
             isset($data[$percentname])
             && ((int)$data[$percentname] < 1 || (int)$data[$percentname] > 100)
