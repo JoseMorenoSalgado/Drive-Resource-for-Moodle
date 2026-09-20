@@ -2,6 +2,13 @@
 
 All notable changes to Drive Resource are documented here. The Moodle component remains `mod_videoplayer` for upgrade compatibility.
 
+## Unreleased - commercial hardening and validation
+
+- Added `docs/hardening-validation.md` with release-blocker definitions, security/streaming/device/PDF/Moodle API/performance/packaging workstreams and evidence requirements.
+- Added a scheduled/manual `Drive Resource Hardening Gate` for release-critical architecture invariants.
+- Added a repository release-invariant script that detects browser-facing Google hosts, iframe/preview regressions, removed CDN/player dependencies, protected-endpoint boundary regressions, missing Range/stall controls and missing production assets.
+- Expanded SSRF policy tests with deceptive Google-lookalike hosts, loopback IPv6, scheme-relative and non-HTTPS/non-network URL cases.
+
 ## 1.1.33-rc17-m45 - 2026-09-20
 
 ### Architecture
