@@ -138,6 +138,49 @@ final class drive_test extends \advanced_testcase {
     }
 
     /**
+     * Large-file confirmation forms must be converted to an allow-listed Drive URL.
+     *
+     * @covers ::resolve_download_warning_url
+     */
+    public function test_resolves_large_file_confirmation_form(): void {
+        $html = '<!doctype html><html><body>' .
+            '<form id="download-form" action="https://drive.usercontent.google.com/download" method="get">' .
+            '<input type="hidden" name="id" value="1AbC_def-123">' .
+            '<input type="hidden" name="export" value="download">' .
+            '<input type="hidden" name="confirm" value="t">' .
+            '<input type="hidden" name="uuid" value="19ebee42-9335-42ed-b652-68b7f0208782">' .
+            '</form></body></html>';
+
+        $this->assertSame(
+            'https://drive.usercontent.google.com/download?id=1AbC_def-123&export=download&confirm=t' .
+                '&uuid=19ebee42-9335-42ed-b652-68b7f0208782',
+            drive::resolve_download_warning_url(
+                $html,
+                'https://drive.usercontent.google.com/download?id=1AbC_def-123&export=download&confirm=t'
+            )
+        );
+    }
+
+    /**
+     * Confirmation forms must not be allowed to redirect the proxy off Google.
+     *
+     * @covers ::resolve_download_warning_url
+     */
+    public function test_rejects_untrusted_confirmation_action(): void {
+        $html = '<form id="download-form" action="https://attacker.invalid/download">' .
+            '<input name="id" value="1AbC_def-123">' .
+            '<input name="confirm" value="t">' .
+            '</form>';
+
+        $this->assertNull(
+            drive::resolve_download_warning_url(
+                $html,
+                'https://drive.usercontent.google.com/download?id=1AbC_def-123'
+            )
+        );
+    }
+
+    /**
      * Resource detection must stay deterministic for typed Workspace URLs.
      *
      * @covers ::detect_type
