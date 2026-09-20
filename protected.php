@@ -34,6 +34,7 @@ use mod_videoplayer\local\stream\protected_resource_service;
 
 $cmid = required_param('id', PARAM_INT);
 $streammode = optional_param('stream', 'auto', PARAM_ALPHA);
+$forcerefresh = optional_param('refresh', 0, PARAM_BOOL);
 
 $activity = activity_context::require_from_cmid($cmid);
 $resource = resource_descriptor::from_instance($activity->instance(), $activity->context());
@@ -46,4 +47,4 @@ while (ob_get_level()) {
     ob_end_clean();
 }
 
-(new protected_resource_service())->send($resource, $activity->instance(), $streammode);
+(new protected_resource_service())->send($resource, $activity->instance(), $streammode, (bool)$forcerefresh);
