@@ -49,6 +49,7 @@ final class save_progress extends external_api {
             'timespent' => new external_value(PARAM_INT, 'Cumulative active time in seconds', VALUE_DEFAULT, 0),
             'lastposition' => new external_value(PARAM_FLOAT, 'Current media position in seconds', VALUE_DEFAULT, 0),
             'duration' => new external_value(PARAM_FLOAT, 'Media duration in seconds', VALUE_DEFAULT, 0),
+            'watchedranges' => new external_value(PARAM_RAW_TRIMMED, 'JSON media ranges actually reproduced', VALUE_DEFAULT, ''),
         ]);
     }
 
@@ -64,6 +65,7 @@ final class save_progress extends external_api {
      * @param int $timespent
      * @param float $lastposition
      * @param float $duration
+     * @param string $watchedranges
      * @return array
      */
     public static function execute(
@@ -75,7 +77,8 @@ final class save_progress extends external_api {
         int $totalpages = 0,
         int $timespent = 0,
         float $lastposition = 0,
-        float $duration = 0
+        float $duration = 0,
+        string $watchedranges = ''
     ): array {
         global $USER;
 
@@ -89,6 +92,7 @@ final class save_progress extends external_api {
             'timespent' => $timespent,
             'lastposition' => $lastposition,
             'duration' => $duration,
+            'watchedranges' => $watchedranges,
         ]);
 
         $activity = activity_context::require_from_cmid((int)$params['cmid'], 'mod/videoplayer:view', false);
@@ -128,6 +132,7 @@ final class save_progress extends external_api {
             'timespent' => new external_value(PARAM_INT, 'Active time spent'),
             'lastposition' => new external_value(PARAM_FLOAT, 'Saved media position'),
             'duration' => new external_value(PARAM_FLOAT, 'Saved media duration'),
+            'watchedranges' => new external_value(PARAM_RAW, 'Canonical watched media ranges JSON'),
             'points' => new external_value(PARAM_INT, 'Total points'),
             'rewards' => new external_multiple_structure(new external_single_structure([
                 'key' => new external_value(PARAM_ALPHANUMEXT, 'Reward key'),
