@@ -100,3 +100,8 @@ The SSRF regression suite also covers lookalike Google suffixes, loopback target
 The learner delivery model is not optional. The historical `disabledownload` column is retained only for database/backup compatibility and is pinned by normalization; the current activity form no longer presents it as an effective security control. Authorization and URL confidentiality are provided by the Moodle protected endpoint, not by a checkbox.
 
 Resource typing is also centralized before protected URL construction so different controllers cannot disagree about how an opaque Drive sharing URL should be handled.
+
+
+## Video progress integrity
+
+HTML5 seek position is not trusted as evidence that content was watched. Video completion uses a bounded union of short contiguous playback ranges submitted through the authenticated Moodle progress API. The server validates, clamps and merges those ranges before deriving completion. `lastposition` remains resume-only state.
