@@ -860,8 +860,8 @@
 }
 
 .mod-videoplayer-pdfjs-viewer {
-    background: radial-gradient(circle at 10% 0%, rgba(6, 182, 201, .10), transparent 20rem),
-        radial-gradient(circle at 90% 0%, rgba(59, 130, 246, .08), transparent 22rem),
+    background:
+        radial-gradient(circle at 10% 0%, rgba(6, 182, 201, .10), transparent 20rem),
         linear-gradient(135deg, #f8fafc, #eef2f7);
 }
 
