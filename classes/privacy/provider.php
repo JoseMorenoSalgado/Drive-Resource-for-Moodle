@@ -54,6 +54,7 @@ class provider implements
             'timespent' => 'privacy:metadata:videoplayer_views:timespent',
             'lastposition' => 'privacy:metadata:videoplayer_views:lastposition',
             'duration' => 'privacy:metadata:videoplayer_views:duration',
+            'watchedranges' => 'privacy:metadata:videoplayer_views:watchedranges',
             'points' => 'privacy:metadata:videoplayer_views:points',
             'timecreated' => 'privacy:metadata:videoplayer_views:timecreated',
             'timemodified' => 'privacy:metadata:videoplayer_views:timemodified',
