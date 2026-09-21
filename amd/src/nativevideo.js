@@ -83,6 +83,27 @@ define(['core/ajax'], function(Ajax) {
         }, 0);
     };
 
+    var collectPlaybackSample = function(video, ranges, lastMediaTime) {
+        var currentTime = Number(video.currentTime);
+        if (!Number.isFinite(currentTime)) {
+            return {ranges: ranges, lastMediaTime: lastMediaTime};
+        }
+
+        if (lastMediaTime === null || video.seeking || video.paused) {
+            return {ranges: ranges, lastMediaTime: currentTime};
+        }
+
+        var delta = currentTime - lastMediaTime;
+        if (delta <= 0 || delta > MAX_CONTIGUOUS_MEDIA_DELTA) {
+            return {ranges: ranges, lastMediaTime: currentTime};
+        }
+
+        return {
+            ranges: mergeRanges(ranges.concat([[lastMediaTime, currentTime]]), video.duration),
+            lastMediaTime: currentTime
+        };
+    };
+
     var blockEvent = function(event) {
         event.preventDefault();
         event.stopPropagation();
@@ -532,24 +553,9 @@ define(['core/ajax'], function(Ajax) {
             sendProgress(true);
         });
         video.addEventListener('timeupdate', function() {
-            var currentTime = Number(video.currentTime);
-            if (
-                Number.isFinite(currentTime) &&
-                lastMediaTime !== null &&
-                !video.seeking &&
-                !video.paused
-            ) {
-                var delta = currentTime - lastMediaTime;
-                if (delta > 0 && delta <= MAX_CONTIGUOUS_MEDIA_DELTA) {
-                    watchedRanges = mergeRanges(
-                        watchedRanges.concat([[lastMediaTime, currentTime]]),
-                        video.duration
-                    );
-                }
-            }
-            if (Number.isFinite(currentTime)) {
-                lastMediaTime = currentTime;
-            }
+            var sample = collectPlaybackSample(video, watchedRanges, lastMediaTime);
+            watchedRanges = sample.ranges;
+            lastMediaTime = sample.lastMediaTime;
             updateTime();
         });
         video.addEventListener('seeking', function() {
