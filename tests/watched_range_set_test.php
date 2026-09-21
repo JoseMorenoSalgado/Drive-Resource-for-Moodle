@@ -32,6 +32,7 @@ final class watched_range_set_test extends \advanced_testcase {
      * Overlapping ranges must merge and preserve unique watched time.
      *
      * @return void
+     * @covers \\mod_videoplayer\\local\\progress\\watched_range_set::merge
      */
     public function test_merge_preserves_unique_watched_seconds(): void {
         $json = watched_range_set::merge('[[0,10],[20,30]]', '[[8,22],[40,45]]', 60.0);
@@ -43,6 +44,7 @@ final class watched_range_set_test extends \advanced_testcase {
      * Seeking must not turn skipped media into watched progress.
      *
      * @return void
+     * @covers \\mod_videoplayer\\local\\progress\\watched_range_set::merge
      */
     public function test_non_contiguous_ranges_do_not_fill_seek_gap(): void {
         $json = watched_range_set::merge('[]', '[[0,10],[50,60]]', 100.0);
@@ -54,6 +56,7 @@ final class watched_range_set_test extends \advanced_testcase {
      * Malformed and out-of-bounds input must be ignored or clamped.
      *
      * @return void
+     * @covers \\mod_videoplayer\\local\\progress\\watched_range_set::merge
      */
     public function test_invalid_ranges_are_bounded(): void {
         $json = watched_range_set::merge('not-json', '[[90,130],["bad",4],[-4,5]]', 100.0);
