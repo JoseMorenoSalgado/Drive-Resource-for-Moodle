@@ -98,6 +98,7 @@ final class progress_service {
         $progress = max(0.0, (float)($input['progress'] ?? 0));
         $lastposition = max(0.0, (float)($input['lastposition'] ?? 0));
         $duration = max(0.0, (float)($input['duration'] ?? 0));
+        $incomingranges = (string)($input['watchedranges'] ?? '');
         $conditions = [
             'videoplayerid' => (int)$instance->id,
             'userid' => $userid,
@@ -106,6 +107,10 @@ final class progress_service {
         $transaction = $DB->start_delegated_transaction();
         $record = $DB->get_record('videoplayer_views', $conditions);
         $wascompleted = $record ? !empty($record->completed) : false;
+        $storedranges = (string)($record->watchedranges ?? '');
+        $haswatchedranges = $incomingranges !== '' || $storedranges !== '';
+        $watchedranges = watched_range_set::merge($storedranges, $incomingranges, $duration);
+        $watchedseconds = watched_range_set::seconds($watchedranges, $duration);
         $timespent = $this->bounded_timespent($clienttimespent, $record ?: null, $now);
         $requiredseconds = plugin_config::required_seconds();
         $derivedpercentage = $this->derive_percentage(
@@ -113,13 +118,17 @@ final class progress_service {
             $totalpages,
             $lastposition,
             $duration,
+            $watchedseconds,
+            $haswatchedranges,
             $timespent,
             $requiredseconds
         );
         $requiredpercentage = max(1, min(100, (int)($instance->completionpercentage ?? 80)));
         $completed = $derivedpercentage >= $requiredpercentage;
 
-        if ($totalpages === 0 && $duration <= 0) {
+        if ($duration > 0 && $haswatchedranges) {
+            $progress = $watchedseconds;
+        } else if ($totalpages === 0 && $duration <= 0) {
             $progress = min($progress, (float)$timespent);
         }
 
@@ -136,6 +145,7 @@ final class progress_service {
                 $record->lastposition = min($lastposition, $duration);
                 $record->duration = max((float)($record->duration ?? 0), $duration);
             }
+            $record->watchedranges = $watchedranges;
             $record->timemodified = $now;
             $DB->update_record('videoplayer_views', $record);
         } else {
@@ -152,6 +162,7 @@ final class progress_service {
                 'timespent' => $timespent,
                 'lastposition' => $duration > 0 ? min($lastposition, $duration) : 0,
                 'duration' => $duration,
+                'watchedranges' => $watchedranges,
                 'points' => 0,
             ];
             $record->id = $DB->insert_record('videoplayer_views', $record);
@@ -213,6 +224,8 @@ final class progress_service {
      * @param int $totalpages
      * @param float $lastposition
      * @param float $duration
+     * @param float $watchedseconds Unique media seconds actually reproduced.
+     * @param bool $haswatchedranges Whether watched-range telemetry is available.
      * @param int $timespent Server-bounded active seconds.
      * @param int $requiredseconds Required active seconds for generic resources.
      * @return float
@@ -222,6 +235,8 @@ final class progress_service {
         int $totalpages,
         float $lastposition,
         float $duration,
+        float $watchedseconds,
+        bool $haswatchedranges,
         int $timespent,
         int $requiredseconds
     ): float {
@@ -229,6 +244,11 @@ final class progress_service {
             return $this->clamp_percentage(($lastpage / $totalpages) * 100);
         }
         if ($duration > 0) {
+            if ($haswatchedranges) {
+                return $this->clamp_percentage((min($watchedseconds, $duration) / $duration) * 100);
+            }
+
+            // Compatibility for audio and older clients that do not yet submit ranges.
             return $this->clamp_percentage((min($lastposition, $duration) / $duration) * 100);
         }
 
@@ -286,6 +306,7 @@ final class progress_service {
             'timespent' => (int)($record->timespent ?? 0),
             'lastposition' => (float)($record->lastposition ?? 0),
             'duration' => (float)($record->duration ?? 0),
+            'watchedranges' => (string)($record->watchedranges ?? '[]'),
             'points' => (int)($record->points ?? 0),
             'rewards' => $rewards,
             'timemodified' => (int)$record->timemodified,
