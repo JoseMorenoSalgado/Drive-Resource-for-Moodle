@@ -70,8 +70,12 @@ final class custom_completion_test extends \advanced_testcase {
             ->getMock();
 
         $cm->method('get_custom_data')->willReturn($customdata);
-        $cm->method('__get')->willReturnCallback(static function (string $name) {
-            return $name === 'instance' ? 42 : null;
+        $cm->method('__get')->willReturnCallback(static function (string $name) use ($customdata) {
+            return match ($name) {
+                'instance' => 42,
+                'customdata' => $customdata,
+                default => null,
+            };
         });
 
         $DB = $this->createMock(get_class($DB));
