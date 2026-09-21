@@ -110,6 +110,7 @@ final class resource_view implements \renderable, \templatable {
         $totalpages = max(0, (int)($this->progress->totalpages ?? 0));
         $lastposition = max(0.0, (float)($this->progress->lastposition ?? 0));
         $duration = max(0.0, (float)($this->progress->duration ?? 0));
+        $watchedranges = (string)($this->progress->watchedranges ?? '[]');
         $timespent = max(0, (int)($this->progress->timespent ?? 0));
         $completionpercent = max(0.0, min(100.0, (float)($this->progress->completionpercentage ?? 0)));
         $points = max(0, (int)($this->progress->points ?? 0));
@@ -141,6 +142,7 @@ final class resource_view implements \renderable, \templatable {
             'totalpages' => $totalpages,
             'initialposition' => round($lastposition, 3),
             'initialduration' => round($duration, 3),
+            'watchedranges' => $watchedranges,
             'initialtimespent' => $timespent,
             'points' => $points,
             'completionpercent' => round($completionpercent, 2),
