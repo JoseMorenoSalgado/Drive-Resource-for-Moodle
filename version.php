@@ -27,9 +27,9 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'mod_videoplayer';
-$plugin->version = 2026092016;
-$plugin->release = '1.1.33-rc19-m45';
+$plugin->version = 2026092103;
+$plugin->release = '1.2.0-beta1-m45';
 $plugin->requires = 2024100700; // Moodle 4.5.0 (LTS).
 $plugin->supported = [405, 405];
 $plugin->incompatible = 500;
-$plugin->maturity = MATURITY_RC;
+$plugin->maturity = MATURITY_BETA;
