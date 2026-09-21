@@ -83,6 +83,43 @@ if ($ADMIN->fulltree) {
         1
     ));
 
+    $settings->add(new admin_setting_heading(
+        'mod_videoplayer/whmcsgatewayheading',
+        get_string('setting_whmcsgatewayheading', 'mod_videoplayer'),
+        get_string('setting_whmcsgatewayheading_desc', 'mod_videoplayer')
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'mod_videoplayer/whmcsgatewayurl',
+        get_string('setting_whmcsgatewayurl', 'mod_videoplayer'),
+        get_string('setting_whmcsgatewayurl_desc', 'mod_videoplayer'),
+        '',
+        PARAM_URL
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'mod_videoplayer/whmcsserviceid',
+        get_string('setting_whmcsserviceid', 'mod_videoplayer'),
+        get_string('setting_whmcsserviceid_desc', 'mod_videoplayer'),
+        0,
+        PARAM_INT
+    ));
+
+    $settings->add(new admin_setting_configpasswordunmask(
+        'mod_videoplayer/whmcsservicetoken',
+        get_string('setting_whmcsservicetoken', 'mod_videoplayer'),
+        get_string('setting_whmcsservicetoken_desc', 'mod_videoplayer'),
+        ''
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'mod_videoplayer/whmcstimeout',
+        get_string('setting_whmcstimeout', 'mod_videoplayer'),
+        get_string('setting_whmcstimeout_desc', 'mod_videoplayer'),
+        15,
+        PARAM_INT
+    ));
+
     $settings->add(new admin_setting_configtext(
         'mod_videoplayer/pdfcachettl',
         get_string('setting_pdfcachettl', 'mod_videoplayer'),
