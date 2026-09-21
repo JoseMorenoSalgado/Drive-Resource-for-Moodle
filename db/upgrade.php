@@ -426,5 +426,31 @@ function xmldb_videoplayer_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026092015, 'videoplayer');
     }
 
+
+    // Bunny Stream provider metadata. Provider credentials remain in WHMCS.
+    if ($oldversion < 2026092103) {
+        $table = new xmldb_table('videoplayer');
+        if ($dbman->table_exists($table)) {
+            $fields = [
+                new xmldb_field('providerassetid', XMLDB_TYPE_CHAR, '64', null, null, null, null, 'videourl'),
+                new xmldb_field('provideruploadid', XMLDB_TYPE_CHAR, '64', null, null, null, null, 'providerassetid'),
+                new xmldb_field('providerfilesize', XMLDB_TYPE_INTEGER, '20', null, XMLDB_NOTNULL, null, '0', 'provideruploadid'),
+                new xmldb_field('providerstatus', XMLDB_TYPE_CHAR, '32', null, null, null, null, 'providerfilesize'),
+            ];
+            foreach ($fields as $field) {
+                if (!$dbman->field_exists($table, $field)) {
+                    $dbman->add_field($table, $field);
+                }
+            }
+
+            $index = new xmldb_index('providerasset_idx', XMLDB_INDEX_NOTUNIQUE, ['providerassetid']);
+            if (!$dbman->index_exists($table, $index)) {
+                $dbman->add_index($table, $index);
+            }
+        }
+
+        upgrade_mod_savepoint(true, 2026092103, 'videoplayer');
+    }
+
     return true;
 }
