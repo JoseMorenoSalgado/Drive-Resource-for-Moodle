@@ -4,6 +4,10 @@ All notable changes to Drive Resource are documented here. The Moodle component 
 
 ## Unreleased - commercial hardening and validation
 
+- RC19 fixes HTML5 video completion so seeking no longer counts skipped media as watched.
+- Video completion now uses the persisted union of media ranges actually reproduced; resume position remains independent.
+- Added bounded watched-range validation, XMLDB upgrade state, Backup/Restore, Privacy API metadata and regression tests.
+
 - Deep audit: centralized all runtime resource-type resolution through `drive::resolve_record_type()` and introduced canonical source/type constants.
 - Fixed inconsistent `auto` behavior where opaque Drive `/file/d/.../view` links could be treated as generic files in some code paths while other paths treated them as videos.
 - Removed redundant resource-type lists from the form/view layer and added a hardening invariant that blocks direct runtime use of `drive::detect_type()` outside the canonical resolver.
