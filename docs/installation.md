@@ -108,3 +108,8 @@ Record the tested commit SHA and environment. Do not promote an RC build while a
 When upgrading from RC17, no schema change is required for the canonical type-resolution cleanup. Purge Moodle caches after deploying the updated code and verify at least one existing activity stored as `type=auto` with a normal `drive.google.com/file/d/.../view` URL. It must resolve consistently in the course index and learner view.
 
 Legacy `displaymode` and `disabledownload` columns remain in the database for restore compatibility; administrators should not manually remove them.
+
+
+## RC19 progress schema upgrade
+
+Upgrading from RC18 or earlier automatically adds the nullable `videoplayer_views.watchedranges` field through Moodle XMLDB. No manual SQL migration is required. Complete the normal Moodle upgrade before learners resume video activities.
