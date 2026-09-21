@@ -28,6 +28,7 @@ require_once($CFG->dirroot . '/course/moodleform_mod.php');
 
 use mod_videoplayer\local\drive;
 use mod_videoplayer\local\plugin_config;
+use mod_videoplayer\local\provider\bunny_stream;
 
 /**
  * Activity settings form.
@@ -37,6 +38,8 @@ class mod_videoplayer_mod_form extends moodleform_mod {
      * Define form fields.
      */
     public function definition() {
+        global $PAGE;
+
         $mform = $this->_form;
 
         $mform->addElement('header', 'general', get_string('general', 'form'));
@@ -47,6 +50,7 @@ class mod_videoplayer_mod_form extends moodleform_mod {
 
         $sources = [
             drive::SOURCE_GOOGLEDRIVE => get_string('sourcegoogledrive', 'mod_videoplayer'),
+            bunny_stream::SOURCE => get_string('sourcebunnystream', 'mod_videoplayer'),
             drive::SOURCE_LOCALPDF => get_string('sourcelocalpdf', 'mod_videoplayer'),
         ];
         $mform->addElement('select', 'source', get_string('resourcesource', 'mod_videoplayer'), $sources);
@@ -55,13 +59,62 @@ class mod_videoplayer_mod_form extends moodleform_mod {
         $mform->addElement('text', 'videourl', get_string('driveurl', 'mod_videoplayer'), ['size' => 90]);
         $mform->setType('videourl', PARAM_URL);
         $mform->addHelpButton('videourl', 'driveurl', 'mod_videoplayer');
-        $mform->hideIf('videourl', 'source', 'eq', drive::SOURCE_LOCALPDF);
-        $mform->disabledIf('videourl', 'source', 'eq', drive::SOURCE_LOCALPDF);
+        $mform->hideIf('videourl', 'source', 'neq', drive::SOURCE_GOOGLEDRIVE);
+        $mform->disabledIf('videourl', 'source', 'neq', drive::SOURCE_GOOGLEDRIVE);
 
         $filemanageroptions = $this->get_localpdf_filemanager_options();
         $mform->addElement('filemanager', 'localpdffile', get_string('localpdffile', 'mod_videoplayer'), null, $filemanageroptions);
         $mform->addHelpButton('localpdffile', 'localpdffile', 'mod_videoplayer');
-        $mform->hideIf('localpdffile', 'source', 'eq', drive::SOURCE_GOOGLEDRIVE);
+        $mform->hideIf('localpdffile', 'source', 'neq', drive::SOURCE_LOCALPDF);
+
+        $mform->addElement('hidden', 'providerassetid', '');
+        $mform->setType('providerassetid', PARAM_ALPHANUMEXT);
+        $mform->addElement('hidden', 'provideruploadid', '');
+        $mform->setType('provideruploadid', PARAM_ALPHANUMEXT);
+        $mform->addElement('hidden', 'providerfilesize', 0);
+        $mform->setType('providerfilesize', PARAM_INT);
+        $mform->addElement('hidden', 'providerstatus', '');
+        $mform->setType('providerstatus', PARAM_ALPHANUMEXT);
+
+        $uploadhtml = html_writer::start_div('mod-videoplayer-bunny-upload', [
+            'id' => 'mod-videoplayer-bunny-upload',
+            'data-state' => 'idle',
+        ]);
+        $uploadhtml .= html_writer::tag('p', get_string('bunnyuploadintro', 'mod_videoplayer'), [
+            'class' => 'text-muted mb-2',
+        ]);
+        $uploadhtml .= html_writer::start_div('d-flex flex-column gap-2');
+        $uploadhtml .= html_writer::empty_tag('input', [
+            'type' => 'file',
+            'id' => 'mod-videoplayer-bunny-file',
+            'class' => 'form-control',
+            'accept' => 'video/*,.mp4,.mov,.m4v,.webm,.mkv,.avi,.mpeg,.mpg',
+        ]);
+        $uploadhtml .= html_writer::tag('button', get_string('bunnyuploadbutton', 'mod_videoplayer'), [
+            'type' => 'button',
+            'id' => 'mod-videoplayer-bunny-start',
+            'class' => 'btn btn-primary align-self-start',
+            'disabled' => 'disabled',
+        ]);
+        $uploadhtml .= html_writer::div('', 'progress', [
+            'id' => 'mod-videoplayer-bunny-progress-wrap',
+            'style' => 'height: 0.75rem;',
+            'hidden' => 'hidden',
+        ]);
+        $uploadhtml .= html_writer::div('', 'small text-muted', [
+            'id' => 'mod-videoplayer-bunny-status',
+            'role' => 'status',
+            'aria-live' => 'polite',
+        ]);
+        $uploadhtml .= html_writer::div('', 'small', [
+            'id' => 'mod-videoplayer-bunny-quota',
+            'aria-live' => 'polite',
+        ]);
+        $uploadhtml .= html_writer::end_div();
+        $uploadhtml .= html_writer::end_div();
+
+        $mform->addElement('static', 'bunnyuploadpanel', get_string('bunnyuploadlabel', 'mod_videoplayer'), $uploadhtml);
+        $mform->hideIf('bunnyuploadpanel', 'source', 'neq', bunny_stream::SOURCE);
 
         $types = [
             drive::TYPE_AUTO => get_string('typeauto', 'mod_videoplayer'),
@@ -72,6 +125,7 @@ class mod_videoplayer_mod_form extends moodleform_mod {
         $mform->addElement('select', 'type', get_string('resourcetype', 'mod_videoplayer'), $types);
         $mform->setDefault('type', drive::TYPE_AUTO);
         $mform->disabledIf('type', 'source', 'eq', drive::SOURCE_LOCALPDF);
+        $mform->hideIf('type', 'source', 'eq', bunny_stream::SOURCE);
 
         $mform->addElement('advcheckbox', 'disablecontextmenu', get_string('disablecontextmenu', 'mod_videoplayer'));
         $mform->setDefault('disablecontextmenu', 1);
@@ -82,6 +136,22 @@ class mod_videoplayer_mod_form extends moodleform_mod {
         $this->standard_intro_elements();
         $this->standard_coursemodule_elements();
         $this->add_action_buttons();
+
+        $PAGE->requires->js_call_amd('mod_videoplayer/bunnyupload', 'init', [[
+            'courseid' => (int)$this->course->id,
+            'cmid' => (!empty($this->_cm) && !empty($this->_cm->id)) ? (int)$this->_cm->id : 0,
+            'strings' => [
+                'ready' => get_string('bunnyuploadready', 'mod_videoplayer'),
+                'authorizing' => get_string('bunnyuploadauthorizing', 'mod_videoplayer'),
+                'uploading' => get_string('bunnyuploading', 'mod_videoplayer'),
+                'processing' => get_string('bunnyuploadprocessing', 'mod_videoplayer'),
+                'retrying' => get_string('bunnyuploadretrying', 'mod_videoplayer'),
+                'failed' => get_string('bunnyuploadfailed', 'mod_videoplayer'),
+                'existing' => get_string('bunnyuploadexisting', 'mod_videoplayer'),
+                'quota' => get_string('bunnyuploadquota', 'mod_videoplayer'),
+                'overage' => get_string('bunnyuploadoverage', 'mod_videoplayer'),
+            ],
+        ]]);
     }
 
     /**
@@ -226,6 +296,17 @@ class mod_videoplayer_mod_form extends moodleform_mod {
 
         if ($source === drive::SOURCE_GOOGLEDRIVE && (empty($data['videourl']) || !drive::is_supported_url($data['videourl']))) {
             $errors['videourl'] = get_string('invaliddriveurl', 'mod_videoplayer');
+        }
+
+        if ($source === bunny_stream::SOURCE) {
+            $assetid = trim((string)($data['providerassetid'] ?? ''));
+            $uploadid = trim((string)($data['provideruploadid'] ?? ''));
+            $status = bunny_stream::normalise_status((string)($data['providerstatus'] ?? ''));
+            if (!bunny_stream::is_valid_asset_id($assetid)
+                || !bunny_stream::is_valid_upload_id($uploadid)
+                || $status === '') {
+                $errors['bunnyuploadpanel'] = get_string('bunnyuploadrequired', 'mod_videoplayer');
+            }
         }
 
         if ($source === drive::SOURCE_LOCALPDF) {
