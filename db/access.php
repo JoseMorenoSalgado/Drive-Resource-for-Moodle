@@ -39,6 +39,19 @@ $capabilities = [
         'clonepermissionsfrom' => 'moodle/course:manageactivities',
     ],
 
+
+    // Authorise managed video ingestion through the WHMCS/Bunny gateway.
+    'mod/videoplayer:uploadvideo' => [
+        'riskbitmask' => RISK_DATALOSS,
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_COURSE,
+        'archetypes' => [
+            'editingteacher' => CAP_ALLOW,
+            'manager' => CAP_ALLOW,
+        ],
+        'clonepermissionsfrom' => 'moodle/course:manageactivities',
+    ],
+
     // Capability to view Drive Resource content after normal Moodle enrolment/access checks.
     'mod/videoplayer:view' => [
         'captype' => 'read',
