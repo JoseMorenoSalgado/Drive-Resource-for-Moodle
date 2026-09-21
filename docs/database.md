@@ -22,10 +22,11 @@ Key fields:
 | `timespent` | Cumulative active seconds |
 | `lastposition` | Current video/audio resume position in seconds |
 | `duration` | Known media duration in seconds |
+| `watchedranges` | Bounded JSON union of video intervals actually reproduced; completion ignores skipped seek gaps |
 | `points` | Optional gamification total |
 | `timemodified` | Last progress write |
 
-`lastposition` and `duration` were added in schema version `2026092013`.
+`lastposition` and `duration` were added in schema version `2026092013`. `watchedranges` was added in `2026092016` to separate resume position from seek-safe video completion.
 
 ## `videoplayer_rewards`
 
