@@ -152,3 +152,8 @@ Resource source/type normalization is owned by `classes/local/drive.php`. Runtim
 This prevents divergent behavior for opaque Drive sharing links. In particular, legacy/opaque `/file/d/{id}/view` records using `type=auto` retain the historical video fallback consistently in the learner view, course index, cache task and lifecycle callbacks.
 
 `drive::RESOURCE_TYPES` is the canonical registry used by form options and persistence validation. `drive::SOURCE_GOOGLEDRIVE` and `drive::SOURCE_LOCALPDF` are the canonical source identifiers.
+
+
+## Seek-safe HTML5 video completion
+
+Video resume and video completion are intentionally separate concerns. `lastposition` records where playback should resume, while `watchedranges` stores a bounded canonical JSON union of media intervals that were actually reproduced. The browser adds only contiguous HTML5 playback intervals; seeking resets the contiguous sample. The server merges and clamps the ranges to the detected duration and derives completion from unique watched seconds rather than the furthest seek position.
