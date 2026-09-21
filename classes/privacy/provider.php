@@ -136,6 +136,7 @@ class provider implements
                     'timespent' => $record->timespent ?? 0,
                     'lastposition' => $record->lastposition ?? 0,
                     'duration' => $record->duration ?? 0,
+                    'watchedranges' => $record->watchedranges ?? null,
                     'points' => $record->points ?? 0,
                     'timecreated' => transform::datetime($record->timecreated),
                     'timemodified' => transform::datetime($record->timemodified),
