@@ -12,6 +12,8 @@ define(['core/ajax'], function(Ajax) {
     var STALL_RECOVERY_MS = 8000;
     var RECOVERY_RESET_MS = 30000;
     var MAX_RECOVERY_ATTEMPTS = 3;
+    var MAX_CONTIGUOUS_MEDIA_DELTA = 5;
+    var MAX_WATCHED_RANGES = 512;
 
     var formatTime = function(seconds) {
         if (!Number.isFinite(seconds) || seconds < 0) {
@@ -25,6 +27,60 @@ define(['core/ajax'], function(Ajax) {
             return hours + ':' + String(minutes).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
         }
         return minutes + ':' + String(secs).padStart(2, '0');
+    };
+
+    var mergeRanges = function(ranges, duration) {
+        var clean = [];
+        ranges.slice(0, MAX_WATCHED_RANGES).forEach(function(range) {
+            if (!Array.isArray(range) || range.length < 2) {
+                return;
+            }
+            var start = Number(range[0]);
+            var end = Number(range[1]);
+            if (!Number.isFinite(start) || !Number.isFinite(end)) {
+                return;
+            }
+            start = Math.max(0, start);
+            end = Math.max(0, end);
+            if (duration > 0) {
+                start = Math.min(start, duration);
+                end = Math.min(end, duration);
+            }
+            if (end > start) {
+                clean.push([start, end]);
+            }
+        });
+
+        clean.sort(function(a, b) {
+            return a[0] - b[0];
+        });
+
+        var merged = [];
+        clean.forEach(function(range) {
+            var last = merged.length ? merged[merged.length - 1] : null;
+            if (last && range[0] <= last[1] + 0.25) {
+                last[1] = Math.max(last[1], range[1]);
+            } else if (merged.length < MAX_WATCHED_RANGES) {
+                merged.push([range[0], range[1]]);
+            }
+        });
+        return merged;
+    };
+
+    var parseRanges = function(value, duration) {
+        var parsed;
+        try {
+            parsed = JSON.parse(value || '[]');
+        } catch (error) {
+            parsed = [];
+        }
+        return Array.isArray(parsed) ? mergeRanges(parsed, duration) : [];
+    };
+
+    var watchedSeconds = function(ranges) {
+        return ranges.reduce(function(total, range) {
+            return total + Math.max(0, range[1] - range[0]);
+        }, 0);
     };
 
     var blockEvent = function(event) {
@@ -60,6 +116,7 @@ define(['core/ajax'], function(Ajax) {
         var cmid = parseInt(root.dataset.cmid, 10) || 0;
         var initialPosition = Math.max(0, parseFloat(root.dataset.initialPosition) || 0);
         var initialTimeSpent = Math.max(0, parseInt(root.dataset.initialTimespent, 10) || 0);
+        var initialCompletion = Math.max(0, parseFloat(root.dataset.initialCompletion) || 0);
         var disableContextMenu = root.dataset.disableContextMenu === '1';
         var trackingEnabled = root.dataset.trackingEnabled === '1';
         var fallbackActive = false;
@@ -77,6 +134,8 @@ define(['core/ajax'], function(Ajax) {
         var pendingPosition = initialPosition;
         var resumeAfterReload = false;
         var recoveryAttempts = 0;
+        var watchedRanges = parseRanges(root.dataset.watchedRanges || '[]', 0);
+        var lastMediaTime = null;
 
         if (!video || !frame || !primary) {
             return;
@@ -145,9 +204,11 @@ define(['core/ajax'], function(Ajax) {
 
         var completionPercentage = function() {
             if (!Number.isFinite(video.duration) || video.duration <= 0) {
-                return 0;
+                return initialCompletion;
             }
-            return Math.max(0, Math.min(100, (video.currentTime / video.duration) * 100));
+            var watched = watchedSeconds(watchedRanges);
+            var percentage = (watched / video.duration) * 100;
+            return Math.max(initialCompletion, Math.max(0, Math.min(100, percentage)));
         };
 
         var updateTime = function() {
@@ -204,21 +265,29 @@ define(['core/ajax'], function(Ajax) {
                 methodname: 'mod_videoplayer_save_progress',
                 args: {
                     cmid: cmid,
-                    progress: Math.max(0, video.currentTime),
+                    progress: watchedSeconds(watchedRanges),
                     completed: completed,
                     completionpercentage: Math.round(percentage * 100) / 100,
                     lastpage: 0,
                     totalpages: 0,
                     timespent: Math.round(activeSeconds),
                     lastposition: Math.max(0, video.currentTime),
-                    duration: Math.max(0, video.duration)
+                    duration: Math.max(0, video.duration),
+                    watchedranges: JSON.stringify(watchedRanges)
                 }
             };
 
             return Ajax.call([request])[0]
                 .then(function(response) {
-                    if (response && progressLabel) {
-                        progressLabel.textContent = Math.round(response.completionpercentage) + '%';
+                    if (response) {
+                        watchedRanges = parseRanges(response.watchedranges || '[]', video.duration);
+                        initialCompletion = Math.max(
+                            initialCompletion,
+                            parseFloat(response.completionpercentage) || 0
+                        );
+                        if (progressLabel) {
+                            progressLabel.textContent = Math.round(response.completionpercentage) + '%';
+                        }
                     }
                     return response;
                 })
@@ -291,6 +360,7 @@ define(['core/ajax'], function(Ajax) {
             restoredPosition = false;
             pendingPosition = Math.max(0, Number(resumePosition) || 0);
             resumeAfterReload = Boolean(autoplay);
+            lastMediaTime = null;
             setError(false);
             setLoading(true, true);
             video.pause();
@@ -410,6 +480,7 @@ define(['core/ajax'], function(Ajax) {
             setLoading(false);
             setError(false);
             markOrientation();
+            watchedRanges = mergeRanges(watchedRanges, video.duration);
             var targetPosition = pendingPosition > 0 ? pendingPosition : initialPosition;
             if (!restoredPosition && targetPosition > 0 && targetPosition < video.duration - RESUME_GUARD_SECONDS) {
                 try {
@@ -441,6 +512,7 @@ define(['core/ajax'], function(Ajax) {
             clearStallTimer();
             scheduleRecoveryReset();
             lastActiveTick = Date.now();
+            lastMediaTime = Number(video.currentTime) || 0;
             setLoading(false);
             syncPlayState();
             showControls();
@@ -459,7 +531,34 @@ define(['core/ajax'], function(Ajax) {
             showControls();
             sendProgress(true);
         });
-        video.addEventListener('timeupdate', updateTime);
+        video.addEventListener('timeupdate', function() {
+            var currentTime = Number(video.currentTime);
+            if (
+                Number.isFinite(currentTime) &&
+                lastMediaTime !== null &&
+                !video.seeking &&
+                !video.paused
+            ) {
+                var delta = currentTime - lastMediaTime;
+                if (delta > 0 && delta <= MAX_CONTIGUOUS_MEDIA_DELTA) {
+                    watchedRanges = mergeRanges(
+                        watchedRanges.concat([[lastMediaTime, currentTime]]),
+                        video.duration
+                    );
+                }
+            }
+            if (Number.isFinite(currentTime)) {
+                lastMediaTime = currentTime;
+            }
+            updateTime();
+        });
+        video.addEventListener('seeking', function() {
+            lastMediaTime = null;
+        });
+        video.addEventListener('seeked', function() {
+            lastMediaTime = Number(video.currentTime) || 0;
+            sendProgress(true);
+        });
         video.addEventListener('progress', updateBuffered);
         video.addEventListener('durationchange', updateTime);
         video.addEventListener('error', tryFallback);
