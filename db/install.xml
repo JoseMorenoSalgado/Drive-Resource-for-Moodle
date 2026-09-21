@@ -61,6 +61,7 @@
         <FIELD NAME="timespent" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
         <FIELD NAME="lastposition" TYPE="number" LENGTH="12" NOTNULL="true" DEFAULT="0" DECIMALS="3"/>
         <FIELD NAME="duration" TYPE="number" LENGTH="12" NOTNULL="true" DEFAULT="0" DECIMALS="3"/>
+        <FIELD NAME="watchedranges" TYPE="text" NOTNULL="false"/>
         <FIELD NAME="points" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
       </FIELDS>
       <KEYS>
