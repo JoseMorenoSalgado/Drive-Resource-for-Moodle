@@ -133,6 +133,7 @@ class restore_videoplayer_activity_structure_step extends restore_activity_struc
         $data->timespent = $data->timespent ?? 0;
         $data->lastposition = $data->lastposition ?? 0;
         $data->duration = $data->duration ?? 0;
+        $data->watchedranges = $data->watchedranges ?? '[]';
         $data->points = $data->points ?? 0;
 
         $DB->insert_record('videoplayer_views', $data);
