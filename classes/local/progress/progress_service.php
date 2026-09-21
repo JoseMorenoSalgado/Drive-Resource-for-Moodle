@@ -109,7 +109,9 @@ final class progress_service {
         $wascompleted = $record ? !empty($record->completed) : false;
         $storedranges = (string)($record->watchedranges ?? '');
         $haswatchedranges = $incomingranges !== '' || $storedranges !== '';
-        $watchedranges = watched_range_set::merge($storedranges, $incomingranges, $duration);
+        $watchedranges = $haswatchedranges
+            ? watched_range_set::merge($storedranges, $incomingranges, $duration)
+            : '';
         $watchedseconds = watched_range_set::seconds($watchedranges, $duration);
         $timespent = $this->bounded_timespent($clienttimespent, $record ?: null, $now);
         $requiredseconds = plugin_config::required_seconds();
@@ -145,7 +147,9 @@ final class progress_service {
                 $record->lastposition = min($lastposition, $duration);
                 $record->duration = max((float)($record->duration ?? 0), $duration);
             }
-            $record->watchedranges = $watchedranges;
+            if ($haswatchedranges) {
+                $record->watchedranges = $watchedranges;
+            }
             $record->timemodified = $now;
             $DB->update_record('videoplayer_views', $record);
         } else {
@@ -162,7 +166,7 @@ final class progress_service {
                 'timespent' => $timespent,
                 'lastposition' => $duration > 0 ? min($lastposition, $duration) : 0,
                 'duration' => $duration,
-                'watchedranges' => $watchedranges,
+                'watchedranges' => $haswatchedranges ? $watchedranges : null,
                 'points' => 0,
             ];
             $record->id = $DB->insert_record('videoplayer_views', $record);
