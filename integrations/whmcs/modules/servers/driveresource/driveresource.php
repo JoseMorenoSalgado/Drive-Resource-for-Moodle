@@ -257,8 +257,8 @@ function driveresource_ClientArea(array $params): string
             return '<p>Drive Resource service is not provisioned.</p>';
         }
 
-        $used = number_format(((int) $service->used_bytes) / 1073741824, 2);
-        $quota = number_format(((int) $service->quota_bytes) / 1073741824, 2);
+        $used = number_format(((int) $service->used_bytes) / 1000000000, 2);
+        $quota = number_format(((int) $service->quota_bytes) / 1000000000, 2);
 
         return '<div class="alert alert-info">'
             . '<strong>Drive Resource Video</strong><br>'
@@ -359,7 +359,7 @@ function driveresource_quota_bytes(array $params): int
 {
     $gb = (float) ($params['configoption1'] ?? 7);
     $gb = max(0.1, min(100000, $gb));
-    return (int) round($gb * 1073741824);
+    return (int) round($gb * 1000000000);
 }
 
 /**
