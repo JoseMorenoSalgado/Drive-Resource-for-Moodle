@@ -1,6 +1,6 @@
 <?php
 
-namespace WHMCS\Module\Addon\Driveresource_gateway;
+namespace WHMCS\Module\Addon\DriveresourceGateway;
 
 use Throwable;
 use WHMCS\Database\Capsule;
