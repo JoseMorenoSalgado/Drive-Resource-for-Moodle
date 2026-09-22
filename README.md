@@ -8,7 +8,7 @@ The historical Moodle component name remains `mod_videoplayer` to preserve upgra
 
 - Product: Drive Resource
 - Moodle component: `mod_videoplayer`
-- Release: `1.1.33-rc19-m45`
+- Release: `1.2.0-beta1-m45`
 - Target: Moodle 4.5 LTS
 - PHP baseline: PHP 8.1+
 - Video runtime: native HTML5 Media API
@@ -195,3 +195,31 @@ Before release, run the manual regression checklist in [docs/manual-test-checkli
 GNU GPL v3 or later.
 
 Bundled third-party components and their licenses are declared in `thirdpartylibs.xml`.
+
+## 1.2.0-beta1: WHMCS-gated Bunny Stream ingestion
+
+The 1.2 line introduces Bunny Stream as a managed video provider while preserving Google Drive and protected local PDF support.
+
+For Bunny uploads, **Bunny management credentials never exist in Moodle**. Moodle stores only the WHMCS gateway URL, WHMCS service ID and a service-scoped gateway token. The upload flow is:
+
+```text
+Teacher browser
+  -> Moodle capability/session check
+  -> WHMCS Media Gateway
+       -> active WHMCS service check
+       -> exact Moodle site binding
+       -> HMAC + timestamp + replay nonce validation
+       -> quota / overage reservation
+       -> Bunny Stream management API
+  <- short-lived video-scoped TUS authorization
+Teacher browser
+  -> Bunny Stream TUS endpoint directly
+```
+
+Video bytes therefore do not traverse Moodle PHP or WHMCS. Large uploads are chunked and resumable, and long uploads can renew the short-lived TUS authorization without creating a second Bunny asset or reserving quota twice.
+
+The commercial quota model is controlled in WHMCS. The provisioning module defaults to **7 GiB included storage**, supports soft overage, and exposes a `video_storage_gb` snapshot metric for WHMCS Usage Billing. The gateway reserves concurrent uploads before issuing a Bunny authorization so simultaneous teachers cannot overrun quota based on stale usage.
+
+This beta currently covers **provider provisioning, direct upload, accounting, lifecycle binding/release, Backup & Restore reconciliation, and retention**. Learner-facing Bunny HLS playback is intentionally not enabled yet; a Bunny-backed activity displays a processing/provider placeholder until the secure playback phase is completed and validated.
+
+The WHMCS companion source is maintained under `integrations/whmcs/` in the development repository. It must be deployed to WHMCS separately from the Moodle plugin package.
