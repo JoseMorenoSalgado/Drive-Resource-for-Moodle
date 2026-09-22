@@ -113,3 +113,36 @@ Legacy `displaymode` and `disabledownload` columns remain in the database for re
 ## RC19 completion-form hotfix validation
 
 RC19 is a code/API compatibility hotfix with no schema change. After deployment and cache purge, create a new Drive Resource activity and edit an existing one in a course with completion tracking enabled. The settings form must open normally, automatic completion must expose the progress-percentage rule, and saving the activity must not raise `get_suffixed_name()` errors.
+
+## Bunny Stream + WHMCS beta installation
+
+The Bunny provider requires two separately deployed components.
+
+### WHMCS
+
+1. Copy `integrations/whmcs/modules/addons/driveresource_gateway/` to the WHMCS `modules/addons/` directory.
+2. Activate **Drive Resource Media Gateway** in WHMCS.
+3. Configure the Bunny Stream Library ID and Bunny Stream API key in the addon. These credentials stay in WHMCS.
+4. Copy `integrations/whmcs/modules/servers/driveresource/` to WHMCS `modules/servers/`.
+5. Create a WHMCS server/product using the **Drive Resource Video** provisioning module.
+6. Set **Included Storage GB** to 7 (or the commercial allowance), enable/disable overage, and set the retention period.
+7. For Usage Billing, enable the `video_storage_gb` metric on the WHMCS product and configure its included amount and per-GB overage price. Keep this included amount aligned with the provisioning-module quota.
+8. Set the service's **Moodle Site URL** to the exact HTTPS `$CFG->wwwroot` value, including a subdirectory if Moodle is installed in one.
+9. Provision the WHMCS service and obtain its generated service ID/token for the Moodle administrator.
+
+### Moodle
+
+Under Drive Resource administration settings configure:
+
+- WHMCS gateway URL: the HTTPS base of the deployed addon, for example `https://billing.example.com/modules/addons/driveresource_gateway`;
+- WHMCS service ID;
+- WHMCS service token;
+- gateway timeout.
+
+Do not enter a Bunny API key in Moodle.
+
+After upgrading to database version `2026092103`, purge Moodle caches. Verify that the activity form offers **Bunny Stream (direct upload)** and that a teacher with `mod/videoplayer:uploadvideo` can select a video, receive quota information, upload it directly and save the activity.
+
+### Beta validation boundary
+
+For `1.2.0-beta1-m45`, verify ingestion and accounting only. Bunny learner playback is deliberately gated until the secure HLS playback phase is implemented. Google Drive and local PDF behavior must continue to pass their existing regression checks.
