@@ -60,6 +60,9 @@ final class resource_view implements \renderable, \templatable {
      * @return string
      */
     public function template_name(): string {
+        if ($this->resource->is_bunny_stream()) {
+            return 'mod_videoplayer/bunny_pending';
+        }
         if ($this->resource->is_pdf_like()) {
             return 'mod_videoplayer/pdfjs';
         }
@@ -87,13 +90,18 @@ final class resource_view implements \renderable, \templatable {
         $instance = $this->activity->instance();
         $cmid = (int)$this->activity->cm()->id;
         $type = $this->resource->type();
-        $protectedurl = $this->resource->protected_url($cmid);
-        $primaryvideourl = $this->resource->is_video()
-            ? $this->resource->protected_url($cmid, 'transcoded')->out(false)
-            : '';
-        $fallbackvideourl = $this->resource->is_video()
-            ? $this->resource->protected_url($cmid, 'source')->out(false)
-            : '';
+        $protectedurl = null;
+        $primaryvideourl = '';
+        $fallbackvideourl = '';
+        if (!$this->resource->is_bunny_stream()) {
+            $protectedurl = $this->resource->protected_url($cmid);
+            $primaryvideourl = $this->resource->is_video()
+                ? $this->resource->protected_url($cmid, 'transcoded')->out(false)
+                : '';
+            $fallbackvideourl = $this->resource->is_video()
+                ? $this->resource->protected_url($cmid, 'source')->out(false)
+                : '';
+        }
         $isguest = isguestuser();
 
         $typestringkey = 'type' . $type;
@@ -127,12 +135,12 @@ final class resource_view implements \renderable, \templatable {
             'showresourcetype' => plugin_config::show_resource_type(),
             'trackprogress' => !$isguest && plugin_config::tracking_enabled(),
             'resourcetype' => get_string('resourcetype', 'mod_videoplayer') . ': ' . $typestring,
-            'protectedurl' => $protectedurl->out(false),
-            'pdfurl' => $protectedurl->out(false),
+            'protectedurl' => $protectedurl ? $protectedurl->out(false) : '',
+            'pdfurl' => $protectedurl ? $protectedurl->out(false) : '',
             'videourl' => $primaryvideourl,
             'videofallbackurl' => $fallbackvideourl,
-            'audiourl' => $protectedurl->out(false),
-            'imageurl' => $protectedurl->out(false),
+            'audiourl' => $protectedurl ? $protectedurl->out(false) : '',
+            'imageurl' => $protectedurl ? $protectedurl->out(false) : '',
             'playerstyle' => $playerstyle,
             'disablecontextmenu' => !empty($instance->disablecontextmenu),
             'enablewatermark' => !empty($instance->enablewatermark),
