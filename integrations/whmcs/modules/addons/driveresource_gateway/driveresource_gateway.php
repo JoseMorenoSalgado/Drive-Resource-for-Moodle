@@ -95,7 +95,7 @@ function driveresource_gateway_activate(): array
                 $table->char('site_hash', 64)->index();
                 $table->char('token_hash', 64);
                 $table->string('status', 16)->default('active')->index();
-                $table->unsignedBigInteger('quota_bytes')->default(7516192768);
+                $table->unsignedBigInteger('quota_bytes')->default(7000000000);
                 $table->unsignedBigInteger('used_bytes')->default(0);
                 $table->unsignedBigInteger('reserved_bytes')->default(0);
                 $table->boolean('overage_allowed')->default(true);
@@ -188,7 +188,7 @@ function driveresource_gateway_output(array $vars): void
     echo '<div class="panel-body">';
     echo '<p>Provisioned services: ' . (int) $services . ' &middot; Active: ' . (int) $active . '</p>';
     echo '<p>Tracked videos: ' . (int) $uploads . ' &middot; Accounted storage: '
-        . htmlspecialchars(number_format($bytes / 1073741824, 2), ENT_QUOTES, 'UTF-8') . ' GB</p>';
+        . htmlspecialchars(number_format($bytes / 1000000000, 2), ENT_QUOTES, 'UTF-8') . ' GB</p>';
     echo '<p>Bunny credentials are retained inside WHMCS and are not exposed to Moodle.</p>';
     echo '</div></div>';
 }
