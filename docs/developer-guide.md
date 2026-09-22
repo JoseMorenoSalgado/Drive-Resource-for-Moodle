@@ -152,3 +152,46 @@ Legacy schema fields such as `displaymode` and `disabledownload` remain for upgr
 ## Custom completion form compatibility
 
 Moodle 4.5 provides `get_suffix()` through the completion form trait. When adding plugin-specific completion controls, build field names as `<base name> . $this->get_suffix()` in every form lifecycle method. Do not introduce `get_suffixed_name()`; it is not part of the Moodle 4.5 `moodleform_mod` API and causes a fatal error while the activity form is constructed. The release-invariant gate enforces this rule.
+
+## Bunny Stream / WHMCS development rules
+
+Managed video is intentionally split across two trust domains.
+
+Moodle code may know the WHMCS gateway URL, service ID, service token, Bunny video GUID and short-lived TUS upload signature. Moodle must never contain or persist a Bunny Stream management `AccessKey` or playback signing key.
+
+WHMCS companion code lives under `integrations/whmcs/` during development:
+
+```text
+modules/addons/driveresource_gateway/
+  api/                     authenticated Moodle-facing gateway endpoints
+  lib/BunnyClient.php      only Bunny management API client
+  lib/GatewayService.php   quota/reservation/asset orchestration
+  hooks.php                reconciliation/retention cron
+
+modules/servers/driveresource/
+  driveresource.php        product provisioning lifecycle
+  lib/MetricsProvider.php  WHMCS Usage Billing metrics
+```
+
+When changing direct upload behavior:
+
+1. preserve Moodle login/course/capability checks before any authorization is requested;
+2. reserve quota in WHMCS before creating a usable upload authorization;
+3. keep Bunny management credentials WHMCS-only;
+4. scope TUS authorization to a single video and expiration;
+5. pin the browser upload host;
+6. keep retries bounded and resumable;
+7. support authorization renewal for uploads that exceed the initial TTL;
+8. never place `provideruploadid` in Moodle backups;
+9. reconcile restored provider GUIDs through WHMCS tenant ownership;
+10. update `.github/scripts/bunny-whmcs-invariants.sh` when an intentional security boundary changes.
+
+Run the feature gate before promotion:
+
+```bash
+bash .github/scripts/bunny-whmcs-invariants.sh
+node --check amd/src/bunnyupload.js
+find . -name '*.php' -not -path './thirdpartylibs/*' -print0 | xargs -0 -n1 php -l
+```
+
+The production Moodle package must not accidentally install the WHMCS companion under `mod/videoplayer`; package the two deployables separately.
