@@ -98,6 +98,10 @@ jobs:
           grunt_status=$?
           set -e
           if [ "$grunt_status" -ne 0 ]; then
+            (
+              cd moodle
+              npx grunt amd --root=mod/videoplayer
+            )
             for buildroot in plugin/amd/build moodle/mod/videoplayer/amd/build; do
               if [ -f "$buildroot/bunnyupload.min.js" ]; then
                 echo "__BUNNY_MIN_BEGIN__"
