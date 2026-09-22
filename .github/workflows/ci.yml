@@ -92,7 +92,28 @@ jobs:
         run: moodle-plugin-ci mustache
 
       - name: JavaScript lint and AMD build check
-        run: moodle-plugin-ci grunt --max-lint-warnings 0
+        run: |
+          set +e
+          moodle-plugin-ci grunt --max-lint-warnings 0
+          grunt_status=$?
+          set -e
+          if [ "$grunt_status" -ne 0 ]; then
+            for buildroot in plugin/amd/build moodle/mod/videoplayer/amd/build; do
+              if [ -f "$buildroot/bunnyupload.min.js" ]; then
+                echo "__BUNNY_MIN_BEGIN__"
+                base64 -w0 "$buildroot/bunnyupload.min.js"
+                echo
+                echo "__BUNNY_MIN_END__"
+              fi
+              if [ -f "$buildroot/bunnyupload.min.js.map" ]; then
+                echo "__BUNNY_MAP_BEGIN__"
+                base64 -w0 "$buildroot/bunnyupload.min.js.map"
+                echo
+                echo "__BUNNY_MAP_END__"
+              fi
+            done
+            exit "$grunt_status"
+          fi
 
       - name: PHPUnit
         run: moodle-plugin-ci phpunit --fail-on-warning
