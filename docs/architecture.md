@@ -157,3 +157,42 @@ This prevents divergent behavior for opaque Drive sharing links. In particular, 
 ## Moodle completion form integration
 
 Custom activity-completion controls are namespaced using Moodle 4.5's `core_completion\form\form_trait::get_suffix()` API. Form preprocessing, postprocessing, rule creation and validation must concatenate the returned suffix to the base field name. The plugin must not call a non-core `get_suffixed_name()` helper.
+
+## Managed Bunny Stream provider
+
+Bunny video ingestion is a separate provider path; it does not use `protected.php` or the Google Drive resolver.
+
+```text
+Moodle activity form
+  -> create_bunny_upload external function
+  -> whmcs_gateway_client
+  -> WHMCS Drive Resource Media Gateway
+       -> authenticate service + Moodle site
+       -> reserve quota atomically
+       -> create Bunny video using WHMCS-only API key
+       -> return scoped TUS signature
+  -> teacher browser
+       -> Bunny TUS upload directly
+       -> complete_bunny_upload
+  -> Moodle save
+       -> bind_bunny_asset adhoc task
+       -> WHMCS asset reference
+```
+
+The browser never receives the Bunny management API key. The presigned upload material is restricted to one Bunny library, one video GUID and an expiration timestamp. Moodle pins the TUS host to `video.bunnycdn.com` before returning authorization to the uploader.
+
+WHMCS is the authoritative commercial control plane for managed video. It owns service state, quota, reservations, provider asset ownership, retention and usage accounting. Moodle owns course/context authorization and the activity-to-provider reference.
+
+### Storage accounting
+
+Quota decisions use:
+
+```text
+projected = provider-accounted usage + pending reservations + incoming source size
+```
+
+A reservation is created under a database lock before Bunny authorization is emitted. On upload completion, the reservation is converted into usage. Initial accounting may use source bytes while Bunny is still processing; WHMCS cron subsequently reconciles each asset to Bunny's provider-reported `storageSize`, which captures encoded representations as they become available.
+
+### Provider asset lifecycle
+
+A Bunny asset can have multiple Moodle references. Deleting or replacing an activity releases only that reference. Physical provider deletion is deferred until no active references remain and the WHMCS retention period expires. Course restore never trusts a copied provider GUID by itself: the restored reference is reconciled through WHMCS and is accepted only when the asset belongs to the same WHMCS service tenant.
