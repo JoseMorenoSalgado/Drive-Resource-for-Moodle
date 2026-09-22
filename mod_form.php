@@ -303,8 +303,14 @@ class mod_videoplayer_mod_form extends moodleform_mod {
             $assetid = trim((string)($data['providerassetid'] ?? ''));
             $uploadid = trim((string)($data['provideruploadid'] ?? ''));
             $status = bunny_stream::normalise_status((string)($data['providerstatus'] ?? ''));
+            $existingassetid = !empty($this->current)
+                ? trim((string)($this->current->providerassetid ?? ''))
+                : '';
+            $isexistingboundasset = bunny_stream::is_valid_asset_id($existingassetid)
+                && hash_equals($existingassetid, $assetid);
+
             if (!bunny_stream::is_valid_asset_id($assetid)
-                || !bunny_stream::is_valid_upload_id($uploadid)
+                || (!$isexistingboundasset && !bunny_stream::is_valid_upload_id($uploadid))
                 || $status === '') {
                 $errors['bunnyuploadpanel'] = get_string('bunnyuploadrequired', 'mod_videoplayer');
             }
