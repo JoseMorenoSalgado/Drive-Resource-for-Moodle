@@ -119,6 +119,52 @@ final class whmcs_gateway_client {
     }
 
     /**
+     * Refresh a short-lived TUS authorization for an existing upload.
+     *
+     * @param string $uploadid WHMCS reservation identifier.
+     * @param string $videoid Bunny video GUID.
+     * @return array Sanitised TUS authorization.
+     */
+    public function refresh_upload(string $uploadid, string $videoid): array {
+        $response = $this->post('/api/upload-refresh.php', [
+            'uploadid' => $uploadid,
+            'videoid' => $videoid,
+        ]);
+
+        foreach (['uploadid', 'videoid', 'libraryid', 'endpoint', 'signature', 'expiration'] as $key) {
+            if (!array_key_exists($key, $response)) {
+                throw new moodle_exception('whmcsgatewayinvalidresponse', 'mod_videoplayer');
+            }
+        }
+
+        $endpoint = trim((string)$response['endpoint']);
+        $endpointparts = parse_url($endpoint);
+        if (!$endpointparts
+            || strtolower((string)($endpointparts['scheme'] ?? '')) !== 'https'
+            || strtolower((string)($endpointparts['host'] ?? '')) !== 'video.bunnycdn.com'
+            || rtrim((string)($endpointparts['path'] ?? ''), '/') !== '/tusupload') {
+            throw new moodle_exception('whmcsgatewayinvaliduploadendpoint', 'mod_videoplayer');
+        }
+
+        $signature = strtolower(trim((string)$response['signature']));
+        $expiration = (int)$response['expiration'];
+        if (!preg_match('/^[a-f0-9]{64}$/', $signature)
+            || $expiration <= time()
+            || $expiration > time() + DAYSECS) {
+            throw new moodle_exception('whmcsgatewayinvalidresponse', 'mod_videoplayer');
+        }
+
+        return [
+            'uploadid' => clean_param((string)$response['uploadid'], PARAM_ALPHANUMEXT),
+            'videoid' => clean_param((string)$response['videoid'], PARAM_ALPHANUMEXT),
+            'libraryid' => trim((string)$response['libraryid']),
+            'endpoint' => $endpoint,
+            'signature' => $signature,
+            'expiration' => $expiration,
+        ];
+    }
+
+    /**
      * Confirm that the browser completed the TUS upload.
      *
      * @param string $uploadid WHMCS reservation identifier.
