@@ -155,8 +155,11 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
         var retry = 0;
 
         while (offset < file.size) {
-            if (Math.floor(Date.now() / 1000) >= Number(auth.expiration) - 30) {
-                throw new Error('The direct-upload authorisation expired before the upload completed');
+            if (Math.floor(Date.now() / 1000) >= Number(auth.expiration) - 90) {
+                if (typeof callbacks.refreshAuth !== 'function') {
+                    throw new Error('The direct-upload authorisation expired before the upload completed');
+                }
+                auth = await callbacks.refreshAuth(auth);
             }
 
             var end = Math.min(file.size, offset + CHUNK_SIZE);
@@ -343,6 +346,15 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
                     onProgress: setProgress,
                     onRetry: function() {
                         setStatus(strings.retrying || 'Resuming upload…', false);
+                    },
+                    refreshAuth: function(currentAuth) {
+                        setStatus(strings.reauthorizing || 'Refreshing secure upload authorization…', false);
+                        return callMoodle('mod_videoplayer_refresh_bunny_upload', {
+                            courseid: Number(config.courseid) || 0,
+                            cmid: Number(config.cmid) || 0,
+                            uploadid: currentAuth.uploadid,
+                            videoid: currentAuth.videoid
+                        });
                     }
                 });
 
