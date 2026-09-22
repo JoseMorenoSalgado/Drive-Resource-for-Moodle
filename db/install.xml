@@ -16,6 +16,10 @@
         <FIELD NAME="introformat" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0"/>
         <FIELD NAME="source" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="googledrive"/>
         <FIELD NAME="videourl" TYPE="char" LENGTH="1024" NOTNULL="true"/>
+        <FIELD NAME="providerassetid" TYPE="char" LENGTH="64" NOTNULL="false"/>
+        <FIELD NAME="provideruploadid" TYPE="char" LENGTH="64" NOTNULL="false"/>
+        <FIELD NAME="providerfilesize" TYPE="int" LENGTH="20" NOTNULL="true" DEFAULT="0"/>
+        <FIELD NAME="providerstatus" TYPE="char" LENGTH="32" NOTNULL="false"/>
         <FIELD NAME="type" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="auto"/>
         <FIELD NAME="displaymode" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="standard"/>
         <FIELD NAME="disabledownload" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1"/>
@@ -42,6 +46,7 @@
       <INDEXES>
         <INDEX NAME="course_idx" UNIQUE="false" FIELDS="course"/>
         <INDEX NAME="source_idx" UNIQUE="false" FIELDS="source"/>
+        <INDEX NAME="providerasset_idx" UNIQUE="false" FIELDS="providerassetid"/>
         <INDEX NAME="type_idx" UNIQUE="false" FIELDS="type"/>
       </INDEXES>
     </TABLE>
