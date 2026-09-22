@@ -42,6 +42,14 @@ $functions = [
         'type' => 'write',
         'ajax' => true,
     ],
+    'mod_videoplayer_refresh_bunny_upload' => [
+        'classname' => 'mod_videoplayer\\external\\refresh_bunny_upload',
+        'methodname' => 'execute',
+        'classpath' => '',
+        'description' => 'Refresh a WHMCS-gated direct Bunny Stream upload authorization.',
+        'type' => 'write',
+        'ajax' => true,
+    ],
     'mod_videoplayer_complete_bunny_upload' => [
         'classname' => 'mod_videoplayer\\external\\complete_bunny_upload',
         'methodname' => 'execute',
