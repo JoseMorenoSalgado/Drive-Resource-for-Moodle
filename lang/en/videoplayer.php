@@ -182,6 +182,7 @@ $string['bunnyuploadauthorizing'] = 'Checking service and storage quota…';
 $string['bunnyuploading'] = 'Uploading directly to video storage…';
 $string['bunnyuploadprocessing'] = 'Upload complete. The video is processing.';
 $string['bunnyuploadretrying'] = 'Connection interrupted. Resuming upload…';
+$string['bunnyuploadreauthorizing'] = 'Refreshing secure upload authorization…';
 $string['bunnyuploadfailed'] = 'The video upload could not be completed.';
 $string['bunnyuploadexisting'] = 'A Bunny Stream video is already linked to this activity.';
 $string['bunnyuploadquota'] = 'Storage after upload: {$a->projected} / {$a->included}.';
