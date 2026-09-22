@@ -182,6 +182,7 @@ $string['bunnyuploadauthorizing'] = 'Verificando servicio y cuota de almacenamie
 $string['bunnyuploading'] = 'Subiendo directamente al almacenamiento de video…';
 $string['bunnyuploadprocessing'] = 'Carga completada. El video se está procesando.';
 $string['bunnyuploadretrying'] = 'Conexión interrumpida. Reanudando la carga…';
+$string['bunnyuploadreauthorizing'] = 'Renovando la autorización segura de carga…';
 $string['bunnyuploadfailed'] = 'No se pudo completar la carga del video.';
 $string['bunnyuploadexisting'] = 'Esta actividad ya tiene un video de Bunny Stream vinculado.';
 $string['bunnyuploadquota'] = 'Almacenamiento después de la carga: {$a->projected} / {$a->included}.';
