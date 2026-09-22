@@ -1,6 +1,6 @@
 <?php
 
-namespace WHMCS\Module\Addon\Driveresource_gateway;
+namespace WHMCS\Module\Addon\DriveresourceGateway;
 
 /**
  * JSON API response helper.
