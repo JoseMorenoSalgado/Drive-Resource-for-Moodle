@@ -121,7 +121,7 @@ All notable changes to Drive Resource are documented here. The Moodle component 
 - Added browser-to-Bunny direct TUS uploads so video bytes bypass Moodle PHP and WHMCS.
 - Added bounded chunk retry/resume and renewal of short-lived TUS authorization for long uploads.
 - Added WHMCS provisioning lifecycle: create, suspend, unsuspend, terminate and package change.
-- Added 7 GiB default included-storage policy, atomic upload reservations, optional soft overage and a `video_storage_gb` WHMCS snapshot usage metric.
+- Added 7 GB default included-storage policy, atomic upload reservations, optional soft overage and a `video_storage_gb` WHMCS snapshot usage metric.
 - Added provider storage reconciliation using Bunny `storageSize`, plus cleanup of abandoned uploads and retention-delayed deletion of unreferenced assets.
 - Added Moodle provider metadata fields, lifecycle tasks, capability checks and server-side WHMCS binding/release.
 - Added Backup & Restore handling that never exports transient upload reservations and revalidates restored Bunny asset ownership through WHMCS.
