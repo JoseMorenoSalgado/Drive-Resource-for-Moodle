@@ -146,6 +146,7 @@ class mod_videoplayer_mod_form extends moodleform_mod {
                 'uploading' => get_string('bunnyuploading', 'mod_videoplayer'),
                 'processing' => get_string('bunnyuploadprocessing', 'mod_videoplayer'),
                 'retrying' => get_string('bunnyuploadretrying', 'mod_videoplayer'),
+                'reauthorizing' => get_string('bunnyuploadreauthorizing', 'mod_videoplayer'),
                 'failed' => get_string('bunnyuploadfailed', 'mod_videoplayer'),
                 'existing' => get_string('bunnyuploadexisting', 'mod_videoplayer'),
                 'quota' => get_string('bunnyuploadquota', 'mod_videoplayer'),
