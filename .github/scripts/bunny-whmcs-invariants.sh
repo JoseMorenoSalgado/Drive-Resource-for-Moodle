@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+fail() {
+    echo "::error::$1"
+    exit 1
+}
+
+require_file() {
+    [[ -s "$1" ]] || fail "Required Bunny/WHMCS file is missing or empty: $1"
+}
+
+echo "Checking Bunny/WHMCS required files..."
+require_file "classes/local/provider/bunny_stream.php"
+require_file "classes/local/whmcs_gateway_client.php"
+require_file "classes/external/create_bunny_upload.php"
+require_file "classes/external/refresh_bunny_upload.php"
+require_file "classes/external/complete_bunny_upload.php"
+require_file "amd/src/bunnyupload.js"
+require_file "amd/build/bunnyupload.min.js"
+require_file "integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php"
+require_file "integrations/whmcs/modules/addons/driveresource_gateway/lib/RequestAuthenticator.php"
+require_file "integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php"
+require_file "integrations/whmcs/modules/servers/driveresource/driveresource.php"
+require_file "integrations/whmcs/modules/servers/driveresource/lib/MetricsProvider.php"
+
+echo "Checking fresh-install and upgrade schema parity..."
+grep -q 'NAME="providerassetid"' db/install.xml || fail "providerassetid is missing from install.xml."
+grep -q 'NAME="provideruploadid"' db/install.xml || fail "provideruploadid is missing from install.xml."
+grep -q 'NAME="providerfilesize"' db/install.xml || fail "providerfilesize is missing from install.xml."
+grep -q 'NAME="providerstatus"' db/install.xml || fail "providerstatus is missing from install.xml."
+grep -q 'NAME="providerasset_idx"' db/install.xml || fail "providerasset_idx is missing from install.xml."
+grep -q '2026092103' db/upgrade.php || fail "Bunny provider upgrade savepoint is missing."
+
+echo "Checking Moodle/Bunny secret boundary..."
+if grep -RniE 'AccessKey:|bunny_api_key|bunny_token_key' classes amd db lib.php mod_form.php settings.php view.php templates; then
+    fail "A Bunny management credential identifier leaked into Moodle runtime code."
+fi
+grep -q "Bunny Stream API credentials remain exclusively in WHMCS" lang/en/videoplayer.php     || fail "Moodle secret-boundary language invariant is missing."
+grep -q "video\.bunnycdn\.com" classes/local/whmcs_gateway_client.php     || fail "Moodle no longer pins the TUS upload host."
+if grep -Rni '/library/' classes amd/src amd/build; then
+    fail "Moodle runtime contains a Bunny management API path."
+fi
+
+echo "Checking WHMCS-only Bunny management credentials..."
+grep -q "'bunny_api_key'" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "WHMCS addon no longer owns the Bunny API key setting."
+grep -q "'AccessKey: '" integrations/whmcs/modules/addons/driveresource_gateway/lib/BunnyClient.php     || fail "WHMCS Bunny API client authentication is missing."
+grep -q 'hash_hmac' integrations/whmcs/modules/addons/driveresource_gateway/lib/RequestAuthenticator.php     || fail "Moodle-to-WHMCS HMAC verification is missing."
+grep -q 'mod_driveresource_nonces' integrations/whmcs/modules/addons/driveresource_gateway/lib/RequestAuthenticator.php     || fail "Replay nonce protection is missing."
+
+echo "Checking quota and overage controls..."
+grep -q 'reserved_bytes' integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "Concurrent upload reservation accounting is missing."
+grep -q 'overage_allowed' integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "WHMCS plan overage policy is missing."
+grep -q "'video_storage_gb'" integrations/whmcs/modules/servers/driveresource/lib/MetricsProvider.php     || fail "WHMCS storage usage metric is missing."
+grep -q 'TYPE_SNAPSHOT' integrations/whmcs/modules/servers/driveresource/lib/MetricsProvider.php     || fail "Storage usage must remain a snapshot metric."
+
+echo "Checking backup/restore reservation policy..."
+if grep -q "'provideruploadid'" backup/moodle2/backup_videoplayer_stepslib.php; then
+    fail "Transient WHMCS upload reservations must not be exported in Moodle backups."
+fi
+grep -q 'reconcile_bunny_asset' backup/moodle2/restore_videoplayer_stepslib.php     || fail "Restored Bunny assets are not reconciled through WHMCS."
+
+echo "Checking direct-upload implementation..."
+grep -q "AuthorizationSignature" amd/src/bunnyupload.js     || fail "Bunny presigned TUS signature header is missing."
+grep -q "mod_videoplayer_refresh_bunny_upload" amd/src/bunnyupload.js     || fail "Long-running TUS authorization refresh is missing."
+grep -q "credentials: 'omit'" amd/src/bunnyupload.js     || fail "Direct Bunny upload must not send Moodle cookies cross-origin."
+
+echo "Bunny/WHMCS integration invariants: PASS"
