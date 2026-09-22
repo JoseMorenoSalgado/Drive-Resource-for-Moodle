@@ -25,6 +25,7 @@
 
 use mod_videoplayer\local\drive;
 use mod_videoplayer\local\protected_stream;
+use mod_videoplayer\local\provider\bunny_stream;
 
 /**
  * File area used for protected local PDF resources.
@@ -129,7 +130,7 @@ function videoplayer_queue_pdf_precache(int $instanceid): void {
  * @return stdClass
  */
 function videoplayer_normalise_instance_data(stdClass $data): stdClass {
-    $allowedsources = [drive::SOURCE_GOOGLEDRIVE, drive::SOURCE_LOCALPDF];
+    $allowedsources = [drive::SOURCE_GOOGLEDRIVE, bunny_stream::SOURCE, drive::SOURCE_LOCALPDF];
     $source = clean_param($data->source ?? drive::SOURCE_GOOGLEDRIVE, PARAM_ALPHANUMEXT);
     $data->source = in_array($source, $allowedsources, true) ? $source : drive::SOURCE_GOOGLEDRIVE;
 
@@ -140,10 +141,27 @@ function videoplayer_normalise_instance_data(stdClass $data): stdClass {
     if ($data->source === drive::SOURCE_LOCALPDF) {
         $data->type = 'pdf';
         $data->videourl = '';
+        $data->providerassetid = null;
+        $data->provideruploadid = null;
+        $data->providerfilesize = 0;
+        $data->providerstatus = null;
+        $data->displaymode = 'standard';
+        $data->disabledownload = 1;
+    } else if ($data->source === bunny_stream::SOURCE) {
+        $data->type = 'video';
+        $data->videourl = '';
+        $data->providerassetid = trim((string)($data->providerassetid ?? ''));
+        $data->provideruploadid = trim((string)($data->provideruploadid ?? ''));
+        $data->providerfilesize = max(0, (int)($data->providerfilesize ?? 0));
+        $data->providerstatus = bunny_stream::normalise_status((string)($data->providerstatus ?? ''));
         $data->displaymode = 'standard';
         $data->disabledownload = 1;
     } else {
         $data->videourl = trim((string)($data->videourl ?? ''));
+        $data->providerassetid = null;
+        $data->provideruploadid = null;
+        $data->providerfilesize = 0;
+        $data->providerstatus = null;
         $data->displaymode = 'standard';
     }
 
@@ -190,6 +208,54 @@ function videoplayer_save_localpdf_file(stdClass $data): void {
 }
 
 /**
+ * Queue server-to-server binding of a Bunny asset to this Moodle activity.
+ *
+ * @param stdClass $instance Persisted activity instance.
+ * @return void
+ */
+function videoplayer_queue_bunny_bind(stdClass $instance): void {
+    if (($instance->source ?? '') !== bunny_stream::SOURCE
+        || !bunny_stream::is_valid_asset_id((string)($instance->providerassetid ?? ''))
+        || !bunny_stream::is_valid_upload_id((string)($instance->provideruploadid ?? ''))) {
+        return;
+    }
+
+    $task = new \mod_videoplayer\task\bind_bunny_asset();
+    $task->set_component('mod_videoplayer');
+    $task->set_custom_data([
+        'instanceid' => (int)$instance->id,
+        'courseid' => (int)$instance->course,
+        'videoid' => (string)$instance->providerassetid,
+        'uploadid' => (string)$instance->provideruploadid,
+    ]);
+    \core\task\manager::queue_adhoc_task($task, true);
+}
+
+/**
+ * Queue release of a Bunny asset through WHMCS.
+ *
+ * No destructive Bunny API operation runs from Moodle. WHMCS applies reference
+ * counting and the configured retention policy.
+ *
+ * @param stdClass $instance Persisted activity instance.
+ * @return void
+ */
+function videoplayer_queue_bunny_release(stdClass $instance): void {
+    if (($instance->source ?? '') !== bunny_stream::SOURCE
+        || !bunny_stream::is_valid_asset_id((string)($instance->providerassetid ?? ''))) {
+        return;
+    }
+
+    $task = new \mod_videoplayer\task\release_bunny_asset();
+    $task->set_component('mod_videoplayer');
+    $task->set_custom_data([
+        'instanceid' => (int)$instance->id,
+        'videoid' => (string)$instance->providerassetid,
+    ]);
+    \core\task\manager::queue_adhoc_task($task, true);
+}
+
+/**
  * Add a module instance.
  *
  * @param stdClass $data Submitted instance data.
@@ -204,8 +270,10 @@ function videoplayer_add_instance($data, $mform = null) {
     $data->timemodified = $data->timecreated;
 
     $id = (int)$DB->insert_record('videoplayer', $data);
+    $data->id = $id;
     videoplayer_save_localpdf_file($data);
     videoplayer_queue_pdf_precache($id);
+    videoplayer_queue_bunny_bind($data);
 
     return $id;
 }
@@ -250,6 +318,20 @@ function videoplayer_update_instance($data, $mform = null) {
         videoplayer_invalidate_instance_pdf_cache($data);
         videoplayer_save_localpdf_file($data);
         videoplayer_queue_pdf_precache($data->id);
+
+        $oldasset = (string)($oldinstance->providerassetid ?? '');
+        $newasset = (string)($data->providerassetid ?? '');
+        $oldisbunny = ($oldinstance->source ?? '') === bunny_stream::SOURCE;
+        $newisbunny = ($data->source ?? '') === bunny_stream::SOURCE;
+
+        if ($oldisbunny && (!$newisbunny || $oldasset !== $newasset)) {
+            videoplayer_queue_bunny_release($oldinstance);
+        }
+        if ($newisbunny && (!$oldisbunny
+                || $oldasset !== $newasset
+                || (string)($oldinstance->provideruploadid ?? '') !== (string)($data->provideruploadid ?? ''))) {
+            videoplayer_queue_bunny_bind($data);
+        }
     }
 
     return $result;
@@ -276,6 +358,7 @@ function videoplayer_delete_instance($id) {
     }
 
     videoplayer_invalidate_instance_pdf_cache($instance);
+    videoplayer_queue_bunny_release($instance);
 
     $transaction = $DB->start_delegated_transaction();
     $DB->delete_records('videoplayer_rewards', ['videoplayerid' => $instance->id]);
