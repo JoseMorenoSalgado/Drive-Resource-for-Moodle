@@ -153,6 +153,25 @@ final class whmcs_gateway_client {
     }
 
     /**
+     * Reconcile an externally referenced provider asset after restore.
+     *
+     * WHMCS must verify that the video belongs to this service before adding
+     * a reference. This protects cross-tenant backup restores.
+     *
+     * @param string $videoid Bunny video GUID.
+     * @param int $instanceid Moodle activity instance id.
+     * @param int $courseid Moodle course id.
+     * @return array Gateway status.
+     */
+    public function reconcile_asset(string $videoid, int $instanceid, int $courseid): array {
+        return $this->post('/api/asset-reconcile.php', [
+            'videoid' => $videoid,
+            'instanceid' => $instanceid,
+            'courseid' => $courseid,
+        ]);
+    }
+
+    /**
      * Release a provider asset from a Moodle activity.
      *
      * WHMCS owns retention and any eventual destructive Bunny operation.
