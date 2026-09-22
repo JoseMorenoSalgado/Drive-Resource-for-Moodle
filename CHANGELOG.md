@@ -111,3 +111,19 @@ All notable changes to Drive Resource are documented here. The Moodle component 
 
 - Declared Moodle 4.5 LTS compatibility (`requires = 2024100700`, `supported = [405, 405]`).
 - Added a safe upgrade savepoint for the Moodle 4.5 compatibility build.
+
+## 1.2.0-beta1-m45 - 2026-09-21
+
+### Bunny Stream / WHMCS ingestion foundation
+
+- Added Bunny Stream as a first-class managed video source without placing Bunny API credentials in Moodle.
+- Added a WHMCS media gateway boundary with service-scoped HMAC authentication, exact Moodle-site binding, timestamp validation and replay-nonce protection.
+- Added browser-to-Bunny direct TUS uploads so video bytes bypass Moodle PHP and WHMCS.
+- Added bounded chunk retry/resume and renewal of short-lived TUS authorization for long uploads.
+- Added WHMCS provisioning lifecycle: create, suspend, unsuspend, terminate and package change.
+- Added 7 GiB default included-storage policy, atomic upload reservations, optional soft overage and a `video_storage_gb` WHMCS snapshot usage metric.
+- Added provider storage reconciliation using Bunny `storageSize`, plus cleanup of abandoned uploads and retention-delayed deletion of unreferenced assets.
+- Added Moodle provider metadata fields, lifecycle tasks, capability checks and server-side WHMCS binding/release.
+- Added Backup & Restore handling that never exports transient upload reservations and revalidates restored Bunny asset ownership through WHMCS.
+- Added a dedicated Bunny/WHMCS CI invariant gate.
+- Bunny learner playback remains disabled in beta1 until the WHMCS-gated HLS playback contract is implemented and device-tested.
