@@ -57,7 +57,7 @@ function driveresource_gateway_config(): array
                 'FriendlyName' => 'Direct Upload TTL',
                 'Type' => 'text',
                 'Size' => '10',
-                'Default' => '3600',
+                'Default' => '21600',
                 'Description' => 'Lifetime in seconds for a direct-upload signature (300–86400).',
             ],
             'clock_skew' => [
@@ -66,6 +66,13 @@ function driveresource_gateway_config(): array
                 'Size' => '10',
                 'Default' => '300',
                 'Description' => 'Maximum accepted Moodle request timestamp drift in seconds (60–900).',
+            ],
+            'unbound_grace_hours' => [
+                'FriendlyName' => 'Unbound Upload Grace',
+                'Type' => 'text',
+                'Size' => '10',
+                'Default' => '24',
+                'Description' => 'Hours to retain a completed upload that was never saved into a Moodle activity.',
             ],
         ],
     ];
