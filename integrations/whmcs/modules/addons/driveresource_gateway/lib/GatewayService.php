@@ -138,6 +138,51 @@ final class GatewayService
     }
 
     /**
+     * Renew a short-lived TUS signature for the same reserved Bunny video.
+     *
+     * This is used by long-running/resumed uploads. It never creates another
+     * video and therefore does not reserve quota twice.
+     *
+     * @param object $service Authenticated service row.
+     * @param array $payload Request body.
+     * @return array
+     */
+    public function refreshUploadAuthorization(object $service, array $payload): array
+    {
+        $uploadId = strtolower(trim((string) ($payload['uploadid'] ?? '')));
+        $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
+        $upload = $this->requireUpload((int) $service->service_id, $uploadId, $videoId);
+
+        if (!in_array((string) $upload->status, ['authorized'], true)) {
+            throw new GatewayException('This upload can no longer refresh its direct-upload authorization.', 409);
+        }
+
+        try {
+            $this->bunny->getVideo($videoId);
+        } catch (Throwable $exception) {
+            throw new GatewayException('Bunny Stream could not verify the upload target.', 502);
+        }
+
+        $expiration = time() + Config::tusTtl();
+        Capsule::table('mod_driveresource_uploads')
+            ->where('service_id', (int) $service->service_id)
+            ->where('upload_id', $uploadId)
+            ->update([
+                'expires_at' => $expiration,
+                'updated_at' => time(),
+            ]);
+
+        return [
+            'uploadid' => $uploadId,
+            'videoid' => $videoId,
+            'libraryid' => (string) $this->bunny->libraryId(),
+            'endpoint' => 'https://video.bunnycdn.com/tusupload',
+            'signature' => $this->bunny->tusSignature($videoId, $expiration),
+            'expiration' => $expiration,
+        ];
+    }
+
+    /**
      * Verify the uploaded provider asset and convert reservation into usage.
      *
      * @param object $service Authenticated service row.
@@ -164,7 +209,11 @@ final class GatewayService
         $providerBytes = max(0, (int) ($video['storageSize'] ?? 0));
         $accountedBytes = $providerBytes > 0 ? $providerBytes : (int) $upload->source_size;
         $providerStatus = (int) ($video['status'] ?? 0);
-        $status = $providerStatus === 4 ? 'ready' : 'processing';
+        $encodeProgress = max(0, (int) ($video['encodeProgress'] ?? 0));
+        $availableResolutions = trim((string) ($video['availableResolutions'] ?? ''));
+        $status = ($providerStatus === 4 || ($encodeProgress >= 100 && $availableResolutions !== ''))
+            ? 'ready'
+            : 'processing';
         $now = time();
 
         Capsule::connection()->transaction(function () use (
@@ -209,6 +258,7 @@ final class GatewayService
                     'accounted_bytes' => $accountedBytes,
                     'status' => $status,
                     'completed_at' => $now,
+                    'delete_after' => $now + Config::unboundGraceSeconds(),
                     'updated_at' => $now,
                 ]);
         });
