@@ -282,6 +282,19 @@ final class GatewayService
         $courseId = (int) ($payload['courseid'] ?? 0);
 
         $upload = $this->requireUpload((int) $service->service_id, $uploadId, $videoId);
+
+        // The browser may have finished the TUS transfer while the Moodle ->
+        // WHMCS completion callback was interrupted. Recover server-side by
+        // verifying the provider object and finalising the reservation once.
+        if ((string) $upload->status === 'authorized') {
+            $this->completeUpload($service, [
+                'uploadid' => $uploadId,
+                'videoid' => $videoId,
+                'filesize' => (int) $upload->source_size,
+            ]);
+            $upload = $this->requireUpload((int) $service->service_id, $uploadId, $videoId);
+        }
+
         if ($instanceId <= 0 || !in_array((string) $upload->status, ['processing', 'ready', 'bound'], true)) {
             throw new GatewayException('Video is not ready to be bound to a Moodle activity.', 409);
         }
