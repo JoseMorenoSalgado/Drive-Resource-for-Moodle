@@ -58,7 +58,7 @@ final class Config
      */
     public static function tusTtl(): int
     {
-        $value = (int) (Setting::getSettingValueForModule('driveresource_gateway', 'tus_ttl') ?: 3600);
+        $value = (int) (Setting::getSettingValueForModule('driveresource_gateway', 'tus_ttl') ?: 21600);
         return max(300, min(86400, $value));
     }
 
@@ -71,5 +71,20 @@ final class Config
     {
         $value = (int) (Setting::getSettingValueForModule('driveresource_gateway', 'clock_skew') ?: 300);
         return max(60, min(900, $value));
+    }
+    /**
+     * Grace period for a completed upload that has not been bound to Moodle.
+     *
+     * @return int
+     */
+    public static function unboundGraceSeconds(): int
+    {
+        $hours = (int) (Setting::getSettingValueForModule(
+            'driveresource_gateway',
+            'unbound_grace_hours'
+        ) ?: 24);
+        $hours = max(1, min(168, $hours));
+
+        return $hours * 3600;
     }
 }
