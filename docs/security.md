@@ -105,3 +105,21 @@ Resource typing is also centralized before protected URL construction so differe
 ## Completion-form hotfix security impact
 
 RC19 changes only the Moodle form field-name suffix API used by custom completion controls. It does not weaken authorization, protected streaming, URL confidentiality or SSRF controls. Completion thresholds remain server-validated and continue to feed Moodle Completion API through the existing progress service.
+
+## Bunny Stream credential boundary
+
+The Bunny Stream management API key and Bunny playback signing key live **only in WHMCS**. They are not Moodle settings, activity fields, JavaScript configuration or browser storage.
+
+Moodle authenticates to the WHMCS media gateway using a service-scoped token. Every gateway request is additionally bound to the exact configured Moodle site and signed with HMAC-SHA256 over a timestamp, nonce and request-body hash. WHMCS rejects stale requests and records single-use nonces to prevent replay.
+
+The teacher browser receives only a short-lived Bunny TUS authorization scoped to a single library/video/expiration. It does not receive the Bunny management API key. The browser uploader uses `credentials: omit` for Bunny requests and validates that the TUS upload host is `video.bunnycdn.com`.
+
+### Quota abuse controls
+
+WHMCS validates that the underlying product service is Active before authorizing an upload. Quota is reserved transactionally before the provider upload is created. Pending reservations are included in the projected usage calculation, preventing parallel uploads from independently consuming the same remaining allowance.
+
+Completed-but-unsaved uploads receive a bounded unbound grace period. Abandoned reservations and orphaned provider assets are reconciled by WHMCS cron. Deletion is delayed by retention policy after the last Moodle reference is released.
+
+### Backup and tenant isolation
+
+A Moodle backup may contain a Bunny asset GUID because the restored course needs to reference the existing managed asset. It must not contain the transient WHMCS upload reservation. During restore, the GUID is unusable until WHMCS confirms that it belongs to the same service tenant. Cross-tenant GUID reuse is rejected.
