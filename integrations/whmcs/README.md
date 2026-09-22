@@ -23,7 +23,7 @@ Bunny management credentials must be configured only in the WHMCS addon. Moodle 
 
 The provisioning module defaults to:
 
-- 7 GiB included video storage;
+- 7 GB included video storage;
 - soft overage enabled;
 - 30-day retention after the last Moodle reference is released.
 
