@@ -17,6 +17,7 @@
 namespace mod_videoplayer\local\resource;
 
 use mod_videoplayer\local\drive;
+use mod_videoplayer\local\provider\bunny_stream;
 
 /**
  * Normalised, browser-safe description of a Drive Resource instance.
@@ -95,6 +96,17 @@ final class resource_descriptor {
             );
         }
 
+        if ($source === bunny_stream::SOURCE) {
+            return new self(
+                $instance,
+                $context,
+                bunny_stream::SOURCE,
+                'video',
+                null,
+                null
+            );
+        }
+
         $source = drive::SOURCE_GOOGLEDRIVE;
         $url = trim((string)($instance->videourl ?? ''));
         $fileid = drive::is_supported_url($url) ? drive::extract_file_id($url) : null;
@@ -110,6 +122,36 @@ final class resource_descriptor {
      */
     public function source(): string {
         return $this->source;
+    }
+
+    /**
+     * Whether this resource is managed by Bunny Stream through WHMCS.
+     *
+     * @return bool
+     */
+    public function is_bunny_stream(): bool {
+        return $this->source === bunny_stream::SOURCE;
+    }
+
+    /**
+     * Managed provider asset identifier.
+     *
+     * This value is server-side state and is not exported to learner templates.
+     *
+     * @return string|null
+     */
+    public function provider_asset_id(): ?string {
+        $assetid = trim((string)($this->instance->providerassetid ?? ''));
+        return bunny_stream::is_valid_asset_id($assetid) ? $assetid : null;
+    }
+
+    /**
+     * Managed provider processing status.
+     *
+     * @return string
+     */
+    public function provider_status(): string {
+        return bunny_stream::normalise_status((string)($this->instance->providerstatus ?? ''));
     }
 
     /**
@@ -186,6 +228,9 @@ final class resource_descriptor {
         if ($this->source === drive::SOURCE_LOCALPDF) {
             return $this->localfile !== null;
         }
+        if ($this->source === bunny_stream::SOURCE) {
+            return $this->provider_asset_id() !== null;
+        }
         return $this->fileid !== null && $this->fileid !== '';
     }
 
@@ -197,6 +242,10 @@ final class resource_descriptor {
      * @return \moodle_url
      */
     public function protected_url(int $cmid, ?string $streammode = null): \moodle_url {
+        if ($this->source === bunny_stream::SOURCE) {
+            throw new \coding_exception('Bunny Stream assets do not use the Google Drive protected endpoint.');
+        }
+
         $params = [
             'id' => $cmid,
             'v' => (int)($this->instance->timemodified ?? time()),
