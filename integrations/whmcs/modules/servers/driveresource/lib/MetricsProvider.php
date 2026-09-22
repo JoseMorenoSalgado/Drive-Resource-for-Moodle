@@ -66,7 +66,16 @@ final class MetricsProvider implements ProviderInterface
      */
     public function tenantUsage($tenant)
     {
-        $serviceId = (int) ($this->moduleParams['serviceid'] ?? 0);
+        $tenant = (string) $tenant;
+        $serviceId = 0;
+        if (preg_match('/^dr-(\d+)$/', $tenant, $matches)) {
+            $serviceId = (int) $matches[1];
+        }
+
+        if ($serviceId <= 0) {
+            return $this->withStorage(0);
+        }
+
         $row = Capsule::table('mod_driveresource_services')
             ->where('service_id', $serviceId)
             ->first();
@@ -82,7 +91,7 @@ final class MetricsProvider implements ProviderInterface
      */
     private function withStorage(int $bytes): array
     {
-        $gb = max(0, $bytes) / 1073741824;
+        $gb = max(0, $bytes) / 1000000000;
 
         return [
             $this->metrics()[0]->withUsage(new Usage($gb)),
