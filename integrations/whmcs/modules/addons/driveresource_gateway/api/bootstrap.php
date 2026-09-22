@@ -1,9 +1,9 @@
 <?php
 
-use WHMCS\Module\Addon\Driveresource_gateway\GatewayException;
-use WHMCS\Module\Addon\Driveresource_gateway\GatewayService;
-use WHMCS\Module\Addon\Driveresource_gateway\JsonResponse;
-use WHMCS\Module\Addon\Driveresource_gateway\RequestAuthenticator;
+use WHMCS\Module\Addon\DriveresourceGateway\GatewayException;
+use WHMCS\Module\Addon\DriveresourceGateway\GatewayService;
+use WHMCS\Module\Addon\DriveresourceGateway\JsonResponse;
+use WHMCS\Module\Addon\DriveresourceGateway\RequestAuthenticator;
 
 define('CLIENTAREA', true);
 require_once dirname(__DIR__, 4) . '/init.php';
