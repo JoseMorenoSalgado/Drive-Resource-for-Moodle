@@ -39,7 +39,7 @@ final class custom_completion_test extends \advanced_testcase {
      * @param string $rule Rule name.
      * @param int $threshold Configured threshold.
      * @param float|false $percentage Saved learner percentage.
-     * @param int|null $expected Expected state.
+     * @param string|null $expected Expected semantic state.
      * @param string|null $exception Expected exception class.
      * @return void
      * @dataProvider state_provider
@@ -49,7 +49,7 @@ final class custom_completion_test extends \advanced_testcase {
         string $rule,
         int $threshold,
         float|false $percentage,
-        ?int $expected,
+        ?string $expected,
         ?string $exception
     ): void {
         global $DB;
@@ -84,7 +84,14 @@ final class custom_completion_test extends \advanced_testcase {
             ->willReturn($percentage);
 
         $completion = new custom_completion($cm, 7);
-        $this->assertSame($expected, $completion->get_state($rule));
+        $actual = $completion->get_state($rule);
+
+        $expectedstate = match ($expected) {
+            'incomplete' => COMPLETION_INCOMPLETE,
+            'complete' => COMPLETION_COMPLETE,
+            default => null,
+        };
+        $this->assertSame($expectedstate, $actual);
     }
 
     /**
@@ -112,28 +119,28 @@ final class custom_completion_test extends \advanced_testcase {
                 custom_completion::RULE_PROGRESS,
                 80,
                 false,
-                \COMPLETION_INCOMPLETE,
+                'incomplete',
                 null,
             ],
             'below threshold' => [
                 custom_completion::RULE_PROGRESS,
                 80,
                 79.99,
-                \COMPLETION_INCOMPLETE,
+                'incomplete',
                 null,
             ],
             'at threshold' => [
                 custom_completion::RULE_PROGRESS,
                 80,
                 80.0,
-                \COMPLETION_COMPLETE,
+                'complete',
                 null,
             ],
             'above threshold' => [
                 custom_completion::RULE_PROGRESS,
                 80,
                 100.0,
-                \COMPLETION_COMPLETE,
+                'complete',
                 null,
             ],
         ];
