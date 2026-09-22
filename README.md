@@ -218,7 +218,7 @@ Teacher browser
 
 Video bytes therefore do not traverse Moodle PHP or WHMCS. Large uploads are chunked and resumable, and long uploads can renew the short-lived TUS authorization without creating a second Bunny asset or reserving quota twice.
 
-The commercial quota model is controlled in WHMCS. The provisioning module defaults to **7 GiB included storage**, supports soft overage, and exposes a `video_storage_gb` snapshot metric for WHMCS Usage Billing. The gateway reserves concurrent uploads before issuing a Bunny authorization so simultaneous teachers cannot overrun quota based on stale usage.
+The commercial quota model is controlled in WHMCS. The provisioning module defaults to **7 GB included storage**, supports soft overage, and exposes a `video_storage_gb` snapshot metric for WHMCS Usage Billing. The gateway reserves concurrent uploads before issuing a Bunny authorization so simultaneous teachers cannot overrun quota based on stale usage.
 
 This beta currently covers **provider provisioning, direct upload, accounting, lifecycle binding/release, Backup & Restore reconciliation, and retention**. Learner-facing Bunny HLS playback is intentionally not enabled yet; a Bunny-backed activity displays a processing/provider placeholder until the secure playback phase is completed and validated.
 
