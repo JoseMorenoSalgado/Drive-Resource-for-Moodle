@@ -6,8 +6,6 @@ on:
     branches:
       - 'feature/bunny-whmcs-*'
   pull_request:
-    branches:
-      - main
 
 permissions:
   contents: read
