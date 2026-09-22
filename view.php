@@ -66,7 +66,10 @@ if (!isguestuser()) {
 }
 
 if ($resource->is_available()) {
-    if ($resource->is_pdf_like()) {
+    if ($resource->is_bunny_stream()) {
+        // Provider playback is activated only after WHMCS-gated playback
+        // authorisation is implemented; never fall back to Drive streaming.
+    } else if ($resource->is_pdf_like()) {
         $PAGE->requires->js_call_amd('mod_videoplayer/pdfviewer', 'init');
     } else if ($resource->is_video()) {
         $PAGE->requires->js_call_amd('mod_videoplayer/nativevideo', 'init');
