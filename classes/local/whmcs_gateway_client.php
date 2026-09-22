@@ -1,5 +1,18 @@
 <?php
 // This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
  * WHMCS media gateway client.
@@ -15,8 +28,6 @@
  */
 
 namespace mod_videoplayer\local;
-
-defined('MOODLE_INTERNAL') || die();
 
 use moodle_exception;
 
@@ -52,7 +63,12 @@ final class whmcs_gateway_client {
         }
 
         $parts = parse_url($this->baseurl);
-        if (!$parts || strtolower((string)($parts['scheme'] ?? '')) !== 'https' || !empty($parts['user']) || !empty($parts['pass'])) {
+        if (
+            !$parts
+            || strtolower((string)($parts['scheme'] ?? '')) !== 'https'
+            || !empty($parts['user'])
+            || !empty($parts['pass'])
+        ) {
             throw new moodle_exception('whmcsgatewayhttpsrequired', 'mod_videoplayer');
         }
     }
@@ -79,22 +95,26 @@ final class whmcs_gateway_client {
         $signature = strtolower(trim((string)$response['signature']));
         $expiration = (int)$response['expiration'];
 
-        if (!preg_match('/^[a-f0-9-]{32,64}$/i', $videoid)
+        if (
+            !preg_match('/^[a-f0-9-]{32,64}$/i', $videoid)
             || !preg_match('/^[a-f0-9-]{20,64}$/i', $uploadid)
             || !preg_match('/^\d{1,20}$/', $libraryid)
             || !preg_match('/^[a-f0-9]{64}$/', $signature)
             || $expiration <= time()
-            || $expiration > time() + DAYSECS) {
+            || $expiration > time() + DAYSECS
+        ) {
             throw new moodle_exception('whmcsgatewayinvalidresponse', 'mod_videoplayer');
         }
 
         $endpointparts = parse_url($endpoint);
-        if (!$endpointparts
+        if (
+            !$endpointparts
             || strtolower((string)($endpointparts['scheme'] ?? '')) !== 'https'
             || strtolower((string)($endpointparts['host'] ?? '')) !== 'video.bunnycdn.com'
             || rtrim((string)($endpointparts['path'] ?? ''), '/') !== '/tusupload'
             || !empty($endpointparts['user'])
-            || !empty($endpointparts['pass'])) {
+            || !empty($endpointparts['pass'])
+        ) {
             throw new moodle_exception('whmcsgatewayinvaliduploadendpoint', 'mod_videoplayer');
         }
 
@@ -139,18 +159,22 @@ final class whmcs_gateway_client {
 
         $endpoint = trim((string)$response['endpoint']);
         $endpointparts = parse_url($endpoint);
-        if (!$endpointparts
+        if (
+            !$endpointparts
             || strtolower((string)($endpointparts['scheme'] ?? '')) !== 'https'
             || strtolower((string)($endpointparts['host'] ?? '')) !== 'video.bunnycdn.com'
-            || rtrim((string)($endpointparts['path'] ?? ''), '/') !== '/tusupload') {
+            || rtrim((string)($endpointparts['path'] ?? ''), '/') !== '/tusupload'
+        ) {
             throw new moodle_exception('whmcsgatewayinvaliduploadendpoint', 'mod_videoplayer');
         }
 
         $signature = strtolower(trim((string)$response['signature']));
         $expiration = (int)$response['expiration'];
-        if (!preg_match('/^[a-f0-9]{64}$/', $signature)
+        if (
+            !preg_match('/^[a-f0-9]{64}$/', $signature)
             || $expiration <= time()
-            || $expiration > time() + DAYSECS) {
+            || $expiration > time() + DAYSECS
+        ) {
             throw new moodle_exception('whmcsgatewayinvalidresponse', 'mod_videoplayer');
         }
 

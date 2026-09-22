@@ -309,9 +309,11 @@ class mod_videoplayer_mod_form extends moodleform_mod {
             $isexistingboundasset = bunny_stream::is_valid_asset_id($existingassetid)
                 && hash_equals($existingassetid, $assetid);
 
-            if (!bunny_stream::is_valid_asset_id($assetid)
+            if (
+                !bunny_stream::is_valid_asset_id($assetid)
                 || (!$isexistingboundasset && !bunny_stream::is_valid_upload_id($uploadid))
-                || $status === '') {
+                || $status === ''
+            ) {
                 $errors['bunnyuploadpanel'] = get_string('bunnyuploadrequired', 'mod_videoplayer');
             }
         }
