@@ -214,9 +214,11 @@ function videoplayer_save_localpdf_file(stdClass $data): void {
  * @return void
  */
 function videoplayer_queue_bunny_bind(stdClass $instance): void {
-    if (($instance->source ?? '') !== bunny_stream::SOURCE
+    if (
+        ($instance->source ?? '') !== bunny_stream::SOURCE
         || !bunny_stream::is_valid_asset_id((string)($instance->providerassetid ?? ''))
-        || !bunny_stream::is_valid_upload_id((string)($instance->provideruploadid ?? ''))) {
+        || !bunny_stream::is_valid_upload_id((string)($instance->provideruploadid ?? ''))
+    ) {
         return;
     }
 
@@ -241,8 +243,10 @@ function videoplayer_queue_bunny_bind(stdClass $instance): void {
  * @return void
  */
 function videoplayer_queue_bunny_release(stdClass $instance): void {
-    if (($instance->source ?? '') !== bunny_stream::SOURCE
-        || !bunny_stream::is_valid_asset_id((string)($instance->providerassetid ?? ''))) {
+    if (
+        ($instance->source ?? '') !== bunny_stream::SOURCE
+        || !bunny_stream::is_valid_asset_id((string)($instance->providerassetid ?? ''))
+    ) {
         return;
     }
 
@@ -327,9 +331,13 @@ function videoplayer_update_instance($data, $mform = null) {
         if ($oldisbunny && (!$newisbunny || $oldasset !== $newasset)) {
             videoplayer_queue_bunny_release($oldinstance);
         }
-        if ($newisbunny && (!$oldisbunny
+        if (
+            $newisbunny && (
+                !$oldisbunny
                 || $oldasset !== $newasset
-                || (string)($oldinstance->provideruploadid ?? '') !== (string)($data->provideruploadid ?? ''))) {
+                || (string)($oldinstance->provideruploadid ?? '') !== (string)($data->provideruploadid ?? '')
+            )
+        ) {
             videoplayer_queue_bunny_bind($data);
         }
     }

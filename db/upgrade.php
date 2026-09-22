@@ -426,7 +426,6 @@ function xmldb_videoplayer_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026092015, 'videoplayer');
     }
 
-
     // Bunny Stream provider metadata. Provider credentials remain in WHMCS.
     if ($oldversion < 2026092103) {
         $table = new xmldb_table('videoplayer');
