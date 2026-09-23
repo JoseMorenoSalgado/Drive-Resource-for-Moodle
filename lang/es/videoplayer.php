@@ -167,6 +167,7 @@ $string['streammodeurl'] = 'Usar un video existente mediante URL';
 $string['streamurl'] = 'URL de Elearning Stream';
 $string['streamurl_help'] = 'Pegue la URL de reproducción, HLS o inserción de un video existente en Elearning Stream. La URL completa no se guarda; solo se registra el identificador validado por WHMCS.';
 $string['task_cleanup_pdf_cache'] = 'Limpiar caché PDF de Drive Resource';
+$string['task_synctransferusage'] = 'Sincronizar transferencia de Elearning Stream con WHMCS';
 $string['timespent'] = 'Tiempo activo';
 $string['trackingdisabled'] = 'El seguimiento de progreso está desactivado en este sitio.';
 $string['typeaudio'] = 'Audio';
