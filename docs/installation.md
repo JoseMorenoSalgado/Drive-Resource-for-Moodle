@@ -1,6 +1,6 @@
 # Drive Resource installation and upgrade
 
-## Supported platform for 1.2.0-beta6-m45
+## Supported platform for 1.2.0-beta7-m45
 
 - Moodle 4.5 LTS
 - PHP 8.1+
@@ -161,7 +161,7 @@ Unknown column 'duration' in 'videoplayer_views'
 ALTER TABLE ... ADD watchedranges ... AFTER duration
 ```
 
-deploy `1.2.0-beta5-m45` or newer and run the normal Moodle upgrade again:
+deploy `1.2.0-beta7-m45` or newer and run the normal Moodle upgrade again:
 
 ```bash
 php admin/cli/upgrade.php --non-interactive
@@ -173,7 +173,7 @@ The `2026092202` repair step verifies and creates missing `lastposition`, `durat
 
 ## Beta5 partial-schema recovery
 
-If Moodle reports `Unknown column 'completionprogressenabled'` after an earlier RC/beta installation, deploy `1.2.0-beta5-m45` or newer and open the normal Moodle upgrade page or run:
+If Moodle reports `Unknown column 'completionprogressenabled'` after an earlier RC/beta installation, deploy `1.2.0-beta7-m45` or newer and open the normal Moodle upgrade page or run:
 
 ```bash
 php admin/cli/upgrade.php --non-interactive
@@ -188,3 +188,18 @@ Build `2026092204` detects and recreates missing completion, Bunny provider meta
 After configuring the WHMCS companion, teachers can choose **Elearning Stream** in the activity form and select either **Upload a new video** or **Use an existing video URL**.
 
 For an existing video, paste a supported HTTPS playback/embed URL. Moodle extracts only the video GUID and sends that identifier to the authenticated WHMCS gateway. WHMCS verifies the video in the configured provider library, rejects assets assigned to another service, and accounts storage before the Moodle activity is saved. The original pasted URL is not stored in the Moodle activity table.
+
+
+## Elearning Stream protected playback requirements
+
+In the WHMCS Drive Resource Media Gateway configure the fields shown as:
+
+- **Elearning Stream Library ID**
+- **Elearning Stream API Key**
+- **Elearning Stream CDN Hostname**
+- **Elearning Stream Token Key**
+- **Elearning Stream Playback TTL** (300 seconds recommended)
+
+The provider video library must have MP4 fallback enabled. Videos that were encoded without an MP4 fallback cannot be delivered through the native HTML5 protected playback path until the provider generates that fallback.
+
+Learners never receive the upstream CDN URL. Their browser requests `mod/videoplayer/protected.php`, which validates Moodle access and then proxies the authorized MP4 byte ranges.
