@@ -197,3 +197,9 @@ find . -name '*.php' -not -path './thirdpartylibs/*' -print0 | xargs -0 -n1 php 
 ```
 
 The production Moodle package must not accidentally install the WHMCS companion under `mod/videoplayer`; package the two deployables separately.
+
+## DDL migration rule for optional predecessor fields
+
+Do not use an XMLDB `previous` column argument for an upgrade field when the predecessor may be absent on an existing installation. A declaration such as `watchedranges ... AFTER duration` can fail on MySQL/MariaDB before Moodle reaches the savepoint.
+
+For compatibility migrations, first check every required field with `field_exists()` and add missing fields without relying on physical ordering. The `2026092202` migration is the regression reference for this rule.
