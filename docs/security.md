@@ -102,6 +102,11 @@ The learner delivery model is not optional. The historical `disabledownload` col
 Resource typing is also centralized before protected URL construction so different controllers cannot disagree about how an opaque Drive sharing URL should be handled.
 
 
+## Video progress integrity
+
+HTML5 seek position is not trusted as evidence that content was watched. Video completion uses a bounded union of short contiguous playback ranges submitted through the authenticated Moodle progress API. The server validates, clamps and merges those ranges before deriving completion. `lastposition` remains resume-only state.
+
+
 ## Completion-form hotfix security impact
 
 RC19 changes only the Moodle form field-name suffix API used by custom completion controls. It does not weaken authorization, protected streaming, URL confidentiality or SSRF controls. Completion thresholds remain server-validated and continue to feed Moodle Completion API through the existing progress service.
