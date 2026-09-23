@@ -169,3 +169,10 @@ Backend identity is also stored per service. Managed-video endpoints verify back
 A future S3-compatible backend must preserve the same tenant boundary. Object keys must be tenant-scoped, presigned operations must be short-lived and service-scoped, bucket/endpoint credentials must remain in WHMCS, and arbitrary client-supplied S3 URLs must never become proxy targets.
 
 Backend changes are blocked for services that still own media or accounted/reserved bytes. This avoids an unsafe state where accounting says one backend while assets remain on another.
+
+
+### WHMCS service token handoff
+
+The Moodle service token is generated with `random_bytes()` during WHMCS provisioning. The gateway stores only a SHA-256 hash; WHMCS stores the plaintext token in its protected service-property mechanism so an authorised administrator can copy it to the matching Moodle site.
+
+The token is never derived from the customer password, Bunny/Elearning Stream API key, server credentials or service id. Removing the fake WHMCS server dependency reduces accidental credential reuse between infrastructure and Moodle authentication.
