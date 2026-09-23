@@ -32,4 +32,11 @@ $definitions = [
         'staticacceleration' => true,
         'ttl' => 300,
     ],
+    'streamplayback' => [
+        'mode' => cache_store::MODE_APPLICATION,
+        'simplekeys' => true,
+        'simpledata' => true,
+        'staticacceleration' => true,
+        'ttl' => 240,
+    ],
 ];
