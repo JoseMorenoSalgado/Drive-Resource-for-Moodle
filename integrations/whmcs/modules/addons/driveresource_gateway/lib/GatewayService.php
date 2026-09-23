@@ -412,6 +412,57 @@ final class GatewayService
     }
 
     /**
+     * Authorize short-lived Elearning Stream playback for Moodle proxying.
+     *
+     * Provider URLs never go to the learner. This endpoint is authenticated
+     * with the service-scoped WHMCS channel and only returns playback for an
+     * asset already accounted to the requesting service.
+     *
+     * @param object $service Authenticated service row.
+     * @param array $payload Request body.
+     * @return array
+     */
+    public function authorizePlayback(object $service, array $payload): array
+    {
+        $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
+        if (!preg_match('/^[a-f0-9-]{32,64}$/i', $videoId)) {
+            throw new GatewayException('Invalid Elearning Stream video identifier.', 422);
+        }
+
+        if ((string) ($service->status ?? '') !== 'active') {
+            throw new GatewayException('Drive Resource service is not active.', 403);
+        }
+
+        $owned = Capsule::table('mod_driveresource_uploads')
+            ->where('service_id', (int) $service->service_id)
+            ->where('video_id', $videoId)
+            ->whereIn('status', ['processing', 'ready', 'bound'])
+            ->first();
+        if (!$owned) {
+            throw new GatewayException(
+                'This Elearning Stream video does not belong to the requesting service.',
+                403
+            );
+        }
+
+        try {
+            $playback = $this->bunny->playbackUrl($videoId);
+        } catch (Throwable $exception) {
+            throw new GatewayException(
+                'Elearning Stream playback is not ready for this video.',
+                409
+            );
+        }
+
+        return [
+            'videoid' => $videoId,
+            'url' => (string) $playback['url'],
+            'expires' => (int) $playback['expires'],
+            'resolution' => (int) $playback['resolution'],
+        ];
+    }
+
+    /**
      * Bind a completed upload to a Moodle activity.
      *
      * @param object $service Service row.
