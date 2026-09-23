@@ -116,6 +116,198 @@ function driveresource_AdminCustomButtonArray(): array
 }
 
 /**
+ * Permit self-service functions invoked by the custom client dashboard.
+ *
+ * @return string[]
+ */
+function driveresource_ClientAreaAllowedFunctions(): array
+{
+    return [
+        'ProvisionMoodleConnection',
+        'RotateMoodleToken',
+        'UpdateMoodleUrl',
+        'ValidateMoodleConnection',
+        'DeleteVideo',
+    ];
+}
+
+/**
+ * Change the Moodle site bound to this customer's service.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return string
+ */
+function driveresource_UpdateMoodleUrl(array $params): string
+{
+    try {
+        driveresource_require_post();
+        driveresource_require_gateway();
+
+        $serviceId = (int) ($params['serviceid'] ?? 0);
+        $url = driveresource_normalize_site_url((string) ($_POST['moodleurl'] ?? ''));
+        $now = time();
+
+        Capsule::connection()->transaction(function () use ($serviceId, $url, $now): void {
+            $service = Capsule::table('mod_driveresource_services')
+                ->where('service_id', $serviceId)
+                ->lockForUpdate()
+                ->first();
+            if (!$service) {
+                throw new RuntimeException('Drive Resource service is not provisioned.');
+            }
+
+            Capsule::table('mod_driveresource_services')
+                ->where('service_id', $serviceId)
+                ->update([
+                    'site_url' => $url,
+                    'site_hash' => hash('sha256', $url),
+                    'connection_status' => 'pending',
+                    'connection_checked_at' => null,
+                    'connection_message' => 'URL actualizada. Valida la conexión después de configurar Moodle.',
+                    'updated_at' => $now,
+                ]);
+
+            Capsule::table('mod_driveresource_asset_refs')
+                ->where('service_id', $serviceId)
+                ->update([
+                    'site_url' => $url,
+                    'site_hash' => hash('sha256', $url),
+                    'updated_at' => $now,
+                ]);
+        });
+
+        if (isset($params['model'])) {
+            $params['model']->serviceProperties->save([
+                'Moodle Site URL' => $url,
+            ]);
+        }
+
+        return 'success';
+    } catch (Throwable $exception) {
+        return $exception->getMessage();
+    }
+}
+
+/**
+ * Test that Moodle has the same site URL, Service ID and token.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return string
+ */
+function driveresource_ValidateMoodleConnection(array $params): string
+{
+    try {
+        driveresource_require_post();
+        driveresource_require_gateway();
+
+        $serviceId = (int) ($params['serviceid'] ?? 0);
+        $service = Capsule::table('mod_driveresource_services')
+            ->where('service_id', $serviceId)
+            ->first();
+        if (!$service) {
+            throw new RuntimeException('Drive Resource service is not provisioned.');
+        }
+
+        $token = driveresource_service_token($params);
+        $result = (new MoodleConnectionProbe())->probe(
+            $serviceId,
+            (string) $service->site_url,
+            $token
+        );
+
+        Capsule::table('mod_driveresource_services')
+            ->where('service_id', $serviceId)
+            ->update([
+                'connection_status' => $result['connected'] ? 'connected' : 'failed',
+                'connection_checked_at' => time(),
+                'connection_message' => mb_substr((string) $result['message'], 0, 255),
+                'updated_at' => time(),
+            ]);
+
+        return $result['connected'] ? 'success' : (string) $result['message'];
+    } catch (Throwable $exception) {
+        return $exception->getMessage();
+    }
+}
+
+/**
+ * Permanently delete one unreferenced video owned by this service.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return string
+ */
+function driveresource_DeleteVideo(array $params): string
+{
+    try {
+        driveresource_require_post();
+        driveresource_require_gateway();
+
+        $serviceId = (int) ($params['serviceid'] ?? 0);
+        $uploadId = strtolower(trim((string) ($_POST['uploadid'] ?? '')));
+        if (!preg_match('/^[a-f0-9]{32}$/', $uploadId)) {
+            throw new RuntimeException('Invalid video identifier.');
+        }
+
+        $service = Capsule::table('mod_driveresource_services')
+            ->where('service_id', $serviceId)
+            ->first();
+        if (!$service || (string) ($service->backend_key ?? '') !== 'elearningstream') {
+            throw new RuntimeException('This service does not use Elearning Stream.');
+        }
+
+        $upload = Capsule::table('mod_driveresource_uploads')
+            ->where('service_id', $serviceId)
+            ->where('upload_id', $uploadId)
+            ->where('status', '<>', 'deleted')
+            ->first();
+        if (!$upload || empty($upload->video_id)) {
+            throw new RuntimeException('Video not found.');
+        }
+
+        $references = (int) Capsule::table('mod_driveresource_asset_refs')
+            ->where('service_id', $serviceId)
+            ->where('video_id', (string) $upload->video_id)
+            ->where('active', true)
+            ->count();
+        if ($references > 0) {
+            throw new RuntimeException(
+                'Este video todavía está vinculado a una actividad Moodle y no puede eliminarse.'
+            );
+        }
+
+        driveresource_stream_client()->deleteVideo((string) $upload->video_id);
+
+        Capsule::connection()->transaction(function () use ($serviceId, $uploadId): void {
+            Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->where('upload_id', $uploadId)
+                ->update([
+                    'status' => 'deleted',
+                    'accounted_bytes' => 0,
+                    'delete_after' => null,
+                    'updated_at' => time(),
+                ]);
+
+            $used = (int) Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->whereIn('status', ['processing', 'ready', 'bound'])
+                ->sum('accounted_bytes');
+
+            Capsule::table('mod_driveresource_services')
+                ->where('service_id', $serviceId)
+                ->update([
+                    'used_bytes' => max(0, $used),
+                    'updated_at' => time(),
+                ]);
+        });
+
+        return 'success';
+    } catch (Throwable $exception) {
+        return $exception->getMessage();
+    }
+}
+
+/**
  * Provision or repair the Moodle gateway identity for this WHMCS service.
  *
  * Existing tokens are preserved when WHMCS still has the plaintext service
@@ -483,32 +675,7 @@ function driveresource_ClientArea(array $params): string
 {
     try {
         driveresource_require_gateway();
-        $service = Capsule::table('mod_driveresource_services')
-            ->where('service_id', (int) $params['serviceid'])
-            ->first();
-
-        if (!$service) {
-            return '<p>Drive Resource service is not provisioned.</p>';
-        }
-
-        $used = number_format(((int) $service->used_bytes) / 1000000000, 2);
-        $quota = number_format(((int) $service->quota_bytes) / 1000000000, 2);
-
-        return '<div class="alert alert-info">'
-            . '<strong>' . htmlspecialchars(
-                driveresource_backend_label((string) ($service->backend_key ?? 'elearningstream')),
-                ENT_QUOTES,
-                'UTF-8'
-            ) . '</strong><br>'
-            . 'Storage: ' . htmlspecialchars($used, ENT_QUOTES, 'UTF-8')
-            . ' GB / ' . htmlspecialchars($quota, ENT_QUOTES, 'UTF-8') . ' GB included.<br>'
-            . 'Status: ' . htmlspecialchars((string) $service->status, ENT_QUOTES, 'UTF-8') . '<br>'
-            . 'Backend: ' . htmlspecialchars(
-                driveresource_backend_label((string) ($service->backend_key ?? 'elearningstream')),
-                ENT_QUOTES,
-                'UTF-8'
-            )
-            . '</div>';
+        return (new ClientPortal($params))->render();
     } catch (Throwable $exception) {
         return '<div class="alert alert-danger">Drive Resource gateway is unavailable.</div>';
     }
