@@ -128,3 +128,9 @@ Completed-but-unsaved uploads receive a bounded unbound grace period. Abandoned 
 ### Backup and tenant isolation
 
 A Moodle backup may contain a Bunny asset GUID because the restored course needs to reference the existing managed asset. It must not contain the transient WHMCS upload reservation. During restore, the GUID is unusable until WHMCS confirms that it belongs to the same service tenant. Cross-tenant GUID reuse is rejected.
+
+## Upgrade integrity for progress evidence
+
+Watched-range completion depends on `lastposition`, `duration` and `watchedranges` being available together. Build `2026092202` repairs these fields idempotently without deleting or rewriting learner progress rows.
+
+No privilege, URL-confidentiality or Bunny credential boundary is relaxed by this repair. The change only hardens schema consistency before progress evidence is processed.
