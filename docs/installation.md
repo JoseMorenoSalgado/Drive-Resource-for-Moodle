@@ -1,6 +1,6 @@
 # Drive Resource installation and upgrade
 
-## Supported platform for 1.2.0-beta4-m45
+## Supported platform for 1.2.0-beta5-m45
 
 - Moodle 4.5 LTS
 - PHP 8.1+
@@ -161,7 +161,7 @@ Unknown column 'duration' in 'videoplayer_views'
 ALTER TABLE ... ADD watchedranges ... AFTER duration
 ```
 
-deploy `1.2.0-beta4-m45` or newer and run the normal Moodle upgrade again:
+deploy `1.2.0-beta5-m45` or newer and run the normal Moodle upgrade again:
 
 ```bash
 php admin/cli/upgrade.php --non-interactive
@@ -169,3 +169,15 @@ php admin/cli/purge_caches.php
 ```
 
 The `2026092202` repair step verifies and creates missing `lastposition`, `duration` and `watchedranges` columns without relying on physical column order. Do **not** run a manual `ALTER TABLE`; the migration is designed to recover the interrupted upgrade while preserving existing progress records.
+
+
+## Beta5 partial-schema recovery
+
+If Moodle reports `Unknown column 'completionprogressenabled'` after an earlier RC/beta installation, deploy `1.2.0-beta5-m45` or newer and open the normal Moodle upgrade page or run:
+
+```bash
+php admin/cli/upgrade.php --non-interactive
+php admin/cli/purge_caches.php
+```
+
+Build `2026092204` detects and recreates missing completion, Bunny provider metadata and watched-progress fields. Do not issue manual `ALTER TABLE` statements before attempting the beta5 repair.
