@@ -2,6 +2,17 @@
 
 All notable changes to Drive Resource are documented here. The Moodle component remains `mod_videoplayer` for upgrade compatibility.
 
+## 1.2.0-beta2-m45 - 2026-09-22
+
+### Seek-safe progress integration
+
+- Integrated watched-range video completion into the WHMCS-gated Bunny 1.2 beta line.
+- Seeking changes the resume position but skipped video no longer increases completion evidence.
+- Added the `watchedranges` persistence field, Backup & Restore support, Privacy API metadata and regression coverage.
+- Added upgrade savepoint `2026092201` for sites upgrading from Bunny beta1.
+- Rebuilt the native video AMD production bundle and source map from the RC19 progress source.
+- Version: `2026092201`; release: `1.2.0-beta2-m45`.
+
 ## 1.1.33-rc19-m45 - 2026-09-20
 
 ### Moodle 4.5 completion-form hotfix
