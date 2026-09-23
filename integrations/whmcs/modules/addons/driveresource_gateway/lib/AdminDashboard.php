@@ -71,6 +71,10 @@ final class AdminDashboard
                 's.status',
                 's.backend_key',
                 's.backend_profile',
+                's.connection_status',
+                's.connection_checked_at',
+                's.transfer_period',
+                's.transfer_bytes',
                 's.quota_bytes',
                 's.used_bytes',
                 's.reserved_bytes',
@@ -118,7 +122,7 @@ final class AdminDashboard
     /**
      * Global multi-tenant summary.
      *
-     * @return array{services:int,active:int,clients:int,used:int,quota:int,overage:int,videos:int}
+     * @return array{services:int,active:int,clients:int,used:int,quota:int,overage:int,videos:int,connected:int,transfer:int}
      */
     private function summary(): array
     {
@@ -134,12 +138,28 @@ final class AdminDashboard
         $videos = (int) Capsule::table('mod_driveresource_uploads')
             ->where('status', '<>', 'deleted')
             ->count();
+        $connected = (int) Capsule::table('mod_driveresource_services')
+            ->where('connection_status', 'connected')
+            ->count();
+        $transfer = (int) Capsule::table('mod_driveresource_services')
+            ->where('transfer_period', gmdate('Y-m'))
+            ->sum('transfer_bytes');
         $clients = (int) Capsule::table('mod_driveresource_services as s')
             ->join('tblhosting as h', 'h.id', '=', 's.service_id')
             ->distinct()
             ->count('h.userid');
 
-        return compact('services', 'active', 'clients', 'used', 'quota', 'overage', 'videos');
+        return compact(
+            'services',
+            'active',
+            'clients',
+            'used',
+            'quota',
+            'overage',
+            'videos',
+            'connected',
+            'transfer'
+        );
     }
 
     /**
@@ -156,6 +176,8 @@ final class AdminDashboard
         $this->metric('Storage used', $this->gb((int) $summary['used']) . ' GB');
         $this->metric('Included capacity', $this->gb((int) $summary['quota']) . ' GB');
         $this->metric('Services in overage', (string) $summary['overage']);
+        $this->metric('Moodle connected', (string) $summary['connected']);
+        $this->metric('Transfer this month', $this->gb((int) $summary['transfer']) . ' GB');
         echo '</div>';
     }
 
@@ -216,7 +238,19 @@ final class AdminDashboard
         echo '<div class="panel-heading"><strong>Drive Resource customers</strong></div>';
         echo '<div class="table-responsive"><table class="table table-striped table-hover" style="margin-bottom:0">';
         echo '<thead><tr>';
-        foreach (['Service', 'Customer', 'Moodle site', 'Product', 'Backend', 'Storage', 'Assets', 'Status', 'Actions'] as $heading) {
+        foreach ([
+            'Service',
+            'Customer',
+            'Moodle site',
+            'Connection',
+            'Product',
+            'Backend',
+            'Storage',
+            'Transfer',
+            'Assets',
+            'Status',
+            'Actions',
+        ] as $heading) {
             echo '<th>' . $this->e($heading) . '</th>';
         }
         echo '</tr></thead><tbody>';
@@ -243,6 +277,7 @@ final class AdminDashboard
             echo '<td>' . $this->e($customer) . '<br><small>' . $this->e((string) $row->email) . '</small></td>';
             echo '<td><span title="' . $this->e((string) $row->site_url) . '">'
                 . $this->e($this->truncate((string) $row->site_url, 44)) . '</span></td>';
+            echo '<td>' . $this->connectionBadge((string) ($row->connection_status ?? 'pending')) . '</td>';
             echo '<td>' . $this->e((string) ($row->product_name ?: '—')) . '</td>';
             echo '<td>' . $this->e(BackendRegistry::label((string) $row->backend_key))
                 . '<br><small>Profile: ' . $this->e((string) $row->backend_profile) . '</small></td>';
@@ -255,6 +290,10 @@ final class AdminDashboard
                 echo ' · ' . $this->e($this->gb($overage)) . ' GB overage';
             }
             echo '</small></td>';
+            $transferBytes = (string) ($row->transfer_period ?? '') === gmdate('Y-m')
+                ? (int) ($row->transfer_bytes ?? 0)
+                : 0;
+            echo '<td>' . $this->e($this->gb($transferBytes)) . ' GB</td>';
             echo '<td>' . (int) ($assetCounts[$serviceId] ?? 0) . '</td>';
             echo '<td>' . $this->statusBadge((string) $row->status) . '</td>';
             echo '<td><a class="btn btn-xs btn-default" href="clientsservices.php?id='
@@ -263,7 +302,7 @@ final class AdminDashboard
         }
 
         if (!$hasRows) {
-            echo '<tr><td colspan="9" class="text-center text-muted" style="padding:30px">No services match the current filters.</td></tr>';
+            echo '<tr><td colspan="11" class="text-center text-muted" style="padding:30px">No services match the current filters.</td></tr>';
         }
 
         echo '</tbody></table></div></div>';
@@ -308,6 +347,24 @@ final class AdminDashboard
         echo '<p><strong>Architecture reserved:</strong> S3-compatible Object Storage — future PDFs, documents, images, audio and/or video objects using the same WHMCS tenant, quota and billing model.</p>';
         echo '<p class="text-muted" style="margin-bottom:0">S3-compatible storage is intentionally not provisionable until its multipart upload, signed delivery, metering and lifecycle adapter passes the same security gates.</p>';
         echo '</div></div>';
+    }
+
+    /**
+     * Render Moodle connection status.
+     *
+     * @param string $status Connection status.
+     * @return string
+     */
+    private function connectionBadge(string $status): string
+    {
+        if ($status === 'connected') {
+            return '<span class="label label-success">Connected</span>';
+        }
+        if ($status === 'failed') {
+            return '<span class="label label-danger">Not connected</span>';
+        }
+
+        return '<span class="label label-warning">Pending</span>';
     }
 
     /**
