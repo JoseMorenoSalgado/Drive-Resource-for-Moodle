@@ -281,7 +281,7 @@ final class ClientPortal
         string $confirmation = ''
     ): string {
         $confirm = $confirmation !== ''
-            ? ' onclick="return confirm('' . $this->js($confirmation) . '')"'
+            ? ' onclick="return confirm(&quot;' . $this->e($confirmation) . '&quot;)"'
             : '';
 
         return '<form method="post" action="' . $this->formAction() . '" style="display:inline-block;margin-right:8px">'
@@ -413,18 +413,5 @@ final class ClientPortal
         return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 
-    /**
-     * Escape text for a single-quoted inline confirm.
-     *
-     * @param string $value Value.
-     * @return string
-     */
-    private function js(string $value): string
-    {
-        return str_replace(
-            ["\\", "'", "\r", "\n"],
-            ["\\\\", "\\'", '', ' '],
-            $value
-        );
-    }
+
 }
