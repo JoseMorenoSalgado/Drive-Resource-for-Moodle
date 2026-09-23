@@ -384,6 +384,31 @@ final class whmcs_gateway_client {
     }
 
     /**
+     * Report one idempotent protected-transfer usage batch to WHMCS.
+     *
+     * @param string $period Billing month in YYYY-MM format.
+     * @param int $bytes Delivered bytes.
+     * @param string $reportid Stable SHA-256 batch identifier.
+     * @return void
+     */
+    public function report_transfer(string $period, int $bytes, string $reportid): void {
+        if (
+            !preg_match('/^20\d{2}-(0[1-9]|1[0-2])$/', $period)
+            || $bytes <= 0
+            || $bytes > 1099511627776
+            || !preg_match('/^[a-f0-9]{64}$/', $reportid)
+        ) {
+            throw new moodle_exception('whmcsgatewayinvalidresponse', 'mod_videoplayer');
+        }
+
+        $this->post('/api/usage-report.php', [
+            'period' => $period,
+            'bytes' => $bytes,
+            'reportid' => $reportid,
+        ]);
+    }
+
+    /**
      * Bind a completed provider asset to a Moodle activity instance.
      *
      * @param string $uploadid WHMCS reservation identifier.
