@@ -737,6 +737,93 @@ function driveresource_require_gateway(): void
 }
 
 /**
+ * Require client self-service actions to use POST.
+ *
+ * @return void
+ */
+function driveresource_require_post(): void
+{
+    if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? '')) !== 'POST') {
+        throw new RuntimeException('This action requires POST.');
+    }
+}
+
+/**
+ * Retrieve the current plaintext service token from WHMCS protected fields.
+ *
+ * @param array $params Module parameters.
+ * @return string
+ */
+function driveresource_service_token(array $params): string
+{
+    $token = trim((string) ($params['password'] ?? ''));
+    if ($token !== '' || !isset($params['model'])) {
+        return $token;
+    }
+
+    try {
+        return trim((string) $params['model']->serviceProperties->get('Password'));
+    } catch (Throwable $exception) {
+        return '';
+    }
+}
+
+/**
+ * Resolve the Elearning Stream management client from the companion addon.
+ *
+ * @return \WHMCS\Module\Addon\DriveresourceGateway\BunnyClient
+ */
+function driveresource_stream_client()
+{
+    $lib = dirname(__DIR__, 2) . '/addons/driveresource_gateway/lib';
+    require_once $lib . '/Config.php';
+    require_once $lib . '/BunnyClient.php';
+
+    return new \WHMCS\Module\Addon\DriveresourceGateway\BunnyClient();
+}
+
+/**
+ * Normalize one Moodle wwwroot URL.
+ *
+ * @param string $raw Candidate URL.
+ * @return string
+ */
+function driveresource_normalize_site_url(string $raw): string
+{
+    $raw = trim($raw);
+    if ($raw === '') {
+        throw new RuntimeException('Moodle Site URL is required.');
+    }
+    if (!preg_match('#^https?://#i', $raw)) {
+        $raw = 'https://' . $raw;
+    }
+
+    $parts = parse_url($raw);
+    if (
+        !$parts
+        || strtolower((string) ($parts['scheme'] ?? '')) !== 'https'
+        || empty($parts['host'])
+    ) {
+        throw new RuntimeException('Moodle Site URL must be a valid HTTPS URL.');
+    }
+    if (
+        !empty($parts['user'])
+        || !empty($parts['pass'])
+        || !empty($parts['query'])
+        || !empty($parts['fragment'])
+    ) {
+        throw new RuntimeException(
+            'Moodle Site URL must not contain credentials, query parameters or fragments.'
+        );
+    }
+
+    $port = isset($parts['port']) ? ':' . (int) $parts['port'] : '';
+    $path = rtrim((string) ($parts['path'] ?? ''), '/');
+
+    return 'https://' . strtolower((string) $parts['host']) . $port . $path;
+}
+
+/**
  * Resolve the product backend while preserving legacy products.
  *
  * @param array $params Module parameters.
@@ -805,26 +892,8 @@ function driveresource_backend_label(string $key): string
  */
 function driveresource_site_url(array $params): string
 {
-    $raw = trim((string) (($params['customfields']['Moodle Site URL'] ?? '') ?: ($params['domain'] ?? '')));
-    if ($raw === '') {
-        throw new RuntimeException('Moodle Site URL is required.');
-    }
-    if (!preg_match('#^https?://#i', $raw)) {
-        $raw = 'https://' . $raw;
-    }
-
-    $parts = parse_url($raw);
-    if (!$parts || strtolower((string) ($parts['scheme'] ?? '')) !== 'https' || empty($parts['host'])) {
-        throw new RuntimeException('Moodle Site URL must be a valid HTTPS URL.');
-    }
-    if (!empty($parts['user']) || !empty($parts['pass']) || !empty($parts['query']) || !empty($parts['fragment'])) {
-        throw new RuntimeException('Moodle Site URL must not contain credentials, query parameters or fragments.');
-    }
-
-    $port = isset($parts['port']) ? ':' . (int) $parts['port'] : '';
-    $path = rtrim((string) ($parts['path'] ?? ''), '/');
-
-    return 'https://' . strtolower((string) $parts['host']) . $port . $path;
+    $raw = (string) (($params['customfields']['Moodle Site URL'] ?? '') ?: ($params['domain'] ?? ''));
+    return driveresource_normalize_site_url($raw);
 }
 
 /**
