@@ -1,4 +1,4 @@
-name: Bunny WHMCS Integration Gate
+name: Elearning Stream WHMCS Integration Gate
 
 on:
   workflow_dispatch:
