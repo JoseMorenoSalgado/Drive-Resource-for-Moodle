@@ -14,7 +14,7 @@ The WHMCS companion is installed **once** and manages many customers. Each provi
 
 One customer with multiple independent Moodle installations can use multiple WHMCS services under the same WHMCS client account. This preserves per-site credentials, accounting and suspension boundaries.
 
-Addon version **0.3.0** adds a paginated administration dashboard with customer, Moodle URL, product, backend, quota, storage usage, video count, status and direct access to the WHMCS service.
+Addon version **0.3.1** adds a paginated administration dashboard with customer, Moodle URL, product, backend, quota, storage usage, video count, status and direct access to the WHMCS service.
 
 ## Backend model
 
@@ -66,7 +66,7 @@ Configure the WHMCS Usage Billing metric `video_storage_gb` with the same includ
 1. Deploy and activate the addon module.
 2. Configure Elearning Stream Library ID and API key.
 3. Deploy the `driveresource` provisioning module.
-4. Create a WHMCS server and product using that module.
+4. Create a WHMCS product using that module. No WHMCS server assignment is required.
 5. Add a product custom field named `Moodle Site URL` when the Moodle installation URL cannot be represented exactly by the standard service domain field.
 6. Provision the service.
 7. Copy the generated WHMCS service ID and service token into the Drive Resource Moodle administration settings.
@@ -93,10 +93,24 @@ Recommended **Elearning Stream Playback TTL**: 300 seconds. Moodle caches the au
 
 ## Upgrade from gateway 0.2.x
 
-1. Replace both WHMCS module directories with the 0.3.0 package.
+1. Replace both WHMCS module directories with the 0.3.1 package.
 2. Open the Drive Resource Media Gateway addon in WHMCS so the native addon upgrade hook runs.
 3. Confirm existing services appear in the multi-client dashboard.
 4. Existing rows are migrated to `backend_key=elearningstream` and `backend_profile=default`.
 5. Do not recreate existing services or rotate their Moodle tokens solely for this upgrade.
 
 The provisioning module refuses new provisioning until the 0.3.0 gateway columns exist, preventing partial upgrades from failing with raw database errors.
+
+
+## Provisioning and Moodle connection
+
+The provisioning module does **not** require a WHMCS server object. After assigning the **Elearning Stream** module to a product, provision each customer service with **Module Commands → Create**.
+
+Create generates:
+- username: `dr-{service_id}`;
+- a cryptographically random service token stored in WHMCS's protected service password property;
+- a tenant row bound to the exact Moodle Site URL and product quota.
+
+The WHMCS administrator service page exposes **Moodle Gateway URL**, **Moodle Service ID** and **Moodle Service Token** through the module's admin service fields so an operator can copy the three values into Moodle.
+
+If Username/Password are empty, that service has not been provisioned yet.
