@@ -35,6 +35,48 @@ use moodle_exception;
  * Client for the Drive Resource WHMCS media gateway.
  */
 final class whmcs_gateway_client {
+    /**
+     * Return required Moodle gateway settings that are currently missing.
+     *
+     * @return string[] Language-string keys for missing settings.
+     */
+    public static function missing_configuration(): array {
+        $missing = [];
+
+        if (trim((string)get_config('mod_videoplayer', 'whmcsgatewayurl')) === '') {
+            $missing[] = 'setting_whmcsgatewayurl';
+        }
+        if ((int)get_config('mod_videoplayer', 'whmcsserviceid') <= 0) {
+            $missing[] = 'setting_whmcsserviceid';
+        }
+        if (trim((string)get_config('mod_videoplayer', 'whmcsservicetoken')) === '') {
+            $missing[] = 'setting_whmcsservicetoken';
+        }
+
+        return $missing;
+    }
+
+    /**
+     * Whether Elearning Stream has all required Moodle-side WHMCS settings.
+     *
+     * @return bool
+     */
+    public static function is_configured(): bool {
+        return self::missing_configuration() === [];
+    }
+
+    /**
+     * Human-readable list of missing gateway settings.
+     *
+     * @return string
+     */
+    public static function missing_configuration_labels(): string {
+        return implode(', ', array_map(
+            static fn(string $key): string => get_string($key, 'mod_videoplayer'),
+            self::missing_configuration()
+        ));
+    }
+
     /** @var string */
     private string $baseurl;
 
@@ -58,8 +100,13 @@ final class whmcs_gateway_client {
         $this->servicetoken = trim((string)get_config('mod_videoplayer', 'whmcsservicetoken'));
         $this->timeout = max(5, min(60, (int)(get_config('mod_videoplayer', 'whmcstimeout') ?: 15)));
 
-        if ($this->baseurl === '' || $this->serviceid <= 0 || $this->servicetoken === '') {
-            throw new moodle_exception('whmcsgatewaynotconfigured', 'mod_videoplayer');
+        if (!self::is_configured()) {
+            throw new moodle_exception(
+                'whmcsgatewaynotconfigured',
+                'mod_videoplayer',
+                '',
+                self::missing_configuration_labels()
+            );
         }
 
         $parts = parse_url($this->baseurl);
