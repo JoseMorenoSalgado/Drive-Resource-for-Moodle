@@ -26,6 +26,7 @@ final class GatewayService
      */
     public function authorizeUpload(object $service, array $payload): array
     {
+        $this->requireBackendCapability($service, BackendRegistry::CAP_DIRECT_UPLOAD);
         $filename = basename(trim((string) ($payload['filename'] ?? '')));
         $filesize = (int) ($payload['filesize'] ?? 0);
         $title = trim((string) ($payload['title'] ?? ''));
@@ -149,6 +150,7 @@ final class GatewayService
      */
     public function refreshUploadAuthorization(object $service, array $payload): array
     {
+        $this->requireBackendCapability($service, BackendRegistry::CAP_DIRECT_UPLOAD);
         $uploadId = strtolower(trim((string) ($payload['uploadid'] ?? '')));
         $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
         $upload = $this->requireUpload((int) $service->service_id, $uploadId, $videoId);
@@ -191,6 +193,7 @@ final class GatewayService
      */
     public function completeUpload(object $service, array $payload): array
     {
+        $this->requireBackendCapability($service, BackendRegistry::CAP_DIRECT_UPLOAD);
         $uploadId = strtolower(trim((string) ($payload['uploadid'] ?? '')));
         $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
         $fileSize = (int) ($payload['filesize'] ?? 0);
@@ -280,6 +283,7 @@ final class GatewayService
      */
     public function importAsset(object $service, array $payload): array
     {
+        $this->requireBackendCapability($service, BackendRegistry::CAP_MANAGED_VIDEO);
         $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
         $courseId = max(0, (int) ($payload['courseid'] ?? 0));
 
@@ -424,6 +428,7 @@ final class GatewayService
      */
     public function authorizePlayback(object $service, array $payload): array
     {
+        $this->requireBackendCapability($service, BackendRegistry::CAP_PROTECTED_PLAYBACK);
         $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
         if (!preg_match('/^[a-f0-9-]{32,64}$/i', $videoId)) {
             throw new GatewayException('Invalid Elearning Stream video identifier.', 422);
@@ -472,6 +477,7 @@ final class GatewayService
      */
     public function bindAsset(object $service, string $siteUrl, array $payload): array
     {
+        $this->requireBackendCapability($service, BackendRegistry::CAP_MANAGED_VIDEO);
         $uploadId = strtolower(trim((string) ($payload['uploadid'] ?? '')));
         $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
         $instanceId = (int) ($payload['instanceid'] ?? 0);
@@ -518,6 +524,7 @@ final class GatewayService
      */
     public function reconcileAsset(object $service, string $siteUrl, array $payload): array
     {
+        $this->requireBackendCapability($service, BackendRegistry::CAP_MANAGED_VIDEO);
         $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
         $instanceId = (int) ($payload['instanceid'] ?? 0);
         $courseId = (int) ($payload['courseid'] ?? 0);
@@ -560,6 +567,7 @@ final class GatewayService
      */
     public function releaseAsset(object $service, string $siteUrl, array $payload): array
     {
+        $this->requireBackendCapability($service, BackendRegistry::CAP_MANAGED_VIDEO);
         $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
         $instanceId = (int) ($payload['instanceid'] ?? 0);
         if ($instanceId <= 0 || !preg_match('/^[a-f0-9-]{32,64}$/i', $videoId)) {
@@ -599,6 +607,29 @@ final class GatewayService
      * @param string $uploadId Upload reservation.
      * @return void
      */
+    /**
+     * Enforce that the tenant backend supports the requested gateway action.
+     *
+     * Current endpoints implement the managed-video contract. Future
+     * S3-compatible object-storage endpoints will advertise/use different
+     * capabilities and cannot fall through to Elearning Stream operations.
+     *
+     * @param object $service Provisioned service row.
+     * @param string $capability BackendRegistry capability.
+     * @return void
+     */
+    private function requireBackendCapability(object $service, string $capability): void
+    {
+        try {
+            BackendRegistry::requireServiceCapability($service, $capability);
+        } catch (\RuntimeException $exception) {
+            throw new GatewayException(
+                'The storage backend assigned to this service does not support this operation.',
+                409
+            );
+        }
+    }
+
     private function cancelReservation(string $uploadId): void
     {
         Capsule::connection()->transaction(function () use ($uploadId): void {
