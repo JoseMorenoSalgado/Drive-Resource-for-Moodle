@@ -43,11 +43,11 @@ final class transfer_meter_test extends \advanced_testcase {
         transfer_meter::record($videoid, 1048576);
 
         $record = $DB->get_record('videoplayer_transfer_events', [], '*', MUST_EXIST);
-        $this->assertSame(321, (int)$record->serviceid);
+        $this->assertSame(321, (int) $record->serviceid);
         $this->assertSame($videoid, $record->videoid);
-        $this->assertSame(1048576, (int)$record->bytes);
+        $this->assertSame(1048576, (int) $record->bytes);
         $this->assertMatchesRegularExpression('/^20\d{2}-(0[1-9]|1[0-2])$/', $record->periodkey);
-        $this->assertGreaterThan(0, (int)$record->timecreated);
+        $this->assertGreaterThan(0, (int) $record->timecreated);
     }
 
     /**
