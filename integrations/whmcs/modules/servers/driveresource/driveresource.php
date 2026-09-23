@@ -21,7 +21,7 @@ use WHMCS\Module\Server\Driveresource\MetricsProvider;
 function driveresource_MetaData(): array
 {
     return [
-        'DisplayName' => 'Drive Resource Video',
+        'DisplayName' => 'Elearning Stream',
         'APIVersion' => '1.1',
         'RequiresServer' => true,
     ];
@@ -261,7 +261,7 @@ function driveresource_ClientArea(array $params): string
         $quota = number_format(((int) $service->quota_bytes) / 1000000000, 2);
 
         return '<div class="alert alert-info">'
-            . '<strong>Drive Resource Video</strong><br>'
+            . '<strong>Elearning Stream</strong><br>'
             . 'Storage: ' . htmlspecialchars($used, ENT_QUOTES, 'UTF-8')
             . ' GB / ' . htmlspecialchars($quota, ENT_QUOTES, 'UTF-8') . ' GB included.<br>'
             . 'Status: ' . htmlspecialchars((string) $service->status, ENT_QUOTES, 'UTF-8')
