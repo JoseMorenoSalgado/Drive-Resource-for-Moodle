@@ -32,7 +32,7 @@ final class BunnyClient
 
         $videoId = trim((string) ($response['guid'] ?? ''));
         if (!preg_match('/^[a-f0-9-]{32,64}$/i', $videoId)) {
-            throw new RuntimeException('Bunny Stream returned an invalid video GUID.');
+            throw new RuntimeException('Elearning Stream returned an invalid video GUID.');
         }
 
         return $videoId;
@@ -75,6 +75,75 @@ final class BunnyClient
     }
 
     /**
+     * Build a short-lived MP4 fallback URL for Moodle server-side proxying.
+     *
+     * The signed provider URL is returned only to Moodle over the authenticated
+     * WHMCS channel. Learner browsers receive the Moodle protected endpoint.
+     *
+     * @param string $videoId Provider video GUID.
+     * @return array{url:string,expires:int,resolution:int}
+     */
+    public function playbackUrl(string $videoId): array
+    {
+        $video = $this->getVideo($videoId);
+        if (empty($video['hasMP4Fallback'])) {
+            throw new RuntimeException(
+                'Elearning Stream MP4 fallback is not available for this video.'
+            );
+        }
+
+        $resolution = $this->highestMp4Resolution(
+            (string) ($video['availableResolutions'] ?? '')
+        );
+        if ($resolution <= 0) {
+            throw new RuntimeException(
+                'Elearning Stream did not report an MP4 playback resolution.'
+            );
+        }
+
+        $expires = time() + Config::playbackTtl();
+        $path = '/' . strtolower($videoId) . '/play_' . $resolution . 'p.mp4';
+        $message = $path . $expires;
+        $digest = hash_hmac(
+            'sha256',
+            $message,
+            Config::playbackTokenKey(),
+            true
+        );
+        $token = 'HS256-' . rtrim(
+            strtr(base64_encode($digest), '+/', '-_'),
+            '='
+        );
+
+        return [
+            'url' => 'https://' . Config::cdnHostname()
+                . $path
+                . '?token=' . rawurlencode($token)
+                . '&expires=' . $expires,
+            'expires' => $expires,
+            'resolution' => $resolution,
+        ];
+    }
+
+    /**
+     * Pick the highest encoded MP4 fallback resolution reported by provider.
+     *
+     * @param string $availableResolutions Comma-separated provider resolutions.
+     * @return int Height in pixels, or zero when unavailable.
+     */
+    private function highestMp4Resolution(string $availableResolutions): int
+    {
+        preg_match_all('/(?:^|[,\\s])(\\d{2,4})p(?:$|[,\\s])/', $availableResolutions, $matches);
+        $heights = array_map('intval', $matches[1] ?? []);
+        $heights = array_values(array_filter(
+            $heights,
+            static fn(int $height): bool => $height >= 144 && $height <= 4320
+        ));
+
+        return $heights ? max($heights) : 0;
+    }
+
+    /**
      * Library id.
      *
      * @return int
@@ -97,7 +166,7 @@ final class BunnyClient
     {
         $curl = curl_init('https://video.bunnycdn.com' . $path);
         if ($curl === false) {
-            throw new RuntimeException('Unable to initialise Bunny Stream request.');
+            throw new RuntimeException('Unable to initialise Elearning Stream provider request.');
         }
 
         $headers = [
@@ -131,15 +200,15 @@ final class BunnyClient
         curl_close($curl);
 
         if ($raw === false || $error !== '') {
-            throw new RuntimeException('Bunny Stream network request failed.');
+            throw new RuntimeException('Elearning Stream provider request failed.');
         }
 
         $decoded = $raw !== '' ? json_decode($raw, true) : [];
         if (!in_array($status, $allowed, true)) {
-            throw new RuntimeException('Bunny Stream rejected the request with HTTP ' . $status . '.');
+            throw new RuntimeException('Elearning Stream provider rejected the request with HTTP ' . $status . '.');
         }
         if ($raw !== '' && !is_array($decoded)) {
-            throw new RuntimeException('Bunny Stream returned malformed JSON.');
+            throw new RuntimeException('Elearning Stream provider returned malformed JSON.');
         }
 
         return is_array($decoded) ? $decoded : [];
