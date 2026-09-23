@@ -270,3 +270,12 @@ Do not set `RequiresServer=true` for the Elearning Stream provisioning module: n
 The Moodle gateway token must be created by `driveresource_CreateAccount()`. Its plaintext copy belongs only in WHMCS protected service properties; the gateway database stores only SHA-256 of that token. Administrators may retrieve the service token through the module's administrator service fields to configure Moodle.
 
 Do not allow operators to repair an unprovisioned service by inventing a password manually. Re-run the module Create action so the WHMCS password and gateway token hash are created atomically by the module.
+
+
+## Idempotent WHMCS connection repair
+
+`driveresource_CreateAccount()`, `driveresource_ProvisionMoodleConnection()` and explicit token rotation share one provisioning implementation.
+
+Repair must preserve an existing valid service password/token. If WHMCS no longer has a plaintext service token, repair generates a new cryptographically random token and atomically replaces the gateway hash before persisting the new protected WHMCS service property.
+
+Never expose a "repair" path that accepts an arbitrary operator-supplied token. Explicit rotation must be a separate administrator action.
