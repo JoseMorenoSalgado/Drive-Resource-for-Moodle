@@ -205,6 +205,42 @@ final class whmcs_gateway_client {
     }
 
     /**
+     * Register an existing Elearning Stream video with this WHMCS service.
+     *
+     * @param string $videoid Provider video GUID.
+     * @param int $courseid Moodle course id.
+     * @return array Sanitised provider/accounting state.
+     */
+    public function import_asset(string $videoid, int $courseid): array {
+        $response = $this->post('/api/asset-import.php', [
+            'videoid' => $videoid,
+            'courseid' => max(0, $courseid),
+        ]);
+
+        $uploadid = clean_param((string)($response['uploadid'] ?? ''), PARAM_ALPHANUMEXT);
+        $returnedvideoid = clean_param((string)($response['videoid'] ?? ''), PARAM_ALPHANUMEXT);
+        $status = clean_param((string)($response['status'] ?? ''), PARAM_ALPHANUMEXT);
+        $filesize = max(0, (int)($response['filesize'] ?? 0));
+
+        if (
+            !preg_match('/^[a-f0-9-]{20,64}$/i', $uploadid)
+            || !preg_match('/^[a-f0-9-]{32,64}$/i', $returnedvideoid)
+            || !in_array($status, ['processing', 'ready'], true)
+            || !hash_equals(strtolower($videoid), strtolower($returnedvideoid))
+        ) {
+            throw new moodle_exception('whmcsgatewayinvalidresponse', 'mod_videoplayer');
+        }
+
+        return [
+            'uploadid' => $uploadid,
+            'videoid' => $returnedvideoid,
+            'filesize' => $filesize,
+            'status' => $status,
+            'quota' => is_array($response['quota'] ?? null) ? $response['quota'] : [],
+        ];
+    }
+
+    /**
      * Bind a completed provider asset to a Moodle activity instance.
      *
      * @param string $uploadid WHMCS reservation identifier.
