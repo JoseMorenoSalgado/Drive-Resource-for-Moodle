@@ -25,30 +25,30 @@ function driveresource_gateway_config(): array
 {
     return [
         'name' => 'Drive Resource Media Gateway',
-        'description' => 'WHMCS authorization, quota and Bunny Stream credential boundary for Drive Resource.',
+        'description' => 'WHMCS authorization, quota and Elearning Stream credential boundary for Drive Resource.',
         'version' => '0.1.0',
         'author' => 'Elearning Cloud',
         'fields' => [
             'bunny_library_id' => [
-                'FriendlyName' => 'Bunny Stream Library ID',
+                'FriendlyName' => 'Elearning Stream Library ID',
                 'Type' => 'text',
                 'Size' => '30',
                 'Description' => 'Video Library used by Drive Resource.',
             ],
             'bunny_api_key' => [
-                'FriendlyName' => 'Bunny Stream API Key',
+                'FriendlyName' => 'Elearning Stream API Key',
                 'Type' => 'password',
                 'Size' => '45',
                 'Description' => 'Server-side only. Never copied to Moodle.',
             ],
             'bunny_cdn_hostname' => [
-                'FriendlyName' => 'Bunny Stream CDN Hostname',
+                'FriendlyName' => 'Elearning Stream CDN Hostname',
                 'Type' => 'text',
                 'Size' => '45',
                 'Description' => 'Example: vz-xxxxxxxx-xxx.b-cdn.net. Reserved for secure playback phase.',
             ],
             'bunny_token_key' => [
-                'FriendlyName' => 'Bunny CDN Token Key',
+                'FriendlyName' => 'Elearning Stream Token Key',
                 'Type' => 'password',
                 'Size' => '45',
                 'Description' => 'Server-side playback signing key. Never copied to Moodle.',
@@ -189,6 +189,6 @@ function driveresource_gateway_output(array $vars): void
     echo '<p>Provisioned services: ' . (int) $services . ' &middot; Active: ' . (int) $active . '</p>';
     echo '<p>Tracked videos: ' . (int) $uploads . ' &middot; Accounted storage: '
         . htmlspecialchars(number_format($bytes / 1000000000, 2), ENT_QUOTES, 'UTF-8') . ' GB</p>';
-    echo '<p>Bunny credentials are retained inside WHMCS and are not exposed to Moodle.</p>';
+    echo '<p>Elearning Stream provider credentials are retained inside WHMCS and are not exposed to Moodle.</p>';
     echo '</div></div>';
 }
