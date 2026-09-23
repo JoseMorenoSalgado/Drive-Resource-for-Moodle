@@ -151,3 +151,10 @@ The pasted Elearning Stream URL is never used as an upstream proxy target and is
 The provider CDN hostname and playback token key exist only in WHMCS. Moodle receives a short-lived signed MP4 URL over the authenticated service channel, validates that it is HTTPS and on the approved provider CDN, and never places that URL in learner-facing HTML.
 
 The browser requests Moodle `protected.php`; normal login, course, context and capability validation occurs before WHMCS authorization. The upstream URL then passes through the bounded Range/206 proxy. Lookalike CDN domains, credentials in URLs, non-HTTPS schemes and nonstandard ports are rejected.
+
+
+### Elearning Stream configuration failure handling
+
+Missing Moodle-to-WHMCS configuration is treated as a preflight validation failure, not as a reason to bypass WHMCS. Drive Resource must never fall back to directly trusting a pasted provider URL or place provider management credentials in Moodle.
+
+Only the presence of the gateway URL, service ID and service token is reported to teachers; secret values are never included in validation messages or debug output.
