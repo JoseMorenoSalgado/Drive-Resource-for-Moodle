@@ -48,6 +48,75 @@ final class bunny_stream {
     }
 
     /**
+     * Extract a provider video GUID from a pasted Elearning Stream URL.
+     *
+     * The URL itself is never persisted. Only a syntactically valid video GUID
+     * is returned; WHMCS performs the authoritative library/service ownership
+     * verification before the activity is saved.
+     *
+     * @param string $url Pasted provider playback/embed URL.
+     * @return string|null
+     */
+    public static function extract_asset_id_from_url(string $url): ?string {
+        $url = trim($url);
+        if ($url === '') {
+            return null;
+        }
+
+        $parts = parse_url($url);
+        if (
+            !$parts
+            || strtolower((string)($parts['scheme'] ?? '')) !== 'https'
+            || empty($parts['host'])
+            || !empty($parts['user'])
+            || !empty($parts['pass'])
+        ) {
+            return null;
+        }
+
+        $host = strtolower(rtrim((string)$parts['host'], '.'));
+        $knownhost = $host === 'video.bunnycdn.com'
+            || $host === 'iframe.mediadelivery.net'
+            || str_ends_with($host, '.mediadelivery.net')
+            || str_ends_with($host, '.b-cdn.net');
+        if (!$knownhost) {
+            return null;
+        }
+
+        $segments = array_values(array_filter(
+            explode('/', trim((string)($parts['path'] ?? ''), '/')),
+            static fn(string $segment): bool => $segment !== ''
+        ));
+
+        foreach (array_reverse($segments) as $segment) {
+            $candidate = rawurldecode($segment);
+            if (self::is_valid_asset_id($candidate)) {
+                return strtolower($candidate);
+            }
+        }
+
+        parse_str((string)($parts['query'] ?? ''), $query);
+        foreach (['videoid', 'videoId', 'guid'] as $key) {
+            $candidate = trim((string)($query[$key] ?? ''));
+            if (self::is_valid_asset_id($candidate)) {
+                return strtolower($candidate);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether a pasted Elearning Stream URL contains a valid provider video id.
+     *
+     * @param string $url Pasted provider URL.
+     * @return bool
+     */
+    public static function is_supported_url(string $url): bool {
+        return self::extract_asset_id_from_url($url) !== null;
+    }
+
+    /**
      * Validate a WHMCS upload reservation identifier.
      *
      * @param string $value Upload reservation identifier.
