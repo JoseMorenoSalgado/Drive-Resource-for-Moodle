@@ -53,6 +53,46 @@ final class bunny_stream_test extends \advanced_testcase {
     }
 
     /**
+     * Supported provider URLs yield only the normalised video GUID.
+     */
+    public function test_existing_stream_url_extracts_asset_identifier(): void {
+        $videoid = 'd4b3b9ce-531f-4f7a-a8db-847f47a889e9';
+
+        $this->assertSame(
+            $videoid,
+            bunny_stream::extract_asset_id_from_url(
+                'https://iframe.mediadelivery.net/embed/123456/' . $videoid . '?autoplay=false'
+            )
+        );
+        $this->assertSame(
+            $videoid,
+            bunny_stream::extract_asset_id_from_url(
+                'https://vz-example.b-cdn.net/' . $videoid . '/playlist.m3u8'
+            )
+        );
+        $this->assertSame(
+            $videoid,
+            bunny_stream::extract_asset_id_from_url(
+                'https://video.bunnycdn.com/play/123456/' . $videoid
+            )
+        );
+    }
+
+    /**
+     * Arbitrary, insecure and credential-bearing URLs are rejected.
+     */
+    public function test_existing_stream_url_rejects_untrusted_urls(): void {
+        $videoid = 'd4b3b9ce-531f-4f7a-a8db-847f47a889e9';
+
+        $this->assertNull(bunny_stream::extract_asset_id_from_url('http://vz-example.b-cdn.net/' . $videoid));
+        $this->assertNull(bunny_stream::extract_asset_id_from_url('https://example.com/' . $videoid));
+        $this->assertNull(bunny_stream::extract_asset_id_from_url(
+            'https://user:pass@iframe.mediadelivery.net/embed/123/' . $videoid
+        ));
+        $this->assertNull(bunny_stream::extract_asset_id_from_url('not-a-url'));
+    }
+
+    /**
      * Only states understood by Moodle are persisted.
      */
     public function test_status_normalisation(): void {
