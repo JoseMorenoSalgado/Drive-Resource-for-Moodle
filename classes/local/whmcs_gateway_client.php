@@ -17,7 +17,7 @@
 /**
  * WHMCS media gateway client.
  *
- * Bunny Stream credentials deliberately never exist in Moodle. Moodle only
+ * Elearning Stream provider credentials deliberately never exist in Moodle. Moodle only
  * authenticates to the WHMCS gateway with a service-scoped token. WHMCS then
  * returns a short-lived, video-scoped TUS signature that is safe to expose to
  * the teacher browser for a direct upload.
@@ -238,6 +238,102 @@ final class whmcs_gateway_client {
             'status' => $status,
             'quota' => is_array($response['quota'] ?? null) ? $response['quota'] : [],
         ];
+    }
+
+    /**
+     * Resolve a short-lived Elearning Stream MP4 URL for server-side proxying.
+     *
+     * The returned URL must never be rendered into a learner template.
+     *
+     * @param string $videoid Provider video GUID.
+     * @param bool $forcerefresh Ignore cached authorization.
+     * @return string Validated provider playback URL.
+     */
+    public function playback_url(string $videoid, bool $forcerefresh = false): string {
+        $videoid = strtolower(trim($videoid));
+        if (!preg_match('/^[a-f0-9-]{32,64}$/', $videoid)) {
+            throw new moodle_exception('whmcsgatewayinvalidresponse', 'mod_videoplayer');
+        }
+
+        $cache = \cache::make('mod_videoplayer', 'streamplayback');
+        $cachekey = sha1($this->serviceid . '|' . $videoid);
+        if ($forcerefresh) {
+            $cache->delete($cachekey);
+        } else {
+            $cached = $cache->get($cachekey);
+            $decoded = is_string($cached) && $cached !== '' ? json_decode($cached, true) : null;
+            if (
+                is_array($decoded)
+                && (int)($decoded['expires'] ?? 0) > time() + 30
+                && $this->is_valid_playback_url((string)($decoded['url'] ?? ''), $videoid)
+            ) {
+                return (string)$decoded['url'];
+            }
+        }
+
+        $response = $this->post('/api/playback-authorize.php', [
+            'videoid' => $videoid,
+        ]);
+        $url = trim((string)($response['url'] ?? ''));
+        $returnedvideoid = strtolower(trim((string)($response['videoid'] ?? '')));
+        $expires = (int)($response['expires'] ?? 0);
+
+        if (
+            !hash_equals($videoid, $returnedvideoid)
+            || $expires <= time() + 30
+            || $expires > time() + HOURSECS
+            || !$this->is_valid_playback_url($url, $videoid)
+        ) {
+            throw new moodle_exception('whmcsgatewayinvalidresponse', 'mod_videoplayer');
+        }
+
+        $parts = parse_url($url);
+        parse_str((string)($parts['query'] ?? ''), $query);
+        if (
+            (int)($query['expires'] ?? 0) !== $expires
+            || !preg_match('/^HS256-[A-Za-z0-9_-]{20,}$/', (string)($query['token'] ?? ''))
+        ) {
+            throw new moodle_exception('whmcsgatewayinvalidresponse', 'mod_videoplayer');
+        }
+
+        $cache->set($cachekey, json_encode([
+            'url' => $url,
+            'expires' => $expires,
+        ], JSON_UNESCAPED_SLASHES));
+
+        return $url;
+    }
+
+    /**
+     * Validate a provider playback URL returned by the trusted WHMCS gateway.
+     *
+     * @param string $url Playback URL.
+     * @param string $videoid Expected video GUID.
+     * @return bool
+     */
+    private function is_valid_playback_url(string $url, string $videoid): bool {
+        $parts = parse_url($url);
+        if (
+            !$parts
+            || strtolower((string)($parts['scheme'] ?? '')) !== 'https'
+            || empty($parts['host'])
+            || !empty($parts['user'])
+            || !empty($parts['pass'])
+            || (isset($parts['port']) && (int)$parts['port'] !== 443)
+        ) {
+            return false;
+        }
+
+        $host = strtolower(rtrim((string)$parts['host'], '.'));
+        if ($host === 'b-cdn.net' || !str_ends_with($host, '.b-cdn.net')) {
+            return false;
+        }
+
+        $path = (string)($parts['path'] ?? '');
+        return preg_match(
+            '#^/' . preg_quote($videoid, '#') . '/play_\\d{2,4}p\\.mp4$#',
+            $path
+        ) === 1;
     }
 
     /**
