@@ -158,3 +158,14 @@ The browser requests Moodle `protected.php`; normal login, course, context and c
 Missing Moodle-to-WHMCS configuration is treated as a preflight validation failure, not as a reason to bypass WHMCS. Drive Resource must never fall back to directly trusting a pasted provider URL or place provider management credentials in Moodle.
 
 Only the presence of the gateway URL, service ID and service token is reported to teachers; secret values are never included in validation messages or debug output.
+
+
+## WHMCS multi-tenant isolation
+
+Each WHMCS service is authenticated independently with its service id, exact Moodle site URL and service-scoped token. Quota reservations, assets, references and replay nonces are keyed by service id. The central WHMCS addon may serve many customers, but a request authenticated for one service cannot bind or import an asset owned by another service.
+
+Backend identity is also stored per service. Managed-video endpoints verify backend capabilities before invoking Elearning Stream. Provider clients are lazy-loaded, preventing unrelated tenants/backends from requiring or touching another provider's credentials.
+
+A future S3-compatible backend must preserve the same tenant boundary. Object keys must be tenant-scoped, presigned operations must be short-lived and service-scoped, bucket/endpoint credentials must remain in WHMCS, and arbitrary client-supplied S3 URLs must never become proxy targets.
+
+Backend changes are blocked for services that still own media or accounted/reserved bytes. This avoids an unsafe state where accounting says one backend while assets remain on another.
