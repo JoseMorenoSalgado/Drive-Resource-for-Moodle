@@ -14,7 +14,7 @@ The WHMCS companion is installed **once** and manages many customers. Each provi
 
 One customer with multiple independent Moodle installations can use multiple WHMCS services under the same WHMCS client account. This preserves per-site credentials, accounting and suspension boundaries.
 
-Addon version **0.3.2** adds a paginated administration dashboard with customer, Moodle URL, product, backend, quota, storage usage, video count, status and direct access to the WHMCS service.
+Addon version **0.4.0** adds a paginated administration dashboard with customer, Moodle URL, product, backend, quota, storage usage, video count, status and direct access to the WHMCS service.
 
 ## Backend model
 
@@ -59,7 +59,7 @@ The provisioning module defaults to:
 - soft overage enabled;
 - 30-day retention after the last Moodle reference is released.
 
-Configure the WHMCS Usage Billing metric `video_storage_gb` with the same included quantity and your desired per-GB overage price.
+Configure `video_storage_gb` for storage billing. WHMCS 0.4.0 also exposes `video_transfer_gb` as a monthly-period metric so transfer can be displayed or priced separately if your commercial plan requires it.
 
 ## Required WHMCS setup
 
@@ -93,7 +93,7 @@ Recommended **Elearning Stream Playback TTL**: 300 seconds. Moodle caches the au
 
 ## Upgrade from gateway 0.2.x
 
-1. Replace both WHMCS module directories with the 0.3.2 package.
+1. Replace both WHMCS module directories with the 0.4.0 package.
 2. Open the Drive Resource Media Gateway addon in WHMCS so the native addon upgrade hook runs.
 3. Confirm existing services appear in the multi-client dashboard.
 4. Existing rows are migrated to `backend_key=elearningstream` and `backend_profile=default`.
@@ -127,3 +127,35 @@ WHMCS companion 0.3.2 adds an admin module action:
 Run it from the service's module commands. It creates or repairs the tenant, stores `dr-{service_id}` as Username, generates a service-scoped token when none exists, stores only the token hash in the gateway table, and writes the plaintext token to WHMCS protected service properties.
 
 The action is idempotent: if a valid token already exists, repair preserves it. Use **Rotar token Moodle** only when an intentional credential rotation is required.
+
+
+## Customer self-service portal
+
+WHMCS 0.4.0 replaces the minimal service summary with a responsive service dashboard. The authenticated owner of each WHMCS service can:
+
+- set/change the authorised Moodle URL;
+- generate the initial Moodle connection token or explicitly rotate it;
+- copy the Service ID/token;
+- run a real signed Moodle connection check;
+- see storage used versus included quota;
+- see protected-video transfer for the current month;
+- see the number of managed videos;
+- browse a paginated video list;
+- permanently delete videos that have no active Moodle activity references.
+
+Changing the Moodle URL is rejected while active asset references exist. Deleting a referenced video is also rejected.
+
+## Connection validation
+
+WHMCS signs a short-lived request to `/mod/videoplayer/gateway-status.php` on the configured Moodle site. Moodle validates the exact `$CFG->wwwroot`, Service ID, timestamp, nonce and HMAC using the service token. Redirects are not followed.
+
+## Per-service transfer
+
+Because multiple WHMCS tenants can share the same provider Video Library, provider library traffic is not used as a per-customer number. Moodle beta9 counts bytes actually emitted through the protected Elearning Stream proxy and reports them to WHMCS in idempotent batches.
+
+WHMCS stores one logical monthly counter per service and exposes:
+
+- `video_storage_gb` — snapshot;
+- `video_transfer_gb` — monthly period.
+
+The idempotency ledger prevents retry double-counting and is pruned after its retention window.
