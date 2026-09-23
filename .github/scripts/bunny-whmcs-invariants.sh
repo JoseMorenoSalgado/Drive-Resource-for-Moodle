@@ -64,6 +64,10 @@ if grep -q "'provideruploadid'" backup/moodle2/backup_videoplayer_stepslib.php; 
 fi
 grep -q 'reconcile_bunny_asset' backup/moodle2/restore_videoplayer_stepslib.php     || fail "Restored Bunny assets are not reconciled through WHMCS."
 
+if grep -Rni "Bunny Stream" templates lang/en/videoplayer.php lang/es/videoplayer.php; then
+    fail "Customer-facing Moodle UI must use Elearning Stream branding."
+fi
+
 echo "Checking existing Elearning Stream URL import..."
 grep -q 'extract_asset_id_from_url' classes/local/provider/bunny_stream.php     || fail "Existing stream URL parser is missing."
 grep -q "streaminputmode" mod_form.php     || fail "Elearning Stream input mode selector is missing."
