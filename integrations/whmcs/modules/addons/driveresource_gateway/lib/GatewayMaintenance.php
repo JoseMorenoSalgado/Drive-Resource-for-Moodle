@@ -10,11 +10,23 @@ use WHMCS\Database\Capsule;
  */
 final class GatewayMaintenance
 {
-    private BunnyClient $bunny;
+    private ?BunnyClient $bunny = null;
 
-    public function __construct()
+    /**
+     * Lazily resolve the Elearning Stream client.
+     *
+     * Maintenance queries are backend-scoped first, so S3-only services will
+     * never require Elearning Stream credentials merely because cron runs.
+     *
+     * @return BunnyClient
+     */
+    private function streamClient(): BunnyClient
     {
-        $this->bunny = new BunnyClient();
+        if ($this->bunny === null) {
+            $this->bunny = new BunnyClient();
+        }
+
+        return $this->bunny;
     }
 
     /**
@@ -85,7 +97,7 @@ final class GatewayMaintenance
 
             if (!empty($row->video_id)) {
                 try {
-                    $this->bunny->deleteVideo((string) $row->video_id);
+                    $this->streamClient()->deleteVideo((string) $row->video_id);
                 } catch (Throwable $exception) {
                     // The database reservation is already released. A later
                     // provider reconciliation can remove any remote orphan.
@@ -119,7 +131,7 @@ final class GatewayMaintenance
         $affected = [];
         foreach ($rows as $row) {
             try {
-                $video = $this->bunny->getVideo((string) $row->video_id);
+                $video = $this->streamClient()->getVideo((string) $row->video_id);
             } catch (Throwable $exception) {
                 continue;
             }
@@ -181,7 +193,7 @@ final class GatewayMaintenance
             }
 
             try {
-                $this->bunny->deleteVideo((string) $row->video_id);
+                $this->streamClient()->deleteVideo((string) $row->video_id);
             } catch (Throwable $exception) {
                 continue;
             }
