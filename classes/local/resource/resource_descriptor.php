@@ -235,17 +235,13 @@ final class resource_descriptor {
     }
 
     /**
-     * Moodle-only protected resource URL.
+     * Moodle-only protected resource URL for all managed sources.
      *
      * @param int $cmid Course module id.
      * @param string|null $streammode Optional video stream mode.
      * @return \moodle_url
      */
     public function protected_url(int $cmid, ?string $streammode = null): \moodle_url {
-        if ($this->source === bunny_stream::SOURCE) {
-            throw new \coding_exception('Bunny Stream assets do not use the Google Drive protected endpoint.');
-        }
-
         $params = [
             'id' => $cmid,
             'v' => (int)($this->instance->timemodified ?? time()),
