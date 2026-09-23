@@ -51,6 +51,17 @@ final class sync_transfer_usage extends scheduled_task {
             return;
         }
 
+        $configuredserviceid = (int)get_config('mod_videoplayer', 'whmcsserviceid');
+
+        // Never report bytes collected under an old service identity using the
+        // current service token. Stale events are discarded rather than
+        // incorrectly attributing usage to another customer/service.
+        $DB->delete_records_select(
+            'videoplayer_transfer_events',
+            'serviceid <> :serviceid',
+            ['serviceid' => $configuredserviceid]
+        );
+
         $records = $DB->get_records(
             'videoplayer_transfer_events',
             null,
