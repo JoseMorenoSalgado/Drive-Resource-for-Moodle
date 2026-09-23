@@ -157,6 +157,20 @@ function driveresource_UpdateMoodleUrl(array $params): string
                 throw new RuntimeException('Drive Resource service is not provisioned.');
             }
 
+            $currentUrl = rtrim((string) $service->site_url, '/');
+            if ($currentUrl !== rtrim($url, '/')) {
+                $activeRefs = (int) Capsule::table('mod_driveresource_asset_refs')
+                    ->where('service_id', $serviceId)
+                    ->where('active', true)
+                    ->count();
+                if ($activeRefs > 0) {
+                    throw new RuntimeException(
+                        'No puedes cambiar de aula mientras existen videos vinculados a actividades Moodle. '
+                        . 'Libera o migra esas referencias primero.'
+                    );
+                }
+            }
+
             Capsule::table('mod_driveresource_services')
                 ->where('service_id', $serviceId)
                 ->update([
@@ -165,14 +179,6 @@ function driveresource_UpdateMoodleUrl(array $params): string
                     'connection_status' => 'pending',
                     'connection_checked_at' => null,
                     'connection_message' => 'URL actualizada. Valida la conexión después de configurar Moodle.',
-                    'updated_at' => $now,
-                ]);
-
-            Capsule::table('mod_driveresource_asset_refs')
-                ->where('service_id', $serviceId)
-                ->update([
-                    'site_url' => $url,
-                    'site_hash' => hash('sha256', $url),
                     'updated_at' => $now,
                 ]);
         });
