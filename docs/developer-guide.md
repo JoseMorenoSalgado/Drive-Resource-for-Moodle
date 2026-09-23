@@ -210,3 +210,10 @@ For compatibility migrations, first check every required field with `field_exist
 Any callback reachable while Moodle is building course caches must tolerate optional fields introduced by pre-release builds. Do not hard-select a newly introduced field from a hot-path callback unless the current schema is guaranteed. Use one cached schema inspection where required, provide a safe default, and pair it with a newer idempotent XMLDB repair savepoint.
 
 For the current release, `completionprogressenabled` defaults to enabled and `completionpercentage` defaults to 80 only while the repair migration has not yet restored the physical columns.
+
+
+## Elearning Stream compatibility
+
+Use **Elearning Stream** in customer-facing text. Do not rename the persisted `bunnystream` source value, internal `bunny_stream` provider class, database fields or existing external-function names in this release; those identifiers are compatibility contracts.
+
+When accepting an existing provider URL, parse only the video GUID and discard the original URL before DML. The WHMCS gateway remains authoritative for provider-library existence, service ownership and quota accounting.
