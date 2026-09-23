@@ -214,3 +214,22 @@ This makes upgrades idempotent for sites that installed pre-release builds with 
 Course-cache callbacks must remain callable even when a pre-release installation has an advanced plugin version but a partially applied database schema. `videoplayer_get_coursemodule_info()` therefore builds its completion-field projection from columns that physically exist and applies backward-compatible defaults until XMLDB repair savepoint `2026092204` restores the canonical schema.
 
 This compatibility path is temporary runtime protection, not a substitute for the database migration.
+
+
+## Elearning Stream provider flow
+
+The customer-facing provider name is **Elearning Stream**. The persisted source key and internal adapter class retain the historical `bunnystream` / `bunny_stream` identifiers for upgrade compatibility.
+
+Existing-video URL flow:
+
+```text
+Teacher pastes Elearning Stream URL
+        -> Moodle validates HTTPS/provider URL shape
+        -> extract video GUID only
+        -> WHMCS authenticated asset-import endpoint
+        -> provider-library verification
+        -> service ownership + quota/accounting
+        -> normal asset bind lifecycle
+```
+
+The original pasted URL is form-only data and is removed before Moodle DML persistence.
