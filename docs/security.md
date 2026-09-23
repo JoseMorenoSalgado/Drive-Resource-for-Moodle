@@ -111,13 +111,13 @@ HTML5 seek position is not trusted as evidence that content was watched. Video c
 
 RC19 changes only the Moodle form field-name suffix API used by custom completion controls. It does not weaken authorization, protected streaming, URL confidentiality or SSRF controls. Completion thresholds remain server-validated and continue to feed Moodle Completion API through the existing progress service.
 
-## Bunny Stream credential boundary
+## Elearning Stream credential boundary
 
-The Bunny Stream management API key and Bunny playback signing key live **only in WHMCS**. They are not Moodle settings, activity fields, JavaScript configuration or browser storage.
+The Elearning Stream provider management API key and Elearning Stream playback signing key live **only in WHMCS**. They are not Moodle settings, activity fields, JavaScript configuration or browser storage.
 
 Moodle authenticates to the WHMCS media gateway using a service-scoped token. Every gateway request is additionally bound to the exact configured Moodle site and signed with HMAC-SHA256 over a timestamp, nonce and request-body hash. WHMCS rejects stale requests and records single-use nonces to prevent replay.
 
-The teacher browser receives only a short-lived Bunny TUS authorization scoped to a single library/video/expiration. It does not receive the Bunny management API key. The browser uploader uses `credentials: omit` for Bunny requests and validates that the TUS upload host is `video.bunnycdn.com`.
+The teacher browser receives only a short-lived Elearning Stream upload authorization scoped to a single library/video/expiration. It does not receive the provider management API key. The browser uploader uses `credentials: omit` for provider requests and validates that the TUS upload host is `video.bunnycdn.com`.
 
 ### Quota abuse controls
 
@@ -139,3 +139,8 @@ No privilege, URL-confidentiality or Bunny credential boundary is relaxed by thi
 ## Partial-schema integrity recovery
 
 Build `2026092204` repairs missing completion and Bunny metadata fields without relaxing the access-control boundary. No Bunny API credential is added to Moodle, no provider URL is exposed, and no existing learner progress row is discarded. Provider metadata fields are recreated with the same nullable/default constraints as the canonical install schema.
+
+
+### Existing-video URL import
+
+The pasted Elearning Stream URL is never used as an upstream proxy target and is never persisted. Moodle accepts only supported HTTPS provider URL shapes, extracts a GUID, and sends only that identifier through the authenticated WHMCS channel. WHMCS verifies the asset in the configured provider library, rejects active ownership by another service, and applies quota accounting before issuing a bindable reference.
