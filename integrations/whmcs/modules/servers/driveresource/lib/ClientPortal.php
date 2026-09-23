@@ -1,0 +1,382 @@
+<?php
+
+namespace WHMCS\Module\Server\Driveresource;
+
+use WHMCS\Database\Capsule;
+
+/**
+ * Client-facing Elearning Stream service dashboard.
+ */
+final class ClientPortal
+{
+    /** @var array Standard WHMCS module parameters. */
+    private array $params;
+
+    /**
+     * @param array $params WHMCS module parameters.
+     */
+    public function __construct(array $params)
+    {
+        $this->params = $params;
+    }
+
+    /**
+     * Render the self-service dashboard.
+     *
+     * @return string
+     */
+    public function render(): string
+    {
+        $serviceId = (int) ($this->params['serviceid'] ?? 0);
+        $service = Capsule::table('mod_driveresource_services')
+            ->where('service_id', $serviceId)
+            ->first();
+
+        if (!$service) {
+            return '<div class="alert alert-warning">'
+                . 'El servicio todavía no está provisionado. Contacta a soporte o usa el comando de creación del servicio.'
+                . '</div>';
+        }
+
+        $token = $this->serviceToken();
+        $period = gmdate('Y-m');
+        $transferBytes = (string) ($service->transfer_period ?? '') === $period
+            ? max(0, (int) ($service->transfer_bytes ?? 0))
+            : 0;
+        $usedBytes = max(0, (int) $service->used_bytes);
+        $reservedBytes = max(0, (int) $service->reserved_bytes);
+        $quotaBytes = max(1, (int) $service->quota_bytes);
+        $storagePercent = min(999, (int) round(($usedBytes / $quotaBytes) * 100));
+
+        $uploads = Capsule::table('mod_driveresource_uploads')
+            ->where('service_id', $serviceId)
+            ->where('status', '<>', 'deleted')
+            ->orderBy('created_at', 'desc')
+            ->limit(100)
+            ->get();
+
+        $refCounts = [];
+        $refs = Capsule::table('mod_driveresource_asset_refs')
+            ->select(['video_id', Capsule::raw('COUNT(*) AS total')])
+            ->where('service_id', $serviceId)
+            ->where('active', true)
+            ->groupBy('video_id')
+            ->get();
+        foreach ($refs as $ref) {
+            $refCounts[(string) $ref->video_id] = (int) $ref->total;
+        }
+
+        $connection = strtolower((string) ($service->connection_status ?? 'pending'));
+        $connectionLabel = 'Pendiente';
+        $connectionClass = 'warning';
+        if ($connection === 'connected') {
+            $connectionLabel = 'Conectado';
+            $connectionClass = 'success';
+        } else if ($connection === 'failed') {
+            $connectionLabel = 'No conectado';
+            $connectionClass = 'danger';
+        }
+
+        $checked = !empty($service->connection_checked_at)
+            ? date('Y-m-d H:i', (int) $service->connection_checked_at)
+            : 'Sin validar';
+        $connectionMessage = trim((string) ($service->connection_message ?? ''));
+
+        $html = $this->styles();
+        $html .= '<div class="dr-portal">';
+        $html .= '<div class="dr-grid">';
+        $html .= $this->card(
+            'Conexión Moodle',
+            '<span class="label label-' . $connectionClass . '">' . $connectionLabel . '</span>',
+            $checked . ($connectionMessage !== '' ? '<br>' . $this->e($connectionMessage) : '')
+        );
+        $html .= $this->card(
+            'Almacenamiento',
+            $this->formatBytes($usedBytes) . ' / ' . $this->formatBytes($quotaBytes),
+            $storagePercent . '% usado'
+                . ($reservedBytes > 0 ? ' · ' . $this->formatBytes($reservedBytes) . ' reservado' : '')
+        );
+        $html .= $this->card(
+            'Transferencia ' . $period,
+            $this->formatBytes($transferBytes),
+            'Bytes entregados por el reproductor protegido'
+        );
+        $html .= $this->card(
+            'Videos',
+            (string) count($uploads),
+            'Activos o en procesamiento'
+        );
+        $html .= '</div>';
+
+        $html .= '<div class="panel panel-default dr-panel">';
+        $html .= '<div class="panel-heading"><strong>Conectar aula virtual</strong></div>';
+        $html .= '<div class="panel-body">';
+
+        $html .= '<form method="post" action="' . $this->formAction() . '" class="dr-form">';
+        $html .= $this->customActionFields('UpdateMoodleUrl');
+        $html .= '<div class="form-group">';
+        $html .= '<label for="dr-moodle-url">URL del aula virtual</label>';
+        $html .= '<div class="input-group">';
+        $html .= '<input id="dr-moodle-url" name="moodleurl" type="url" class="form-control" required '
+            . 'placeholder="https://campus.ejemplo.com" value="' . $this->e((string) $service->site_url) . '">';
+        $html .= '<span class="input-group-btn"><button class="btn btn-primary" type="submit">Guardar URL</button></span>';
+        $html .= '</div>';
+        $html .= '<p class="help-block">Debe coincidir exactamente con <code>$CFG-&gt;wwwroot</code> de Moodle.</p>';
+        $html .= '</div></form>';
+
+        $html .= '<div class="form-group">';
+        $html .= '<label>Service ID</label>';
+        $html .= '<input class="form-control" type="text" readonly value="' . $serviceId . '">';
+        $html .= '</div>';
+
+        $html .= '<div class="form-group">';
+        $html .= '<label>Token de conexión Moodle</label>';
+        $html .= '<div class="input-group">';
+        $html .= '<input id="dr-service-token" class="form-control" type="password" readonly value="'
+            . $this->e($token) . '" placeholder="Aún no generado">';
+        $html .= '<span class="input-group-btn">';
+        $html .= '<button type="button" class="btn btn-default" onclick="drToggleToken()">Mostrar</button>';
+        $html .= '<button type="button" class="btn btn-default" onclick="drCopyToken()">Copiar</button>';
+        $html .= '</span></div></div>';
+
+        $html .= '<div class="dr-actions">';
+        $html .= $this->actionForm(
+            $token === '' ? 'ProvisionMoodleConnection' : 'RotateMoodleToken',
+            $token === '' ? 'Generar token' : 'Generar nueva key',
+            $token === '' ? 'btn btn-primary' : 'btn btn-warning',
+            $token !== '' ? '¿Deseas invalidar la key actual y generar una nueva?' : ''
+        );
+        $html .= $this->actionForm(
+            'ValidateMoodleConnection',
+            'Validar conexión',
+            'btn btn-success'
+        );
+        $html .= '</div>';
+        $html .= '</div></div>';
+
+        $html .= '<div class="panel panel-default dr-panel">';
+        $html .= '<div class="panel-heading"><strong>Videos del servicio</strong>'
+            . '<span class="text-muted"> · últimos 100</span></div>';
+        $html .= '<div class="table-responsive"><table class="table table-striped table-hover dr-table">';
+        $html .= '<thead><tr><th>Video</th><th>Estado</th><th>Tamaño</th><th>Uso</th><th>Fecha</th><th></th></tr></thead><tbody>';
+
+        if (count($uploads) === 0) {
+            $html .= '<tr><td colspan="6" class="text-center text-muted" style="padding:28px">'
+                . 'Todavía no hay videos registrados en este servicio.</td></tr>';
+        } else {
+            foreach ($uploads as $upload) {
+                $videoId = (string) ($upload->video_id ?? '');
+                $refsCount = $videoId !== '' ? (int) ($refCounts[$videoId] ?? 0) : 0;
+                $status = $this->statusLabel((string) $upload->status);
+                $html .= '<tr>';
+                $html .= '<td><strong>' . $this->e((string) $upload->filename) . '</strong>';
+                if ($videoId !== '') {
+                    $html .= '<br><small class="text-muted">' . $this->e($videoId) . '</small>';
+                }
+                $html .= '</td>';
+                $html .= '<td>' . $status . '</td>';
+                $html .= '<td>' . $this->e($this->formatBytes((int) $upload->accounted_bytes)) . '</td>';
+                $html .= '<td>' . ($refsCount > 0
+                    ? '<span class="label label-info">En uso · ' . $refsCount . '</span>'
+                    : '<span class="label label-default">Sin referencias</span>') . '</td>';
+                $html .= '<td>' . date('Y-m-d H:i', (int) $upload->created_at) . '</td>';
+                $html .= '<td class="text-right">';
+                if ($refsCount === 0 && $videoId !== '') {
+                    $html .= '<form method="post" action="' . $this->formAction() . '" style="display:inline">';
+                    $html .= $this->customActionFields('DeleteVideo');
+                    $html .= '<input type="hidden" name="uploadid" value="' . $this->e((string) $upload->upload_id) . '">';
+                    $html .= '<button type="submit" class="btn btn-xs btn-danger" '
+                        . 'onclick="return confirm('¿Eliminar este video de forma permanente?')">Eliminar</button>';
+                    $html .= '</form>';
+                } else {
+                    $html .= '<button class="btn btn-xs btn-default" type="button" disabled>Protegido</button>';
+                }
+                $html .= '</td></tr>';
+            }
+        }
+
+        $html .= '</tbody></table></div></div>';
+        $html .= '<script>'
+            . 'function drToggleToken(){var e=document.getElementById("dr-service-token");'
+            . 'if(e){e.type=e.type==="password"?"text":"password";}}'
+            . 'function drCopyToken(){var e=document.getElementById("dr-service-token");'
+            . 'if(e&&e.value&&navigator.clipboard){navigator.clipboard.writeText(e.value);}}'
+            . '</script>';
+        $html .= '</div>';
+
+        return $html;
+    }
+
+    /**
+     * Retrieve the current service token from WHMCS protected properties.
+     *
+     * @return string
+     */
+    private function serviceToken(): string
+    {
+        $token = trim((string) ($this->params['password'] ?? ''));
+        if ($token !== '' || !isset($this->params['model'])) {
+            return $token;
+        }
+
+        try {
+            return trim((string) $this->params['model']->serviceProperties->get('Password'));
+        } catch (\Throwable $exception) {
+            return '';
+        }
+    }
+
+    /**
+     * Standard custom-function form fields.
+     *
+     * WHMCS validates client ownership when dispatching provisioning custom
+     * functions from the product-details route.
+     *
+     * @param string $action Function name without module prefix.
+     * @return string
+     */
+    private function customActionFields(string $action): string
+    {
+        return '<input type="hidden" name="id" value="' . (int) ($this->params['serviceid'] ?? 0) . '">'
+            . '<input type="hidden" name="modop" value="custom">'
+            . '<input type="hidden" name="a" value="' . $this->e($action) . '">';
+    }
+
+    /**
+     * Render one custom action form.
+     *
+     * @param string $action Action.
+     * @param string $label Button text.
+     * @param string $class Button classes.
+     * @param string $confirmation Optional confirmation.
+     * @return string
+     */
+    private function actionForm(
+        string $action,
+        string $label,
+        string $class,
+        string $confirmation = ''
+    ): string {
+        $confirm = $confirmation !== ''
+            ? ' onclick="return confirm('' . $this->js($confirmation) . '')"'
+            : '';
+
+        return '<form method="post" action="' . $this->formAction() . '" style="display:inline-block;margin-right:8px">'
+            . $this->customActionFields($action)
+            . '<button type="submit" class="' . $this->e($class) . '"' . $confirm . '>'
+            . $this->e($label) . '</button></form>';
+    }
+
+    /**
+     * Product details URL.
+     *
+     * @return string
+     */
+    private function formAction(): string
+    {
+        return 'clientarea.php?action=productdetails&id=' . (int) ($this->params['serviceid'] ?? 0);
+    }
+
+    /**
+     * Summary card.
+     *
+     * @param string $label Label.
+     * @param string $value Value HTML.
+     * @param string $meta Supporting text.
+     * @return string
+     */
+    private function card(string $label, string $value, string $meta): string
+    {
+        return '<div class="dr-card"><div class="dr-card-label">' . $this->e($label) . '</div>'
+            . '<div class="dr-card-value">' . $value . '</div>'
+            . '<div class="dr-card-meta">' . $meta . '</div></div>';
+    }
+
+    /**
+     * Provider status badge.
+     *
+     * @param string $status Status.
+     * @return string
+     */
+    private function statusLabel(string $status): string
+    {
+        $map = [
+            'bound' => ['success', 'Listo'],
+            'ready' => ['success', 'Listo'],
+            'processing' => ['info', 'Procesando'],
+            'authorized' => ['warning', 'Subiendo'],
+            'reserved' => ['warning', 'Reservado'],
+            'failed' => ['danger', 'Error'],
+            'expired' => ['default', 'Expirado'],
+        ];
+        [$class, $label] = $map[$status] ?? ['default', ucfirst($status)];
+
+        return '<span class="label label-' . $class . '">' . $this->e($label) . '</span>';
+    }
+
+    /**
+     * Human-readable decimal byte amount.
+     *
+     * @param int $bytes Bytes.
+     * @return string
+     */
+    private function formatBytes(int $bytes): string
+    {
+        $bytes = max(0, $bytes);
+        if ($bytes >= 1000000000000) {
+            return number_format($bytes / 1000000000000, 2) . ' TB';
+        }
+        if ($bytes >= 1000000000) {
+            return number_format($bytes / 1000000000, 2) . ' GB';
+        }
+        if ($bytes >= 1000000) {
+            return number_format($bytes / 1000000, 2) . ' MB';
+        }
+
+        return number_format($bytes / 1000, 2) . ' KB';
+    }
+
+    /**
+     * Scoped UI styles.
+     *
+     * @return string
+     */
+    private function styles(): string
+    {
+        return '<style>'
+            . '.dr-portal{margin-top:18px}.dr-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}'
+            . '.dr-card{border:1px solid #e5e7eb;border-radius:10px;background:#fff;padding:16px;min-height:112px}'
+            . '.dr-card-label{font-size:12px;color:#6b7280;margin-bottom:7px}.dr-card-value{font-size:22px;font-weight:600;line-height:1.25}'
+            . '.dr-card-meta{font-size:12px;color:#6b7280;margin-top:7px;line-height:1.45}.dr-panel{border-radius:10px;overflow:hidden}'
+            . '.dr-actions{margin-top:12px}.dr-table td{vertical-align:middle!important}'
+            . '@media(max-width:991px){.dr-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}'
+            . '@media(max-width:575px){.dr-grid{grid-template-columns:1fr}.dr-card-value{font-size:20px}}'
+            . '</style>';
+    }
+
+    /**
+     * HTML escape.
+     *
+     * @param string $value Value.
+     * @return string
+     */
+    private function e(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+
+    /**
+     * Escape text for a single-quoted inline confirm.
+     *
+     * @param string $value Value.
+     * @return string
+     */
+    private function js(string $value): string
+    {
+        return str_replace(
+            ["\\", "'", "\r", "\n"],
+            ["\\\\", "\\'", '', ' '],
+            $value
+        );
+    }
+}
