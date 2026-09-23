@@ -35,3 +35,44 @@ Stores optional one-time gamification rewards keyed by activity, user, reward ty
 ## Data lifecycle
 
 Activity deletion removes related views/rewards and Moodle File API data. Privacy API operations can export/delete user-owned view/reward records by module context. Backup & Restore includes user data only when the backup is configured to include it.
+
+
+## WHMCS companion tables
+
+The WHMCS companion owns a separate commercial/control-plane schema inside the WHMCS database. These tables are not Moodle tables and are not included in Moodle backup/restore.
+
+### `mod_driveresource_services`
+
+One row per provisioned WHMCS service. This is the tenant boundary for one independently authenticated Moodle installation.
+
+Important fields:
+
+| Field | Purpose |
+| --- | --- |
+| `service_id` | WHMCS service id; primary tenant key |
+| `site_url` / `site_hash` | Exact Moodle site binding |
+| `token_hash` | Hash of the service-scoped Moodle↔WHMCS token |
+| `status` | Active/suspended/terminated control-plane state |
+| `backend_key` | Provider-neutral backend identity; defaults to `elearningstream` |
+| `backend_profile` | Backend profile selector; defaults to `default` |
+| `quota_bytes` | Included storage allowance |
+| `used_bytes` | Authoritative accounted storage |
+| `reserved_bytes` | Storage reserved by in-progress uploads |
+| `overage_allowed` | Whether service may exceed included storage |
+| `retention_days` | Orphan retention policy |
+
+Gateway 0.3.0 adds `backend_key` and `backend_profile` idempotently. Existing services are normalized to `elearningstream/default`.
+
+### `mod_driveresource_uploads`
+
+Tracks upload reservations and provider assets by `service_id`, including source size, accounted bytes, state, binding and retention timestamps.
+
+### `mod_driveresource_asset_refs`
+
+Tracks active Moodle activity references to provider assets. The unique service/site/instance tuple prevents reference collisions while allowing the central WHMCS gateway to serve many customers.
+
+### `mod_driveresource_nonces`
+
+Stores short-lived per-service request nonces for replay protection.
+
+The future S3-compatible adapter will reuse the same service/tenant/accounting boundary; provider-specific object metadata may be added in a backend-specific table rather than overloading Moodle activity data.
