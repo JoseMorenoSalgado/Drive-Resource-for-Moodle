@@ -209,7 +209,7 @@ function driveresource_ChangePackage(array $params): string
             ->where('service_id', $serviceId)
             ->first();
         if (!$service) {
-            throw new RuntimeException('Elearning Stream service is not provisioned.');
+            throw new RuntimeException('Drive Resource service is not provisioned.');
         }
 
         $backendKey = driveresource_backend_key($params);
@@ -323,7 +323,11 @@ function driveresource_ClientArea(array $params): string
         $quota = number_format(((int) $service->quota_bytes) / 1000000000, 2);
 
         return '<div class="alert alert-info">'
-            . '<strong>Elearning Stream</strong><br>'
+            . '<strong>' . htmlspecialchars(
+                driveresource_backend_label((string) ($service->backend_key ?? 'elearningstream')),
+                ENT_QUOTES,
+                'UTF-8'
+            ) . '</strong><br>'
             . 'Storage: ' . htmlspecialchars($used, ENT_QUOTES, 'UTF-8')
             . ' GB / ' . htmlspecialchars($quota, ENT_QUOTES, 'UTF-8') . ' GB included.<br>'
             . 'Status: ' . htmlspecialchars((string) $service->status, ENT_QUOTES, 'UTF-8') . '<br>'
