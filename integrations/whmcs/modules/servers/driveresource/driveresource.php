@@ -176,12 +176,6 @@ function driveresource_UpdateMoodleUrl(array $params): string
                 ]);
         });
 
-        if (isset($params['model'])) {
-            $params['model']->serviceProperties->save([
-                'Moodle Site URL' => $url,
-            ]);
-        }
-
         return 'success';
     } catch (Throwable $exception) {
         return $exception->getMessage();
@@ -892,6 +886,16 @@ function driveresource_backend_label(string $key): string
  */
 function driveresource_site_url(array $params): string
 {
+    $serviceId = (int) ($params['serviceid'] ?? 0);
+    if ($serviceId > 0 && Capsule::schema()->hasTable('mod_driveresource_services')) {
+        $existing = Capsule::table('mod_driveresource_services')
+            ->where('service_id', $serviceId)
+            ->value('site_url');
+        if (is_string($existing) && trim($existing) !== '') {
+            return driveresource_normalize_site_url($existing);
+        }
+    }
+
     $raw = (string) (($params['customfields']['Moodle Site URL'] ?? '') ?: ($params['domain'] ?? ''));
     return driveresource_normalize_site_url($raw);
 }
