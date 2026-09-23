@@ -8,7 +8,7 @@ The historical Moodle component name remains `mod_videoplayer` to preserve upgra
 
 - Product: Drive Resource
 - Moodle component: `mod_videoplayer`
-- Release: `1.2.0-beta7-m45`
+- Release: `1.2.0-beta8-m45`
 - Target: Moodle 4.5 LTS
 - PHP baseline: PHP 8.1+
 - Video runtime: native HTML5 Media API
@@ -38,6 +38,12 @@ Google Docs, Sheets and Slides are exported to PDF on the server side and render
 Teachers can select **Elearning Stream** as the resource source and either upload a new video or paste the URL of an existing managed video. Pasted provider URLs are not persisted in Moodle: the plugin extracts the video identifier, WHMCS verifies the asset against the configured library/service, enforces storage accounting, and stores only provider metadata required for the managed lifecycle.
 
 The persisted source identifier remains `bunnystream` internally for upgrade compatibility; administrators and learners see **Elearning Stream**.
+
+### Elearning Stream configuration diagnostics
+
+Elearning Stream requires three Moodle-side settings before teachers can upload or register an existing video: the WHMCS gateway URL, the provisioned WHMCS service ID, and the service-scoped WHMCS token. Beta8 validates these prerequisites in the activity form before save and reports exactly which setting is missing instead of failing later inside the instance create/update callback.
+
+The gateway URL must point to the deployed addon itself, for example `https://billing.example.com/modules/addons/driveresource_gateway`, not only to the WHMCS home page.
 
 ### Protected Elearning Stream playback
 
