@@ -83,7 +83,7 @@ The learner-facing page only contains Moodle URLs such as `protected.php?id=<cmi
 
 ## Video
 
-Video playback uses the browser-native `<video>` element plus `amd/src/nativevideo.js`. Plyr and Video.js are not used.
+Video playback uses the browser-native `<video>` element plus `amd/src/nativevideo.js`. Plyr and Video.js are not used. Completion is derived from the union of ranges actually reproduced, so seeking over content does not count skipped media as watched.
 
 The player treats short `waiting` events as normal buffering, delays the loading overlay to avoid UI flicker, and automatically recovers persistent stalls. Recovery preserves the learner position, refreshes the short-lived server-side Drive playback URL through `protected.php`, and falls back to the protected source stream when required. Google URLs remain server-side throughout the recovery path.
 
