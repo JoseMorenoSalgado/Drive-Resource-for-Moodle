@@ -233,3 +233,19 @@ Teacher pastes Elearning Stream URL
 ```
 
 The original pasted URL is form-only data and is removed before Moodle DML persistence.
+
+
+### Elearning Stream protected playback
+
+```text
+Learner HTML5 player
+      -> Moodle protected.php
+      -> activity_context authorization
+      -> protected_resource_service
+      -> WHMCS service-scoped playback authorization
+      -> short-lived signed provider MP4 URL (server-side only)
+      -> http_range_proxy
+      -> learner
+```
+
+The browser-facing `<video>` source remains a Moodle URL. WHMCS verifies that the asset belongs to the requesting service and signs a short-lived MP4 fallback URL. Moodle caches the authorization briefly and forwards byte ranges through the existing protected proxy. A player recovery request with `refresh=1` invalidates the cached authorization before retrying.
