@@ -9,6 +9,9 @@ use WHMCS\Database\Capsule;
  */
 final class ClientPortal
 {
+    /** @var int Videos displayed per client-area page. */
+    private const VIDEO_PAGE_SIZE = 25;
+
     /** @var array Standard WHMCS module parameters. */
     private array $params;
 
@@ -48,11 +51,20 @@ final class ClientPortal
         $quotaBytes = max(1, (int) $service->quota_bytes);
         $storagePercent = min(999, (int) round(($usedBytes / $quotaBytes) * 100));
 
+        $videoPage = max(1, (int) ($_GET['drpage'] ?? 1));
+        $videoTotal = (int) Capsule::table('mod_driveresource_uploads')
+            ->where('service_id', $serviceId)
+            ->where('status', '<>', 'deleted')
+            ->count();
+        $videoPages = max(1, (int) ceil($videoTotal / self::VIDEO_PAGE_SIZE));
+        $videoPage = min($videoPage, $videoPages);
+
         $uploads = Capsule::table('mod_driveresource_uploads')
             ->where('service_id', $serviceId)
             ->where('status', '<>', 'deleted')
             ->orderBy('created_at', 'desc')
-            ->limit(100)
+            ->offset(($videoPage - 1) * self::VIDEO_PAGE_SIZE)
+            ->limit(self::VIDEO_PAGE_SIZE)
             ->get();
 
         $refCounts = [];
@@ -103,7 +115,7 @@ final class ClientPortal
         );
         $html .= $this->card(
             'Videos',
-            (string) count($uploads),
+            (string) $videoTotal,
             'Activos o en procesamiento'
         );
         $html .= '</div>';
@@ -156,7 +168,7 @@ final class ClientPortal
 
         $html .= '<div class="panel panel-default dr-panel">';
         $html .= '<div class="panel-heading"><strong>Videos del servicio</strong>'
-            . '<span class="text-muted"> · últimos 100</span></div>';
+            . '<span class="text-muted"> · ' . $videoTotal . ' registrados</span></div>';
         $html .= '<div class="table-responsive"><table class="table table-striped table-hover dr-table">';
         $html .= '<thead><tr><th>Video</th><th>Estado</th><th>Tamaño</th><th>Uso</th><th>Fecha</th><th></th></tr></thead><tbody>';
 
@@ -195,7 +207,9 @@ final class ClientPortal
             }
         }
 
-        $html .= '</tbody></table></div></div>';
+        $html .= '</tbody></table></div>';
+        $html .= $this->videoPagination($videoPage, $videoPages);
+        $html .= '</div>';
         $html .= '<script>'
             . 'function drToggleToken(){var e=document.getElementById("dr-service-token");'
             . 'if(e){e.type=e.type==="password"?"text":"password";}}'
@@ -290,6 +304,31 @@ final class ClientPortal
         return '<div class="dr-card"><div class="dr-card-label">' . $this->e($label) . '</div>'
             . '<div class="dr-card-value">' . $value . '</div>'
             . '<div class="dr-card-meta">' . $meta . '</div></div>';
+    }
+
+    /**
+     * Render video pagination links within this WHMCS service.
+     *
+     * @param int $page Current page.
+     * @param int $pages Total pages.
+     * @return string
+     */
+    private function videoPagination(int $page, int $pages): string
+    {
+        if ($pages <= 1) {
+            return '';
+        }
+
+        $html = '<div style="padding:0 15px 15px"><ul class="pagination pagination-sm" style="margin:0">';
+        $start = max(1, $page - 3);
+        $end = min($pages, $page + 3);
+        for ($current = $start; $current <= $end; $current++) {
+            $url = $this->formAction() . '&drpage=' . $current;
+            $html .= '<li' . ($current === $page ? ' class="active"' : '') . '>'
+                . '<a href="' . $this->e($url) . '">' . $current . '</a></li>';
+        }
+
+        return $html . '</ul></div>';
     }
 
     /**
