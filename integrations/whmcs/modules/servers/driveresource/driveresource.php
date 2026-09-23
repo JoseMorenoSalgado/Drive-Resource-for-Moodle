@@ -11,7 +11,9 @@ if (!defined('WHMCS')) {
 }
 
 use WHMCS\Database\Capsule;
+use WHMCS\Module\Server\Driveresource\ClientPortal;
 use WHMCS\Module\Server\Driveresource\MetricsProvider;
+use WHMCS\Module\Server\Driveresource\MoodleConnectionProbe;
 
 /**
  * Module metadata.
@@ -192,6 +194,9 @@ function driveresource_provision_moodle_connection(array $params, bool $forcerot
             'status' => 'active',
             'backend_key' => $backendKey,
             'backend_profile' => $backendProfile,
+            'connection_status' => 'pending',
+            'connection_checked_at' => null,
+            'connection_message' => 'Pendiente de validación desde WHMCS.',
             'quota_bytes' => $quotaBytes,
             'overage_allowed' => $overageAllowed,
             'retention_days' => $retentionDays,
