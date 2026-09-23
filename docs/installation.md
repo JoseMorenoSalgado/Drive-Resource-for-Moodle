@@ -110,6 +110,11 @@ When upgrading from RC17, no schema change is required for the canonical type-re
 Legacy `displaymode` and `disabledownload` columns remain in the database for restore compatibility; administrators should not manually remove them.
 
 
+## RC19 progress schema upgrade
+
+Upgrading from RC18 or earlier automatically adds the nullable `videoplayer_views.watchedranges` field through Moodle XMLDB. No manual SQL migration is required. Complete the normal Moodle upgrade before learners resume video activities.
+
+
 ## RC19 completion-form hotfix validation
 
 RC19 is a code/API compatibility hotfix with no schema change. After deployment and cache purge, create a new Drive Resource activity and edit an existing one in a course with completion tracking enabled. The settings form must open normally, automatic completion must expose the progress-percentage rule, and saving the activity must not raise `get_suffixed_name()` errors.
