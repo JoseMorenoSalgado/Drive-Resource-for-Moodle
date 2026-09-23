@@ -183,3 +183,30 @@ The token is never derived from the customer password, Bunny/Elearning Stream AP
 Unprovisioned or partially provisioned WHMCS services are repaired through an administrator-only module action. Repair reuses an existing valid WHMCS-protected token when available. If no recoverable plaintext token exists, a new token is generated with `random_bytes()` and the gateway hash is replaced.
 
 Intentional rotation is separate from repair. Rotating a token immediately invalidates the token configured in Moodle until the administrator copies the new token to that Moodle site.
+
+
+## WHMCS customer self-service security
+
+The WHMCS Client Area may expose the service-scoped Moodle token to the authenticated owner of that WHMCS service because the token is the customer's connection credential. Provider API keys, CDN token keys and Bunny/Elearning Stream management credentials remain server-side in the WHMCS addon and are never shown to the customer or Moodle.
+
+Token rotation and repair are separate operations. Rotation invalidates the token currently configured in Moodle and marks the connection pending until the new value is copied and validated.
+
+The signed Moodle connection probe uses:
+- exact WHMCS service id;
+- exact Moodle `$CFG->wwwroot`;
+- current timestamp with bounded skew;
+- a 128-bit random request id/nonce;
+- SHA-256 body digest;
+- HMAC-SHA256 with the service token;
+- constant-time signature comparison;
+- a short-lived Moodle replay cache.
+
+The endpoint creates no Moodle browser session and returns no secret.
+
+Customer video deletion is limited to assets owned by the current service and is blocked while active Moodle references exist. URL reassignment is blocked while active references exist to prevent cross-site instance-id collisions and accidental orphaning.
+
+### Transfer-accounting integrity
+
+Transfer is counted from actual bytes emitted by Moodle's protected Elearning Stream proxy rather than from a shared provider-library traffic counter. Moodle batches events and WHMCS deduplicates each batch using a per-service report id. This avoids double billing after retries.
+
+Transfer events do not contain Moodle user ids, IP addresses or learner identifiers. They contain service id, provider video id, byte count, billing month and creation time, so they are operational/accounting data rather than per-learner progress data.
