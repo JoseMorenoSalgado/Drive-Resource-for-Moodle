@@ -226,3 +226,10 @@ Elearning Stream learner playback must remain behind `protected.php`. Do not ren
 The WHMCS gateway is authoritative for service ownership and signs the provider MP4 path. Moodle validates the returned HTTPS `*.b-cdn.net` URL, caches it only until near expiry, and passes it to `http_range_proxy`. Provider MP4 fallback is required for the native HTML5 path.
 
 The internal `bunny_*` setting and class identifiers are retained for compatibility and are not customer-facing naming.
+
+
+## Elearning Stream gateway preflight rule
+
+Any teacher workflow that calls `whmcs_gateway_client` must perform a Moodle-side configuration preflight before persistence. Use `whmcs_gateway_client::missing_configuration()` / `is_configured()` rather than duplicating configuration checks.
+
+The required Moodle settings are the addon URL, WHMCS service ID and service-scoped token. The addon URL must target the deployed `modules/addons/driveresource_gateway` path because client endpoints are appended beneath its `api/` directory.

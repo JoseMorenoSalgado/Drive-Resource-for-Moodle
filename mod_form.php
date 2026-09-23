@@ -29,6 +29,7 @@ require_once($CFG->dirroot . '/course/moodleform_mod.php');
 use mod_videoplayer\local\drive;
 use mod_videoplayer\local\plugin_config;
 use mod_videoplayer\local\provider\bunny_stream;
+use mod_videoplayer\local\whmcs_gateway_client;
 
 /**
  * Activity settings form.
@@ -321,29 +322,38 @@ class mod_videoplayer_mod_form extends moodleform_mod {
         }
 
         if ($source === bunny_stream::SOURCE) {
-            $streammode = clean_param((string)($data['streaminputmode'] ?? 'upload'), PARAM_ALPHA);
-
-            if ($streammode === 'url') {
-                $streamurl = trim((string)($data['streamurl'] ?? ''));
-                if (!bunny_stream::is_supported_url($streamurl)) {
-                    $errors['streamurl'] = get_string('invalidstreamurl', 'mod_videoplayer');
-                }
+            $missingconfig = whmcs_gateway_client::missing_configuration();
+            if ($missingconfig !== []) {
+                $errors['source'] = get_string(
+                    'streamgatewayconfigurationrequired',
+                    'mod_videoplayer',
+                    whmcs_gateway_client::missing_configuration_labels()
+                );
             } else {
-                $assetid = trim((string)($data['providerassetid'] ?? ''));
-                $uploadid = trim((string)($data['provideruploadid'] ?? ''));
-                $status = bunny_stream::normalise_status((string)($data['providerstatus'] ?? ''));
-                $existingassetid = !empty($this->current)
-                    ? trim((string)($this->current->providerassetid ?? ''))
-                    : '';
-                $isexistingboundasset = bunny_stream::is_valid_asset_id($existingassetid)
-                    && hash_equals($existingassetid, $assetid);
+                $streammode = clean_param((string)($data['streaminputmode'] ?? 'upload'), PARAM_ALPHA);
 
-                if (
-                    !bunny_stream::is_valid_asset_id($assetid)
-                    || (!$isexistingboundasset && !bunny_stream::is_valid_upload_id($uploadid))
-                    || $status === ''
-                ) {
-                    $errors['bunnyuploadpanel'] = get_string('bunnyuploadrequired', 'mod_videoplayer');
+                if ($streammode === 'url') {
+                    $streamurl = trim((string)($data['streamurl'] ?? ''));
+                    if (!bunny_stream::is_supported_url($streamurl)) {
+                        $errors['streamurl'] = get_string('invalidstreamurl', 'mod_videoplayer');
+                    }
+                } else {
+                    $assetid = trim((string)($data['providerassetid'] ?? ''));
+                    $uploadid = trim((string)($data['provideruploadid'] ?? ''));
+                    $status = bunny_stream::normalise_status((string)($data['providerstatus'] ?? ''));
+                    $existingassetid = !empty($this->current)
+                        ? trim((string)($this->current->providerassetid ?? ''))
+                        : '';
+                    $isexistingboundasset = bunny_stream::is_valid_asset_id($existingassetid)
+                        && hash_equals($existingassetid, $assetid);
+
+                    if (
+                        !bunny_stream::is_valid_asset_id($assetid)
+                        || (!$isexistingboundasset && !bunny_stream::is_valid_upload_id($uploadid))
+                        || $status === ''
+                    ) {
+                        $errors['bunnyuploadpanel'] = get_string('bunnyuploadrequired', 'mod_videoplayer');
+                    }
                 }
             }
         }

@@ -2,6 +2,15 @@
 
 All notable changes to Drive Resource are documented here. The Moodle component remains `mod_videoplayer` for upgrade compatibility.
 
+## 1.2.0-beta8-m45 — 2026-09-23
+
+- Prevents activity-save exceptions when Elearning Stream is selected before Moodle has been connected to WHMCS.
+- Adds Moodle-side gateway diagnostics for the required WHMCS gateway URL, service ID and service token.
+- Validates Elearning Stream configuration in the activity form before attempting URL import or upload.
+- Improves the administrator setting descriptions with the exact addon URL shape: `https://billing.example.com/modules/addons/driveresource_gateway`.
+- Adds PHPUnit coverage for missing and complete gateway configuration.
+- Release build: `2026092207`.
+
 ## 1.2.0-beta7-m45 — 2026-09-23
 
 - Completes Elearning Stream learner playback using the existing Drive Resource HTML5 player.

@@ -249,3 +249,10 @@ Learner HTML5 player
 ```
 
 The browser-facing `<video>` source remains a Moodle URL. WHMCS verifies that the asset belongs to the requesting service and signs a short-lived MP4 fallback URL. Moodle caches the authorization briefly and forwards byte ranges through the existing protected proxy. A player recovery request with `refresh=1` invalidates the cached authorization before retrying.
+
+
+### Elearning Stream configuration boundary
+
+Moodle does not contain provider management credentials. Its Elearning Stream control-plane configuration consists only of the WHMCS addon URL, provisioned WHMCS service ID and service-scoped token.
+
+Activity-form validation checks that those three values exist before an Elearning Stream URL/import or upload workflow can proceed. This keeps configuration failures outside the instance persistence path and prevents partial activity creation.
