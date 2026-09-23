@@ -249,3 +249,18 @@ For a service that existed before provisioning, open the service and execute **M
 The module also exposes Moodle Gateway URL, Moodle Service ID and Moodle Service Token on the administrator service page. Copy those three values into Moodle Drive Resource settings.
 
 If Create returns an error, do not type an arbitrary password into the WHMCS service. Correct the module/configuration error and run Create again so WHMCS and the gateway token hash remain synchronized.
+
+
+## Recover an unprovisioned WHMCS service
+
+If a service is visible in WHMCS but its Username and Password are empty, do not type a password manually.
+
+With WHMCS companion 0.3.2, open the service and run **Generar/Reparar conexión Moodle** under Module Commands. The action provisions the tenant even when the WHMCS service is already Active.
+
+After success, the administrator service fields show:
+- Estado conexión Moodle: Provisionada;
+- Moodle Gateway URL;
+- Moodle Service ID;
+- Moodle Service Token.
+
+Copy those values to the matching Moodle Drive Resource settings. Use **Rotar token Moodle** only when the previous token must intentionally be invalidated.
