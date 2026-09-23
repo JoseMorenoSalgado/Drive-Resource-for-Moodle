@@ -35,10 +35,22 @@ final class MoodleConnectionProbe
             || empty($parts['host'])
             || !empty($parts['user'])
             || !empty($parts['pass'])
+            || (isset($parts['port']) && (int) $parts['port'] !== 443)
         ) {
             return [
                 'connected' => false,
-                'message' => 'La URL de Moodle no es HTTPS válida.',
+                'message' => 'La URL de Moodle debe ser HTTPS pública en el puerto 443.',
+                'pluginversion' => 0,
+            ];
+        }
+
+        $host = strtolower(rtrim((string) $parts['host'], '.'));
+        try {
+            $publicIp = $this->resolvePublicIp($host);
+        } catch (RuntimeException $exception) {
+            return [
+                'connected' => false,
+                'message' => $exception->getMessage(),
                 'pluginversion' => 0,
             ];
         }
@@ -68,6 +80,9 @@ final class MoodleConnectionProbe
             CURLOPT_TIMEOUT => 12,
             CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
             CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS,
+            CURLOPT_RESOLVE => [
+                $host . ':443:' . (str_contains($publicIp, ':') ? '[' . $publicIp . ']' : $publicIp),
+            ],
             CURLOPT_HTTPHEADER => [
                 'Accept: application/json',
                 'Content-Type: application/json',
@@ -116,5 +131,58 @@ final class MoodleConnectionProbe
             'message' => 'Conexión con Moodle verificada correctamente.',
             'pluginversion' => max(0, (int) ($decoded['pluginversion'] ?? 0)),
         ];
+    /**
+     * Resolve and pin a public IP for the customer-supplied Moodle hostname.
+     *
+     * Rejecting every private/reserved DNS answer prevents the connection
+     * probe from becoming an SSRF primitive against WHMCS internal networks.
+     *
+     * @param string $host Moodle hostname.
+     * @return string Public IPv4 or IPv6 address.
+     */
+    private function resolvePublicIp(string $host): string
+    {
+        if (
+            $host === ''
+            || $host === 'localhost'
+            || str_ends_with($host, '.localhost')
+            || str_ends_with($host, '.local')
+            || str_ends_with($host, '.internal')
+            || filter_var($host, FILTER_VALIDATE_IP) !== false
+        ) {
+            throw new RuntimeException('La URL de Moodle debe usar un nombre DNS público.');
+        }
+
+        $records = dns_get_record($host, DNS_A | DNS_AAAA);
+        if (!is_array($records) || $records === []) {
+            throw new RuntimeException('No se pudo resolver el dominio público de Moodle.');
+        }
+
+        $addresses = [];
+        foreach ($records as $record) {
+            $ip = trim((string) ($record['ip'] ?? $record['ipv6'] ?? ''));
+            if ($ip === '') {
+                continue;
+            }
+
+            $public = filter_var(
+                $ip,
+                FILTER_VALIDATE_IP,
+                FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+            );
+            if ($public === false) {
+                throw new RuntimeException(
+                    'El dominio de Moodle resuelve a una red privada o reservada y fue rechazado.'
+                );
+            }
+            $addresses[] = $ip;
+        }
+
+        if ($addresses === []) {
+            throw new RuntimeException('El dominio de Moodle no tiene una dirección IP pública válida.');
+        }
+
+        return $addresses[0];
+    }
     }
 }
