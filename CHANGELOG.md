@@ -2,6 +2,15 @@
 
 All notable changes to Drive Resource are documented here. The Moodle component remains `mod_videoplayer` for upgrade compatibility.
 
+## 1.2.0-beta6-m45 — 2026-09-23
+
+- Rebrands the customer-facing video service as **Elearning Stream** in Moodle and WHMCS.
+- Adds a teacher workflow to choose between direct upload and an existing Elearning Stream URL.
+- Parses only the provider video GUID from supported HTTPS playback/embed URLs; the pasted URL itself is never stored.
+- Adds an authenticated WHMCS `asset-import.php` endpoint that verifies the video in the configured library, prevents cross-service reuse, accounts storage/quota and reuses the normal bind lifecycle.
+- Adds regression tests and CI invariants for URL parsing, ownership enforcement and branding.
+- Release build: `2026092205`.
+
 ## 1.2.0-beta5-m45 — 2026-09-23
 
 - Fixes `dmlreadexception: Unknown column 'completionprogressenabled'` on installations with partially applied RC/beta schemas.
