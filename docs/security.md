@@ -134,3 +134,8 @@ A Moodle backup may contain a Bunny asset GUID because the restored course needs
 Watched-range completion depends on `lastposition`, `duration` and `watchedranges` being available together. Build `2026092202` repairs these fields idempotently without deleting or rewriting learner progress rows.
 
 No privilege, URL-confidentiality or Bunny credential boundary is relaxed by this repair. The change only hardens schema consistency before progress evidence is processed.
+
+
+## Partial-schema integrity recovery
+
+Build `2026092204` repairs missing completion and Bunny metadata fields without relaxing the access-control boundary. No Bunny API credential is added to Moodle, no provider URL is exposed, and no existing learner progress row is discarded. Provider metadata fields are recreated with the same nullable/default constraints as the canonical install schema.
