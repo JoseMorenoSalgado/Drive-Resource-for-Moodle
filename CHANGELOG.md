@@ -2,6 +2,16 @@
 
 All notable changes to Drive Resource are documented here. The Moodle component remains `mod_videoplayer` for upgrade compatibility.
 
+## 1.2.0-beta5-m45 — 2026-09-23
+
+- Fixes `dmlreadexception: Unknown column 'completionprogressenabled'` on installations with partially applied RC/beta schemas.
+- Makes `videoplayer_get_coursemodule_info()` detect available completion columns before building the course-cache query.
+- Adds repair savepoint `2026092204` for `completionprogressenabled`, Bunny provider metadata and watched-progress fields.
+- Recreates the Bunny provider index if the field exists but the index is missing.
+- Keeps the repair independent of physical MySQL/MariaDB column ordering.
+- Corrects the hardening maturity invariant to validate the current beta release line.
+- Release build: `2026092204`.
+
 ## 1.2.0-beta4-m45 — 2026-09-23
 
 - Rebuilds `nativevideo.min.js` and its source map with Moodle 4.5 so AMD source/build parity passes on every CI matrix job.
