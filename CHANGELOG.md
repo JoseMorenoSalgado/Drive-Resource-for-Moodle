@@ -2,6 +2,15 @@
 
 All notable changes to Drive Resource are documented here. The Moodle component remains `mod_videoplayer` for upgrade compatibility.
 
+## WHMCS companion 0.3.1 — 2026-09-23
+
+- Removes the unnecessary WHMCS server requirement from the Elearning Stream provisioning module.
+- Fixes services remaining unprovisioned with `Servidor: Ninguno`, empty username and empty password/token.
+- Keeps provisioning product-driven: each customer service generates its own `dr-{service_id}` username and service-scoped Moodle token when **Module Commands → Create** runs.
+- Adds administrator service fields for Moodle Gateway URL, Moodle Service ID and Moodle Service Token.
+- Adds CI invariants preventing reintroduction of a fake WHMCS server dependency.
+- WHMCS companion version: `0.3.1`.
+
 ## WHMCS companion 0.3.0 — 2026-09-23
 
 - Converts the WHMCS companion into an explicit multi-tenant control plane for many customer Moodle services.
