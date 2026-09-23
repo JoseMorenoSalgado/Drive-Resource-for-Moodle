@@ -225,3 +225,9 @@ The commercial quota model is controlled in WHMCS. The provisioning module defau
 This beta currently covers **provider provisioning, direct upload, accounting, lifecycle binding/release, Backup & Restore reconciliation, and retention**. Learner-facing Bunny HLS playback is intentionally not enabled yet; a Bunny-backed activity displays a processing/provider placeholder until the secure playback phase is completed and validated.
 
 The WHMCS companion source is maintained under `integrations/whmcs/` in the development repository. It must be deployed to WHMCS separately from the Moodle plugin package.
+
+## Release 1.2.0-beta3-m45
+
+Beta3 hardens database upgrades for installations that passed through earlier RC/beta builds. The `videoplayer_views` progress schema is now repaired idempotently before watched-range completion is enabled. The migration no longer depends on MySQL/MariaDB physical column ordering, so a missing `duration` column cannot make the `watchedranges` DDL fail with an `AFTER duration` error.
+
+Database build: `2026092202`. Run Moodle's normal upgrade process; do not add the columns manually.
