@@ -8,7 +8,7 @@ The historical Moodle component name remains `mod_videoplayer` to preserve upgra
 
 - Product: Drive Resource
 - Moodle component: `mod_videoplayer`
-- Release: `1.2.0-beta8-m45`
+- Release: `1.2.0-beta9-m45`
 - Target: Moodle 4.5 LTS
 - PHP baseline: PHP 8.1+
 - Video runtime: native HTML5 Media API
@@ -49,7 +49,19 @@ The gateway URL must point to the deployed addon itself, for example `https://bi
 
 The WHMCS companion is a central control plane, installed once for many customers. Every provisioned service has an independent Moodle URL, token, quota, storage usage, status, backend and backend profile. Suspending one WHMCS service does not affect other customer sites.
 
-WHMCS gateway 0.3.0 introduces a paginated customer dashboard and a backend registry. Elearning Stream is the active managed-video backend. An S3-compatible backend identity is reserved for a future object-storage adapter; it is not selectable until multipart upload, signed delivery, accounting and lifecycle behavior are complete.
+WHMCS gateway 0.4.0 provides a multi-client operations dashboard, a customer self-service portal and a backend registry. Elearning Stream is the active managed-video backend. An S3-compatible backend identity is reserved for a future object-storage adapter; it is not selectable until multipart upload, signed delivery, accounting and lifecycle behavior are complete.
+
+### WHMCS customer self-service
+
+WHMCS companion 0.4.0 lets each service owner manage the Moodle connection from the WHMCS Client Area. The customer can change the authorised Moodle URL, generate or rotate the service key, validate the real Moodle↔WHMCS connection, review storage/quota, inspect current-month transfer and browse a paginated video library.
+
+Video deletion is tenant-scoped and conservative: a provider video can be removed from the client portal only when no active Moodle activity reference remains. Changing the Moodle URL is also blocked while active asset references exist so a service cannot silently orphan or cross-bind production activities.
+
+### Per-service transfer metering
+
+Elearning Stream tenants may share one provider Video Library, so provider-level library traffic cannot be attributed reliably to one WHMCS customer. Drive Resource beta9 meters the bytes actually emitted by Moodle `protected.php` for Elearning Stream playback, queues them locally, and reports idempotent batches to WHMCS every five minutes.
+
+WHMCS exposes `video_storage_gb` as a snapshot metric and `video_transfer_gb` as a monthly-period metric. Transfer counters are isolated by WHMCS service id and reset logically per UTC calendar month.
 
 ### Protected Elearning Stream playback
 
