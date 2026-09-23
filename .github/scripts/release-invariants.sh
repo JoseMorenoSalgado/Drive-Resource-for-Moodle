@@ -27,6 +27,10 @@ if grep -RniE     'drive\.google\.com|docs\.google\.com|googleusercontent\.com|g
     fail "Browser-facing templates/AMD source contain a Google upstream host."
 fi
 
+if grep -RniE 'b-cdn\.net|mediadelivery\.net' templates amd/src/nativevideo.js; then
+    fail "Learner-facing video code contains an Elearning Stream upstream host."
+fi
+
 echo "Checking that Google/iframe viewers cannot re-enter presentation code..."
 if grep -RniE "<iframe|/preview([?\"'[:space:]]|$)" templates amd/src; then
     fail "Browser-facing presentation code contains an iframe/preview viewer path."
@@ -61,6 +65,9 @@ grep -q 'connection_aborted()' classes/local/http_range_proxy.php     || fail "H
 grep -q 'MAX_RECOVERY_ATTEMPTS' amd/src/nativevideo.js     || fail "Video recovery is no longer bounded."
 grep -q "searchParams.set('refresh', '1')" amd/src/nativevideo.js     || fail "Video recovery no longer refreshes the protected signed stream."
 grep -q 'watchedranges' amd/src/nativevideo.js     || fail "Video completion no longer submits watched ranges."
+grep -q 'playback_url' classes/local/stream/protected_resource_service.php     || fail "Elearning Stream playback no longer resolves through WHMCS."
+grep -q 'http_range_proxy::proxy' classes/local/stream/protected_resource_service.php     || fail "Managed stream playback bypasses the protected byte proxy."
+grep -q 'streamplayback' db/caches.php     || fail "Managed stream playback cache is missing."
 grep -q 'watched_range_set' classes/local/progress/progress_service.php     || fail "Server completion no longer validates watched ranges."
 grep -q 'watchedranges' db/install.xml     || fail "Watched-range persistence is missing from XMLDB."
 grep -q '2026092204' db/upgrade.php     || fail "Critical beta schema-repair savepoint is missing from upgrade.php."
