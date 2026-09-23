@@ -2,6 +2,18 @@
 
 All notable changes to Drive Resource are documented here. The Moodle component remains `mod_videoplayer` for upgrade compatibility.
 
+## 1.2.0-beta7-m45 — 2026-09-23
+
+- Completes Elearning Stream learner playback using the existing Drive Resource HTML5 player.
+- Adds authenticated WHMCS playback authorization and short-lived signed MP4 fallback URLs.
+- Keeps provider CDN URLs and signing tokens server-side; learners receive only Moodle `protected.php` URLs.
+- Proxies Elearning Stream video through the existing Range/206 streaming layer.
+- Adds strict `*.b-cdn.net` upstream validation and SSRF regression coverage.
+- Adds a short-lived Moodle application cache for playback authorization and honors `refresh=1` during stall recovery.
+- Adds WHMCS settings for Elearning Stream CDN hostname, playback token key and playback TTL.
+- Requires MP4 fallback for videos delivered through the native HTML5 player.
+- Release build: `2026092206`.
+
 ## 1.2.0-beta6-m45 — 2026-09-23
 
 - Rebrands the customer-facing video service as **Elearning Stream** in Moodle and WHMCS.
