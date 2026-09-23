@@ -32,6 +32,20 @@ Key fields:
 
 Stores optional one-time gamification rewards keyed by activity, user, reward type and reward key.
 
+## `videoplayer_transfer_events`
+
+Operational queue for Elearning Stream bytes actually emitted through Moodle protected playback. It contains no Moodle user id.
+
+| Field | Purpose |
+| --- | --- |
+| `serviceid` | WHMCS service identity active when bytes were delivered |
+| `videoid` | Provider video GUID for operational attribution |
+| `bytes` | Actual bytes emitted to the learner browser for one protected request |
+| `periodkey` | UTC billing month `YYYY-MM` |
+| `timecreated` | Queue timestamp |
+
+The scheduled transfer task sends bounded idempotent batches to WHMCS and removes successfully acknowledged events. Events belonging to a stale Service ID are never reattributed to a newly configured service.
+
 ## Data lifecycle
 
 Activity deletion removes related views/rewards and Moodle File API data. Privacy API operations can export/delete user-owned view/reward records by module context. Backup & Restore includes user data only when the backup is configured to include it.
@@ -55,6 +69,12 @@ Important fields:
 | `status` | Active/suspended/terminated control-plane state |
 | `backend_key` | Provider-neutral backend identity; defaults to `elearningstream` |
 | `backend_profile` | Backend profile selector; defaults to `default` |
+| `connection_status` | Pending/connected/failed Moodle validation state |
+| `connection_checked_at` | Last signed Moodle probe time |
+| `connection_message` | Bounded operational connection message |
+| `transfer_period` | Current UTC transfer month |
+| `transfer_bytes` | Protected playback bytes reported for that month |
+| `transfer_updated_at` | Last transfer update |
 | `quota_bytes` | Included storage allowance |
 | `used_bytes` | Authoritative accounted storage |
 | `reserved_bytes` | Storage reserved by in-progress uploads |
@@ -76,3 +96,10 @@ Tracks active Moodle activity references to provider assets. The unique service/
 Stores short-lived per-service request nonces for replay protection.
 
 The future S3-compatible adapter will reuse the same service/tenant/accounting boundary; provider-specific object metadata may be added in a backend-specific table rather than overloading Moodle activity data.
+
+
+### `mod_driveresource_usage_reports`
+
+Deduplication ledger for Moodle transfer batches. The unique `(service_id, report_id)` constraint makes WHMCS ingestion idempotent when Moodle retries after a network timeout. Old report ids are pruned after the operational retention window.
+
+Gateway 0.4.0 adds the connection-state and transfer-accounting fields plus this table.
