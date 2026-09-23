@@ -10,12 +10,7 @@ use WHMCS\Database\Capsule;
  */
 final class GatewayService
 {
-    private BunnyClient $bunny;
-
-    public function __construct()
-    {
-        $this->bunny = new BunnyClient();
-    }
+    private ?BunnyClient $bunny = null;
 
     /**
      * Reserve quota, create the Bunny video, and return a scoped TUS signature.
@@ -103,7 +98,7 @@ final class GatewayService
         });
 
         try {
-            $videoId = $this->bunny->createVideo($title !== '' ? $title : $filename);
+            $videoId = $this->streamClient($service)->createVideo($title !== '' ? $title : $filename);
         } catch (Throwable $exception) {
             $this->cancelReservation($uploadId);
             throw new GatewayException('Elearning Stream could not create the video resource.', 502);
@@ -120,7 +115,7 @@ final class GatewayService
                 ]);
         } catch (Throwable $exception) {
             try {
-                $this->bunny->deleteVideo($videoId);
+                $this->streamClient($service)->deleteVideo($videoId);
             } catch (Throwable $ignored) {
             }
             $this->cancelReservation($uploadId);
@@ -130,9 +125,9 @@ final class GatewayService
         return [
             'uploadid' => $uploadId,
             'videoid' => $videoId,
-            'libraryid' => (string) $this->bunny->libraryId(),
+            'libraryid' => (string) $this->streamClient($service)->libraryId(),
             'endpoint' => 'https://video.bunnycdn.com/tusupload',
-            'signature' => $this->bunny->tusSignature($videoId, $expiresAt),
+            'signature' => $this->streamClient($service)->tusSignature($videoId, $expiresAt),
             'expiration' => $expiresAt,
             'quota' => $quota,
         ];
@@ -160,7 +155,7 @@ final class GatewayService
         }
 
         try {
-            $this->bunny->getVideo($videoId);
+            $this->streamClient($service)->getVideo($videoId);
         } catch (Throwable $exception) {
             throw new GatewayException('Elearning Stream could not verify the upload target.', 502);
         }
@@ -177,9 +172,9 @@ final class GatewayService
         return [
             'uploadid' => $uploadId,
             'videoid' => $videoId,
-            'libraryid' => (string) $this->bunny->libraryId(),
+            'libraryid' => (string) $this->streamClient($service)->libraryId(),
             'endpoint' => 'https://video.bunnycdn.com/tusupload',
-            'signature' => $this->bunny->tusSignature($videoId, $expiration),
+            'signature' => $this->streamClient($service)->tusSignature($videoId, $expiration),
             'expiration' => $expiration,
         ];
     }
@@ -204,7 +199,7 @@ final class GatewayService
         }
 
         try {
-            $video = $this->bunny->getVideo($videoId);
+            $video = $this->streamClient($service)->getVideo($videoId);
         } catch (Throwable $exception) {
             throw new GatewayException('Elearning Stream could not verify the uploaded video.', 502);
         }
@@ -301,7 +296,7 @@ final class GatewayService
         }
 
         try {
-            $video = $this->bunny->getVideo($videoId);
+            $video = $this->streamClient($service)->getVideo($videoId);
         } catch (Throwable $exception) {
             throw new GatewayException('Elearning Stream could not verify this video in the configured library.', 404);
         }
@@ -451,7 +446,7 @@ final class GatewayService
         }
 
         try {
-            $playback = $this->bunny->playbackUrl($videoId);
+            $playback = $this->streamClient($service)->playbackUrl($videoId);
         } catch (Throwable $exception) {
             throw new GatewayException(
                 'Elearning Stream playback is not ready for this video.',
@@ -543,7 +538,7 @@ final class GatewayService
         }
 
         try {
-            $this->bunny->getVideo($videoId);
+            $this->streamClient($service)->getVideo($videoId);
         } catch (Throwable $exception) {
             throw new GatewayException('The restored video no longer exists in Elearning Stream.', 404);
         }
@@ -607,6 +602,22 @@ final class GatewayService
      * @param string $uploadId Upload reservation.
      * @return void
      */
+    /**
+     * Resolve the Elearning Stream client only for services that need it.
+     *
+     * @param object $service Provisioned service row.
+     * @return BunnyClient
+     */
+    private function streamClient(object $service): BunnyClient
+    {
+        $this->requireBackendCapability($service, BackendRegistry::CAP_MANAGED_VIDEO);
+        if ($this->bunny === null) {
+            $this->bunny = new BunnyClient();
+        }
+
+        return $this->bunny;
+    }
+
     /**
      * Enforce that the tenant backend supports the requested gateway action.
      *
