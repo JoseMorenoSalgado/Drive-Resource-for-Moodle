@@ -68,14 +68,23 @@ final class ClientPortal
             ->get();
 
         $refCounts = [];
-        $refs = Capsule::table('mod_driveresource_asset_refs')
-            ->select(['video_id', Capsule::raw('COUNT(*) AS total')])
-            ->where('service_id', $serviceId)
-            ->where('active', true)
-            ->groupBy('video_id')
-            ->get();
-        foreach ($refs as $ref) {
-            $refCounts[(string) $ref->video_id] = (int) $ref->total;
+        $pageVideoIds = [];
+        foreach ($uploads as $upload) {
+            if (!empty($upload->video_id)) {
+                $pageVideoIds[] = (string) $upload->video_id;
+            }
+        }
+        if ($pageVideoIds !== []) {
+            $refs = Capsule::table('mod_driveresource_asset_refs')
+                ->select(['video_id', Capsule::raw('COUNT(*) AS total')])
+                ->where('service_id', $serviceId)
+                ->whereIn('video_id', array_values(array_unique($pageVideoIds)))
+                ->where('active', true)
+                ->groupBy('video_id')
+                ->get();
+            foreach ($refs as $ref) {
+                $refCounts[(string) $ref->video_id] = (int) $ref->total;
+            }
         }
 
         $connection = strtolower((string) ($service->connection_status ?? 'pending'));
