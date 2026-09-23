@@ -26,7 +26,7 @@ function driveresource_gateway_config(): array
     return [
         'name' => 'Drive Resource Media Gateway',
         'description' => 'WHMCS authorization, quota and Elearning Stream credential boundary for Drive Resource.',
-        'version' => '0.2.0',
+        'version' => '0.3.0',
         'author' => 'Elearning Cloud',
         'fields' => [
             'bunny_library_id' => [
@@ -102,6 +102,8 @@ function driveresource_gateway_activate(): array
                 $table->char('site_hash', 64)->index();
                 $table->char('token_hash', 64);
                 $table->string('status', 16)->default('active')->index();
+                $table->string('backend_key', 32)->default('elearningstream')->index();
+                $table->string('backend_profile', 64)->default('default');
                 $table->unsignedBigInteger('quota_bytes')->default(7000000000);
                 $table->unsignedBigInteger('used_bytes')->default(0);
                 $table->unsignedBigInteger('reserved_bytes')->default(0);
@@ -159,10 +161,67 @@ function driveresource_gateway_activate(): array
             });
         }
 
+        driveresource_gateway_ensure_multitenant_schema();
+
         return ['status' => 'success', 'description' => 'Drive Resource Media Gateway activated.'];
     } catch (Throwable $exception) {
         return ['status' => 'error', 'description' => $exception->getMessage()];
     }
+}
+
+/**
+ * Upgrade addon persistence for multi-tenant backend selection.
+ *
+ * WHMCS invokes this function after detecting a module version change.
+ *
+ * @param array $vars WHMCS addon variables, including previously installed version.
+ * @return void
+ */
+function driveresource_gateway_upgrade(array $vars): void
+{
+    $installed = (string) ($vars['version'] ?? '0.0.0');
+    if (version_compare($installed, '0.3.0', '<')) {
+        driveresource_gateway_ensure_multitenant_schema();
+    }
+}
+
+/**
+ * Ensure backend identity exists on every provisioned service.
+ *
+ * Existing services remain on Elearning Stream/default. The fields are generic
+ * so future S3-compatible backends can be added without changing tenant,
+ * billing, quota or Moodle authentication identifiers.
+ *
+ * @return void
+ */
+function driveresource_gateway_ensure_multitenant_schema(): void
+{
+    $schema = Capsule::schema();
+    if (!$schema->hasTable('mod_driveresource_services')) {
+        return;
+    }
+
+    if (!$schema->hasColumn('mod_driveresource_services', 'backend_key')) {
+        $schema->table('mod_driveresource_services', static function (Blueprint $table): void {
+            $table->string('backend_key', 32)->default('elearningstream')->index();
+        });
+    }
+
+    if (!$schema->hasColumn('mod_driveresource_services', 'backend_profile')) {
+        $schema->table('mod_driveresource_services', static function (Blueprint $table): void {
+            $table->string('backend_profile', 64)->default('default');
+        });
+    }
+
+    Capsule::table('mod_driveresource_services')
+        ->whereNull('backend_key')
+        ->orWhere('backend_key', '')
+        ->update(['backend_key' => 'elearningstream']);
+
+    Capsule::table('mod_driveresource_services')
+        ->whereNull('backend_profile')
+        ->orWhere('backend_profile', '')
+        ->update(['backend_profile' => 'default']);
 }
 
 /**
@@ -186,16 +245,5 @@ function driveresource_gateway_deactivate(): array
  */
 function driveresource_gateway_output(array $vars): void
 {
-    $services = Capsule::table('mod_driveresource_services')->count();
-    $active = Capsule::table('mod_driveresource_services')->where('status', 'active')->count();
-    $uploads = Capsule::table('mod_driveresource_uploads')->count();
-    $bytes = (int) Capsule::table('mod_driveresource_services')->sum('used_bytes');
-
-    echo '<div class="panel panel-default"><div class="panel-heading"><strong>Drive Resource Media Gateway</strong></div>';
-    echo '<div class="panel-body">';
-    echo '<p>Provisioned services: ' . (int) $services . ' &middot; Active: ' . (int) $active . '</p>';
-    echo '<p>Tracked videos: ' . (int) $uploads . ' &middot; Accounted storage: '
-        . htmlspecialchars(number_format($bytes / 1000000000, 2), ENT_QUOTES, 'UTF-8') . ' GB</p>';
-    echo '<p>Elearning Stream provider credentials are retained inside WHMCS and are not exposed to Moodle.</p>';
-    echo '</div></div>';
+    (new \WHMCS\Module\Addon\DriveresourceGateway\AdminDashboard())->render();
 }
