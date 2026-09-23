@@ -8,7 +8,7 @@ The historical Moodle component name remains `mod_videoplayer` to preserve upgra
 
 - Product: Drive Resource
 - Moodle component: `mod_videoplayer`
-- Release: `1.2.0-beta2-m45`
+- Release: `1.2.0-beta6-m45`
 - Target: Moodle 4.5 LTS
 - PHP baseline: PHP 8.1+
 - Video runtime: native HTML5 Media API
@@ -32,6 +32,12 @@ Drive Resource supports Google Drive links for:
 It also supports a PDF uploaded to Moodle private file storage.
 
 Google Docs, Sheets and Slides are exported to PDF on the server side and rendered with the bundled PDF.js viewer. The browser is not sent a Google Drive viewer URL.
+
+## Elearning Stream
+
+Teachers can select **Elearning Stream** as the resource source and either upload a new video or paste the URL of an existing managed video. Pasted provider URLs are not persisted in Moodle: the plugin extracts the video identifier, WHMCS verifies the asset against the configured library/service, enforces storage accounting, and stores only provider metadata required for the managed lifecycle.
+
+The persisted source identifier remains `bunnystream` internally for upgrade compatibility; administrators and learners see **Elearning Stream**.
 
 ## Moodle 4.5 form compatibility
 
