@@ -142,3 +142,11 @@ All notable changes to Drive Resource are documented here. The Moodle component 
 - Added Backup & Restore handling that never exports transient upload reservations and revalidates restored Bunny asset ownership through WHMCS.
 - Added a dedicated Bunny/WHMCS CI invariant gate.
 - Bunny learner playback remains disabled in beta1 until the WHMCS-gated HLS playback contract is implemented and device-tested.
+
+## 1.2.0-beta3-m45 — 2026-09-23
+
+- Fixes the Moodle XMLDB upgrade failure `Unknown column 'duration' in 'videoplayer_views'` when adding `watchedranges`.
+- Removes physical column-order coupling from the `watchedranges` migration.
+- Adds repair savepoint `2026092202` to restore missing `lastposition`, `duration` and `watchedranges` fields idempotently.
+- Adds CI invariants that reject reintroduction of an `AFTER duration` dependency.
+- Existing learner progress rows are preserved; no manual SQL migration is required.
