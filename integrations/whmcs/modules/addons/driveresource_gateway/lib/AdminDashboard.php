@@ -152,7 +152,7 @@ final class AdminDashboard
         $this->metric('Customers', (string) $summary['clients']);
         $this->metric('Provisioned services', (string) $summary['services']);
         $this->metric('Active services', (string) $summary['active']);
-        $this->metric('Tracked videos', (string) $summary['videos']);
+        $this->metric('Tracked assets', (string) $summary['videos']);
         $this->metric('Storage used', $this->gb((int) $summary['used']) . ' GB');
         $this->metric('Included capacity', $this->gb((int) $summary['quota']) . ' GB');
         $this->metric('Services in overage', (string) $summary['overage']);
@@ -213,10 +213,10 @@ final class AdminDashboard
     private function renderTable(iterable $rows, array $assetCounts): void
     {
         echo '<div class="panel panel-default">';
-        echo '<div class="panel-heading"><strong>Elearning Stream customers</strong></div>';
+        echo '<div class="panel-heading"><strong>Drive Resource customers</strong></div>';
         echo '<div class="table-responsive"><table class="table table-striped table-hover" style="margin-bottom:0">';
         echo '<thead><tr>';
-        foreach (['Service', 'Customer', 'Moodle site', 'Product', 'Backend', 'Storage', 'Videos', 'Status', 'Actions'] as $heading) {
+        foreach (['Service', 'Customer', 'Moodle site', 'Product', 'Backend', 'Storage', 'Assets', 'Status', 'Actions'] as $heading) {
             echo '<th>' . $this->e($heading) . '</th>';
         }
         echo '</tr></thead><tbody>';
