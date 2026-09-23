@@ -203,3 +203,10 @@ The production Moodle package must not accidentally install the WHMCS companion 
 Do not use an XMLDB `previous` column argument for an upgrade field when the predecessor may be absent on an existing installation. A declaration such as `watchedranges ... AFTER duration` can fail on MySQL/MariaDB before Moodle reaches the savepoint.
 
 For compatibility migrations, first check every required field with `field_exists()` and add missing fields without relying on physical ordering. The `2026092202` migration is the regression reference for this rule.
+
+
+## Partial-schema compatibility rule
+
+Any callback reachable while Moodle is building course caches must tolerate optional fields introduced by pre-release builds. Do not hard-select a newly introduced field from a hot-path callback unless the current schema is guaranteed. Use one cached schema inspection where required, provide a safe default, and pair it with a newer idempotent XMLDB repair savepoint.
+
+For the current release, `completionprogressenabled` defaults to enabled and `completionpercentage` defaults to 80 only while the repair migration has not yet restored the physical columns.
