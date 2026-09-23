@@ -2,6 +2,23 @@
 
 All notable changes to Drive Resource are documented here. The Moodle component remains `mod_videoplayer` for upgrade compatibility.
 
+## WHMCS companion 0.4.0 + Moodle 1.2.0-beta9-m45 — 2026-09-23
+
+- Adds a customer self-service WHMCS dashboard for each Elearning Stream service.
+- Lets the customer set/change the authorised Moodle URL, generate/rotate the service key and run a signed connection validation against Moodle.
+- Adds connection cards with Connected/Pending/Not connected state and last validation message.
+- Adds storage/quota, monthly transfer and video-count cards.
+- Adds a paginated customer video library with status, provider size, active Moodle-reference count and guarded permanent deletion.
+- Prevents deleting videos still referenced by Moodle activities.
+- Prevents changing the service Moodle URL while active media references exist.
+- Adds signed `gateway-status.php` in Moodle with HMAC, exact site/service binding, timestamp validation and replay protection.
+- Adds actual protected-proxy byte metering, a bounded Moodle transfer queue and a five-minute idempotent WHMCS synchronization task.
+- Adds WHMCS `video_transfer_gb` as a monthly-period Usage Billing metric alongside `video_storage_gb`.
+- Adds WHMCS 0.4 schema for connection state, monthly transfer counters and idempotent usage reports.
+- Adds multi-client admin dashboard connection/transfer visibility.
+- WHMCS companion version: `0.4.0`.
+- Moodle release: `1.2.0-beta9-m45`, build `2026092208`.
+
 ## WHMCS companion 0.3.2 — 2026-09-23
 
 - Adds an explicit **Generar/Reparar conexión Moodle** admin module action for services that exist in WHMCS but were never provisioned.
