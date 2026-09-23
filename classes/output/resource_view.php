@@ -60,9 +60,6 @@ final class resource_view implements \renderable, \templatable {
      * @return string
      */
     public function template_name(): string {
-        if ($this->resource->is_bunny_stream()) {
-            return 'mod_videoplayer/bunny_pending';
-        }
         if ($this->resource->is_pdf_like()) {
             return 'mod_videoplayer/pdfjs';
         }
@@ -90,17 +87,16 @@ final class resource_view implements \renderable, \templatable {
         $instance = $this->activity->instance();
         $cmid = (int)$this->activity->cm()->id;
         $type = $this->resource->type();
-        $protectedurl = null;
+        $protectedurl = $this->resource->protected_url($cmid);
         $primaryvideourl = '';
         $fallbackvideourl = '';
-        if (!$this->resource->is_bunny_stream()) {
-            $protectedurl = $this->resource->protected_url($cmid);
-            $primaryvideourl = $this->resource->is_video()
-                ? $this->resource->protected_url($cmid, 'transcoded')->out(false)
-                : '';
-            $fallbackvideourl = $this->resource->is_video()
-                ? $this->resource->protected_url($cmid, 'source')->out(false)
-                : '';
+        if ($this->resource->is_video()) {
+            if ($this->resource->is_bunny_stream()) {
+                $primaryvideourl = $this->resource->protected_url($cmid, 'managed')->out(false);
+            } else {
+                $primaryvideourl = $this->resource->protected_url($cmid, 'transcoded')->out(false);
+                $fallbackvideourl = $this->resource->protected_url($cmid, 'source')->out(false);
+            }
         }
         $isguest = isguestuser();
 
