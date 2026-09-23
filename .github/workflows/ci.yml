@@ -96,6 +96,10 @@ jobs:
         run: |
           cd moodle
           npx grunt amd --root=mod/videoplayer
+          echo 'NATIVEVIDEO_MIN_BEGIN'
+          base64 -w0 mod/videoplayer/amd/build/nativevideo.min.js
+          echo
+          echo 'NATIVEVIDEO_MIN_END'
           echo 'NATIVEVIDEO_MAP_BEGIN'
           base64 -w0 mod/videoplayer/amd/build/nativevideo.min.js.map
           echo
