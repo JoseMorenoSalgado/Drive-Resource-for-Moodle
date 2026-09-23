@@ -91,6 +91,16 @@ jobs:
       - name: Mustache lint
         run: moodle-plugin-ci mustache
 
+      - name: Capture Moodle-generated native video AMD build
+        if: matrix.php == '8.3' && matrix.database == 'pgsql'
+        run: |
+          cd moodle
+          npx grunt amd --root=mod/videoplayer
+          echo 'NATIVEVIDEO_MAP_BEGIN'
+          base64 -w0 mod/videoplayer/amd/build/nativevideo.min.js.map
+          echo
+          echo 'NATIVEVIDEO_MAP_END'
+
       - name: JavaScript lint and AMD build check
         run: moodle-plugin-ci grunt --max-lint-warnings 0
 
