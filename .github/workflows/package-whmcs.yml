@@ -2,6 +2,8 @@ name: WHMCS installable package
 
 on:
   push:
+    branches:
+      - main
   pull_request:
 
 permissions:
