@@ -1,7 +1,7 @@
 {{!
     @template mod_videoplayer/bunny_pending
 
-    Bunny Stream upload-complete placeholder shown while secure learner
+    Elearning Stream upload-complete placeholder shown while secure learner
     playback is not yet enabled for the provider.
 
     Example context (json):
@@ -13,7 +13,7 @@
 <div class="mod-videoplayer-container" data-resource-type="video" data-cmid="{{cmid}}">
     <div class="mod-videoplayer-meta mb-2">
         <span class="mod-videoplayer-meta-item">{{resourcetype}}</span>
-        <span class="mod-videoplayer-meta-item">Bunny Stream</span>
+        <span class="mod-videoplayer-meta-item">{{#str}} sourcebunnystream, mod_videoplayer {{/str}}</span>
     </div>
     <div class="alert alert-info" role="status">
         <strong>{{#str}} bunnyassetuploaded, mod_videoplayer {{/str}}</strong>
