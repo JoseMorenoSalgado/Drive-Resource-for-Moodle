@@ -2,6 +2,18 @@
 
 All notable changes to Drive Resource are documented here. The Moodle component remains `mod_videoplayer` for upgrade compatibility.
 
+## WHMCS companion 0.3.0 — 2026-09-23
+
+- Converts the WHMCS companion into an explicit multi-tenant control plane for many customer Moodle services.
+- Adds per-service `backend_key` and `backend_profile` with automatic upgrade of existing services to `elearningstream/default`.
+- Adds a paginated WHMCS administration dashboard with customer, site, plan, quota, usage, video count, backend and service status.
+- Adds a backend capability registry; Elearning Stream remains provisionable while S3-compatible object storage is reserved but disabled until its production adapter exists.
+- Preserves the existing configoption1–3 contract and appends backend/profile as configoption4–5 so existing WHMCS products do not shift quota/overage/retention settings.
+- Blocks unsafe provider changes while a service owns media or reserved/used bytes.
+- Scopes Elearning Stream API and cron maintenance to services using that backend and lazy-loads provider credentials.
+- Adds upgrade guards so a partial WHMCS 0.2 → 0.3 deployment fails with an actionable message instead of a database-column error.
+- WHMCS addon version: `0.3.0`.
+
 ## 1.2.0-beta8-m45 — 2026-09-23
 
 - Prevents activity-save exceptions when Elearning Stream is selected before Moodle has been connected to WHMCS.
