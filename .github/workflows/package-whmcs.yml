@@ -28,17 +28,20 @@ jobs:
 
           test -f dist-whmcs/whmcs-root/modules/addons/driveresource_gateway/driveresource_gateway.php
           test -f dist-whmcs/whmcs-root/modules/addons/driveresource_gateway/api/upload-authorize.php
+          test -f dist-whmcs/whmcs-root/modules/addons/driveresource_gateway/lib/BackendRegistry.php
+          test -f dist-whmcs/whmcs-root/modules/addons/driveresource_gateway/lib/AdminDashboard.php
           test -f dist-whmcs/whmcs-root/modules/servers/driveresource/driveresource.php
+          grep -F "'version' => '0.3.0'" dist-whmcs/whmcs-root/modules/addons/driveresource_gateway/driveresource_gateway.php
 
           (
             cd dist-whmcs
-            zip -qr driveresource-whmcs-1.2.0-beta7.zip whmcs-root
+            zip -qr elearning-stream-whmcs-0.3.0.zip whmcs-root
           )
 
       - name: Upload WHMCS package
         uses: actions/upload-artifact@v4
         with:
-          name: driveresource-whmcs-1.2.0-beta7
-          path: dist-whmcs/driveresource-whmcs-1.2.0-beta7.zip
+          name: elearning-stream-whmcs-0.3.0
+          path: dist-whmcs/elearning-stream-whmcs-0.3.0.zip
           if-no-files-found: error
           retention-days: 30
