@@ -98,6 +98,8 @@ This avoids double-counted time and duplicate AJAX writes.
 
 The server, not the UI, decides the persisted completion transition. Do not directly update Moodle completion from JavaScript.
 
+For video, `lastposition` is resume-only state. `watchedranges` is the completion authority. `nativevideo.js` must add only short contiguous playback intervals and must reset its contiguous sample on seeking. `watched_range_set` validates, bounds, merges and clamps browser telemetry before `progress_service` calculates completion.
+
 When adding progress fields:
 
 1. update `db/install.xml`;
