@@ -603,6 +603,83 @@ final class GatewayService
      * @return void
      */
     /**
+     * Record one idempotent Moodle transfer-usage batch.
+     *
+     * @param object $service Authenticated service row.
+     * @param array $payload Request body.
+     * @return array
+     */
+    public function recordTransfer(object $service, array $payload): array
+    {
+        $reportId = strtolower(trim((string) ($payload['reportid'] ?? '')));
+        $period = trim((string) ($payload['period'] ?? ''));
+        $bytes = max(0, (int) ($payload['bytes'] ?? 0));
+
+        if (!preg_match('/^[a-f0-9]{64}$/', $reportId)) {
+            throw new GatewayException('Invalid transfer report id.', 422);
+        }
+        if (!preg_match('/^20\d{2}-(0[1-9]|1[0-2])$/', $period)) {
+            throw new GatewayException('Invalid transfer billing period.', 422);
+        }
+        if ($bytes <= 0 || $bytes > 1099511627776) {
+            throw new GatewayException('Invalid transfer byte count.', 422);
+        }
+
+        $now = time();
+        Capsule::connection()->transaction(function () use (
+            $service,
+            $reportId,
+            $period,
+            $bytes,
+            $now
+        ): void {
+            $existing = Capsule::table('mod_driveresource_usage_reports')
+                ->where('service_id', (int) $service->service_id)
+                ->where('report_id', $reportId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($existing) {
+                return;
+            }
+
+            $serviceRow = Capsule::table('mod_driveresource_services')
+                ->where('service_id', (int) $service->service_id)
+                ->lockForUpdate()
+                ->first();
+            if (!$serviceRow || (string) $serviceRow->status === 'terminated') {
+                throw new GatewayException('Drive Resource service is not available.', 403);
+            }
+
+            $currentPeriod = trim((string) ($serviceRow->transfer_period ?? ''));
+            $currentBytes = max(0, (int) ($serviceRow->transfer_bytes ?? 0));
+            $nextBytes = $currentPeriod === $period ? $currentBytes + $bytes : $bytes;
+
+            Capsule::table('mod_driveresource_usage_reports')->insert([
+                'service_id' => (int) $service->service_id,
+                'report_id' => $reportId,
+                'period_key' => $period,
+                'bytes' => $bytes,
+                'created_at' => $now,
+            ]);
+
+            Capsule::table('mod_driveresource_services')
+                ->where('service_id', (int) $service->service_id)
+                ->update([
+                    'transfer_period' => $period,
+                    'transfer_bytes' => $nextBytes,
+                    'transfer_updated_at' => $now,
+                    'updated_at' => $now,
+                ]);
+        });
+
+        return [
+            'status' => 'recorded',
+            'period' => $period,
+        ];
+    }
+
+    /**
      * Resolve the Elearning Stream client only for services that need it.
      *
      * @param object $service Provisioned service row.
