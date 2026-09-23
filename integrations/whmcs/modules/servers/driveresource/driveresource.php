@@ -378,8 +378,18 @@ function driveresource_set_status(int $serviceId, string $status): string
  */
 function driveresource_require_gateway(): void
 {
-    if (!Capsule::schema()->hasTable('mod_driveresource_services')) {
+    $schema = Capsule::schema();
+    if (!$schema->hasTable('mod_driveresource_services')) {
         throw new RuntimeException('Activate the Drive Resource Media Gateway addon before provisioning services.');
+    }
+
+    if (
+        !$schema->hasColumn('mod_driveresource_services', 'backend_key')
+        || !$schema->hasColumn('mod_driveresource_services', 'backend_profile')
+    ) {
+        throw new RuntimeException(
+            'Drive Resource Media Gateway 0.3.0 schema upgrade is required before provisioning services.'
+        );
     }
 }
 
