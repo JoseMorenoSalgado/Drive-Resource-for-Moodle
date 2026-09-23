@@ -13,11 +13,11 @@ modules/addons/driveresource_gateway/
 modules/servers/driveresource/
 ```
 
-The addon owns the Bunny Stream management credentials and Moodle-facing media gateway. The provisioning module owns the WHMCS product/service lifecycle and exposes the storage metric used by Usage Billing.
+The addon owns the Elearning Stream management credentials and Moodle-facing media gateway. The provisioning module owns the WHMCS product/service lifecycle and exposes the storage metric used by Usage Billing.
 
 ## Credential boundary
 
-Bunny management credentials must be configured only in the WHMCS addon. Moodle receives a service-scoped WHMCS gateway token and short-lived, video-scoped TUS upload authorization. It never receives the Bunny management `AccessKey`.
+provider management credentials must be configured only in the WHMCS addon. Moodle receives a service-scoped WHMCS gateway token and short-lived, video-scoped TUS upload authorization. It never receives the provider management `AccessKey`.
 
 ## Default commercial policy
 
@@ -32,7 +32,7 @@ Configure the WHMCS Usage Billing metric `video_storage_gb` with the same includ
 ## Required WHMCS setup
 
 1. Deploy and activate the addon module.
-2. Configure Bunny Stream Library ID and API key.
+2. Configure Elearning Stream Library ID and API key.
 3. Deploy the `driveresource` provisioning module.
 4. Create a WHMCS server and product using that module.
 5. Add a product custom field named `Moodle Site URL` when the Moodle installation URL cannot be represented exactly by the standard service domain field.
