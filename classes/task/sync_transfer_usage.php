@@ -112,7 +112,7 @@ final class sync_transfer_usage extends scheduled_task {
                 continue;
             }
 
-            list($insql, $params) = $DB->get_in_or_equal($group['ids'], SQL_PARAMS_NAMED);
+            [$insql, $params] = $DB->get_in_or_equal($group['ids'], SQL_PARAMS_NAMED);
             $DB->delete_records_select('videoplayer_transfer_events', 'id ' . $insql, $params);
         }
 
