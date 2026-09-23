@@ -451,5 +451,27 @@ function xmldb_videoplayer_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026092103, 'videoplayer');
     }
 
+    // Persist the union of media ranges actually reproduced by the learner.
+    if ($oldversion < 2026092201) {
+        $viewstable = new xmldb_table('videoplayer_views');
+        if ($dbman->table_exists($viewstable)) {
+            $watchedranges = new xmldb_field(
+                'watchedranges',
+                XMLDB_TYPE_TEXT,
+                null,
+                null,
+                null,
+                null,
+                null,
+                'duration'
+            );
+            if (!$dbman->field_exists($viewstable, $watchedranges)) {
+                $dbman->add_field($viewstable, $watchedranges);
+            }
+        }
+
+        upgrade_mod_savepoint(true, 2026092201, 'videoplayer');
+    }
+
     return true;
 }
