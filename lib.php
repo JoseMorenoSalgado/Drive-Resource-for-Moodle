@@ -203,6 +203,10 @@ function videoplayer_normalise_instance_data(stdClass $data): stdClass {
         $data->displaymode = 'standard';
     }
 
+    // These controls exist only in the Moodle form. Never persist a pasted
+    // provider URL or the UI mode in the activity table.
+    unset($data->streaminputmode, $data->streamurl);
+
     // Direct-download UI is not supported by the protected-only architecture.
     // Keep the legacy database field pinned for backup/restore compatibility.
     $data->disabledownload = 1;
