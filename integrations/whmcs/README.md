@@ -17,7 +17,7 @@ The addon owns the Elearning Stream management credentials and Moodle-facing med
 
 ## Credential boundary
 
-provider management credentials must be configured only in the WHMCS addon. Moodle receives a service-scoped WHMCS gateway token and short-lived, video-scoped TUS upload authorization. It never receives the provider management `AccessKey`.
+Provider management credentials must be configured only in the WHMCS addon. Moodle receives a service-scoped WHMCS gateway token and short-lived, video-scoped TUS upload authorization. It never receives the provider management `AccessKey`.
 
 ## Default commercial policy
 
@@ -41,3 +41,10 @@ Configure the WHMCS Usage Billing metric `video_storage_gb` with the same includ
 8. Ensure WHMCS cron runs normally; the addon hook performs provider storage reconciliation, abandoned-upload cleanup and retention deletion.
 
 Do not copy this `integrations/whmcs` directory beneath `mod/videoplayer` on a production Moodle site.
+
+
+## Existing video URLs
+
+Moodle can register an existing Elearning Stream video by URL. Moodle sends only the parsed video GUID to `api/asset-import.php`. The gateway verifies the asset in the configured library, rejects a video already owned by another active WHMCS service, accounts its provider storage against the service quota, and returns a normal upload reference for binding.
+
+The full pasted URL is never stored by Moodle or WHMCS.
