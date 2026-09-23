@@ -14,6 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
+/**
+ * Signed WHMCS-to-Moodle connection status endpoint.
+ *
+ * @package    mod_videoplayer
+ * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 define('NO_MOODLE_COOKIES', true);
 
 require_once(__DIR__ . '/../../config.php');
@@ -21,6 +29,7 @@ require_once(__DIR__ . '/../../config.php');
 /**
  * Send one safe JSON response and terminate.
  *
+ * @package mod_videoplayer
  * @param int $status HTTP status.
  * @param array $payload JSON payload.
  * @return never
