@@ -589,5 +589,30 @@ function xmldb_videoplayer_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026092204, 'videoplayer');
     }
 
+    // Queue protected Elearning Stream transfer bytes for batched WHMCS reporting.
+    if ($oldversion < 2026092208) {
+        $transfertable = new xmldb_table('videoplayer_transfer_events');
+        if (!$dbman->table_exists($transfertable)) {
+            $transfertable->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+            $transfertable->add_field('serviceid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+            $transfertable->add_field('videoid', XMLDB_TYPE_CHAR, '64');
+            $transfertable->add_field('bytes', XMLDB_TYPE_INTEGER, '20', null, XMLDB_NOTNULL, null, '0');
+            $transfertable->add_field('periodkey', XMLDB_TYPE_CHAR, '7', null, XMLDB_NOTNULL, null, null);
+            $transfertable->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+
+            $transfertable->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+            $transfertable->add_index(
+                'service_period_idx',
+                XMLDB_INDEX_NOTUNIQUE,
+                ['serviceid', 'periodkey']
+            );
+            $transfertable->add_index('timecreated_idx', XMLDB_INDEX_NOTUNIQUE, ['timecreated']);
+
+            $dbman->create_table($transfertable);
+        }
+
+        upgrade_mod_savepoint(true, 2026092208, 'videoplayer');
+    }
+
     return true;
 }
