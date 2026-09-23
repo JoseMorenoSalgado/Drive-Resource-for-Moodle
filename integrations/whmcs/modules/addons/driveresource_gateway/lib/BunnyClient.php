@@ -133,7 +133,7 @@ final class BunnyClient
      */
     private function highestMp4Resolution(string $availableResolutions): int
     {
-        preg_match_all('/(?:^|[,\\s])(\\d{2,4})p(?:$|[,\\s])/', $availableResolutions, $matches);
+        preg_match_all('/\\b(\\d{2,4})p\\b/i', $availableResolutions, $matches);
         $heights = array_map('intval', $matches[1] ?? []);
         $heights = array_values(array_filter(
             $heights,
