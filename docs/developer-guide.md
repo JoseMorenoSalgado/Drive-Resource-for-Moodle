@@ -233,3 +233,31 @@ The internal `bunny_*` setting and class identifiers are retained for compatibil
 Any teacher workflow that calls `whmcs_gateway_client` must perform a Moodle-side configuration preflight before persistence. Use `whmcs_gateway_client::missing_configuration()` / `is_configured()` rather than duplicating configuration checks.
 
 The required Moodle settings are the addon URL, WHMCS service ID and service-scoped token. The addon URL must target the deployed `modules/addons/driveresource_gateway` path because client endpoints are appended beneath its `api/` directory.
+
+
+## WHMCS storage backend extension contract
+
+WHMCS service identity must remain provider-neutral. Do not add provider credentials to Moodle and do not encode provider choice into a Moodle token.
+
+The provisioning module appends backend selection after the legacy quota settings:
+
+- `configoption1`: included storage GB;
+- `configoption2`: overage allowed;
+- `configoption3`: retention days;
+- `configoption4`: backend key;
+- `configoption5`: backend profile.
+
+Never reorder these options in an upgrade because WHMCS passes module configuration by numbered position.
+
+To add an S3-compatible implementation:
+
+1. mark `s3compatible` provisionable only after the adapter is complete;
+2. keep credentials/profile configuration in WHMCS;
+3. implement direct multipart upload authorization rather than proxying large uploads through WHMCS/PHP;
+4. implement server-side signed delivery compatible with the Moodle protected endpoint;
+5. reconcile authoritative object size into existing service usage accounting;
+6. enforce tenant prefixes/buckets and cross-tenant object ownership;
+7. integrate lifecycle deletion/retention into backend-scoped maintenance;
+8. add CI invariants and production tests before exposing the backend in product configuration.
+
+Backend switching for a service with existing assets must use an explicit migration workflow. `ChangePackage` intentionally rejects an in-place backend change when media or bytes remain.
