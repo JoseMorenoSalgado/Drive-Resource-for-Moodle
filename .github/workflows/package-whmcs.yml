@@ -1,0 +1,44 @@
+name: WHMCS installable package
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build WHMCS package
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf dist-whmcs
+          mkdir -p dist-whmcs/whmcs-root/modules/addons
+          mkdir -p dist-whmcs/whmcs-root/modules/servers
+
+          cp -a integrations/whmcs/modules/addons/driveresource_gateway             dist-whmcs/whmcs-root/modules/addons/
+          cp -a integrations/whmcs/modules/servers/driveresource             dist-whmcs/whmcs-root/modules/servers/
+          cp integrations/whmcs/README.md dist-whmcs/whmcs-root/README-Drive-Resource-WHMCS.md
+
+          test -f dist-whmcs/whmcs-root/modules/addons/driveresource_gateway/driveresource_gateway.php
+          test -f dist-whmcs/whmcs-root/modules/addons/driveresource_gateway/api/upload-authorize.php
+          test -f dist-whmcs/whmcs-root/modules/servers/driveresource/driveresource.php
+
+          (
+            cd dist-whmcs
+            zip -qr driveresource-whmcs-1.2.0-beta5.zip whmcs-root
+          )
+
+      - name: Upload WHMCS package
+        uses: actions/upload-artifact@v4
+        with:
+          name: driveresource-whmcs-1.2.0-beta5
+          path: dist-whmcs/driveresource-whmcs-1.2.0-beta5.zip
+          if-no-files-found: error
+          retention-days: 30
