@@ -2,6 +2,14 @@
 
 All notable changes to Drive Resource are documented here. The Moodle component remains `mod_videoplayer` for upgrade compatibility.
 
+## 1.2.0-beta4-m45 — 2026-09-23
+
+- Rebuilds `nativevideo.min.js` and its source map with Moodle 4.5 so AMD source/build parity passes on every CI matrix job.
+- Keeps the beta3 resilient DDL recovery for incomplete `videoplayer_views` schemas.
+- Fixes ARIA container semantics for the custom video and PDF control surfaces.
+- Removes the temporary CI artifact-capture instrumentation used to repair the stale AMD bundle.
+- Release build: `2026092203`.
+
 ## 1.2.0-beta2-m45 - 2026-09-22
 
 ### Seek-safe progress integration
