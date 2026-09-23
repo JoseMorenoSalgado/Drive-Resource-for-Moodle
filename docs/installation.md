@@ -1,6 +1,6 @@
 # Drive Resource installation and upgrade
 
-## Supported platform for 1.2.0-beta5-m45
+## Supported platform for 1.2.0-beta6-m45
 
 - Moodle 4.5 LTS
 - PHP 8.1+
@@ -181,3 +181,10 @@ php admin/cli/purge_caches.php
 ```
 
 Build `2026092204` detects and recreates missing completion, Bunny provider metadata and watched-progress fields. Do not issue manual `ALTER TABLE` statements before attempting the beta5 repair.
+
+
+## Elearning Stream URL workflow
+
+After configuring the WHMCS companion, teachers can choose **Elearning Stream** in the activity form and select either **Upload a new video** or **Use an existing video URL**.
+
+For an existing video, paste a supported HTTPS playback/embed URL. Moodle extracts only the video GUID and sends that identifier to the authenticated WHMCS gateway. WHMCS verifies the video in the configured provider library, rejects assets assigned to another service, and accounts storage before the Moodle activity is saved. The original pasted URL is not stored in the Moodle activity table.
