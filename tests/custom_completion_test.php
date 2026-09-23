@@ -8,11 +8,11 @@
 //
 // Moodle is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle. If not, see <https://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 declare(strict_types=1);
 
@@ -43,6 +43,7 @@ final class custom_completion_test extends \advanced_testcase {
      * @param string|null $exception Expected exception class.
      * @return void
      * @dataProvider state_provider
+     * @covers \\mod_videoplayer\\completion\\custom_completion::get_state
      */
     public function test_get_state(
         string $rule,
@@ -69,8 +70,12 @@ final class custom_completion_test extends \advanced_testcase {
             ->getMock();
 
         $cm->method('get_custom_data')->willReturn($customdata);
-        $cm->method('__get')->willReturnCallback(static function (string $name) {
-            return $name === 'instance' ? 42 : null;
+        $cm->method('__get')->willReturnCallback(static function (string $name) use ($customdata) {
+            return match ($name) {
+                'instance' => 42,
+                'customdata' => $customdata,
+                default => null,
+            };
         });
 
         $DB = $this->createMock(get_class($DB));
@@ -88,6 +93,10 @@ final class custom_completion_test extends \advanced_testcase {
      * @return array
      */
     public static function state_provider(): array {
+        global $CFG;
+
+        require_once($CFG->libdir . '/completionlib.php');
+
         return [
             'undefined rule' => [
                 'unknownrule',
@@ -138,6 +147,7 @@ final class custom_completion_test extends \advanced_testcase {
      * The plugin must define exactly one custom completion rule.
      *
      * @return void
+     * @covers \\mod_videoplayer\\completion\\custom_completion::get_defined_custom_rules
      */
     public function test_defined_rules(): void {
         $this->assertSame(
@@ -150,6 +160,7 @@ final class custom_completion_test extends \advanced_testcase {
      * The custom rule description must include the configured threshold.
      *
      * @return void
+     * @covers \\mod_videoplayer\\completion\\custom_completion::get_custom_rule_descriptions
      */
     public function test_rule_description_uses_threshold(): void {
         $customdata = [
@@ -175,6 +186,7 @@ final class custom_completion_test extends \advanced_testcase {
      * Custom completion should appear after view completion.
      *
      * @return void
+     * @covers \\mod_videoplayer\\completion\\custom_completion::get_sort_order
      */
     public function test_sort_order(): void {
         $cm = $this->getMockBuilder(cm_info::class)

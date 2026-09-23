@@ -8,7 +8,7 @@ The historical Moodle component name remains `mod_videoplayer` to preserve upgra
 
 - Product: Drive Resource
 - Moodle component: `mod_videoplayer`
-- Release: `1.1.33-rc17-m45`
+- Release: `1.2.0-beta7-m45`
 - Target: Moodle 4.5 LTS
 - PHP baseline: PHP 8.1+
 - Video runtime: native HTML5 Media API
@@ -32,6 +32,22 @@ Drive Resource supports Google Drive links for:
 It also supports a PDF uploaded to Moodle private file storage.
 
 Google Docs, Sheets and Slides are exported to PDF on the server side and rendered with the bundled PDF.js viewer. The browser is not sent a Google Drive viewer URL.
+
+## Elearning Stream
+
+Teachers can select **Elearning Stream** as the resource source and either upload a new video or paste the URL of an existing managed video. Pasted provider URLs are not persisted in Moodle: the plugin extracts the video identifier, WHMCS verifies the asset against the configured library/service, enforces storage accounting, and stores only provider metadata required for the managed lifecycle.
+
+The persisted source identifier remains `bunnystream` internally for upgrade compatibility; administrators and learners see **Elearning Stream**.
+
+### Protected Elearning Stream playback
+
+Elearning Stream videos use the same Drive Resource HTML5 player as protected Google Drive video. The learner receives only a Moodle `protected.php` URL. Moodle obtains a short-lived provider MP4 fallback URL from the authenticated WHMCS gateway, caches that authorization briefly, and proxies video bytes with byte-range support. The upstream CDN hostname and signing token are not rendered into learner templates.
+
+The Elearning Stream video library must have MP4 fallback enabled for videos that will be played through this native HTML5 path.
+
+## Moodle 4.5 form compatibility
+
+RC19 fixes the custom completion form integration introduced during RC18 hardening. Custom completion controls now use Moodle 4.5's `get_suffix()` API, so activity creation/editing no longer fails while `standard_coursemodule_elements()` builds completion settings.
 
 ## Deep cleanup status
 
@@ -79,7 +95,7 @@ The learner-facing page only contains Moodle URLs such as `protected.php?id=<cmi
 
 ## Video
 
-Video playback uses the browser-native `<video>` element plus `amd/src/nativevideo.js`. Plyr and Video.js are not used.
+Video playback uses the browser-native `<video>` element plus `amd/src/nativevideo.js`. Plyr and Video.js are not used. Completion is derived from the union of ranges actually reproduced, so seeking over content does not count skipped media as watched.
 
 The player treats short `waiting` events as normal buffering, delays the loading overlay to avoid UI flicker, and automatically recovers persistent stalls. Recovery preserves the learner position, refreshes the short-lived server-side Drive playback URL through `protected.php`, and falls back to the protected source stream when required. Google URLs remain server-side throughout the recovery path.
 
@@ -129,6 +145,8 @@ Large resources are not loaded completely into PHP memory. The plugin supports t
 Upstream URLs are restricted to an explicit HTTPS Google host policy before they are proxied.
 
 ## Progress and completion
+
+Video completion is seek-safe: seeking changes the resume position but does not count skipped media as watched. Completion uses the persisted union of media ranges actually reproduced by the learner.
 
 Per-user state is stored in `videoplayer_views` and includes:
 
@@ -191,3 +209,42 @@ Before release, run the manual regression checklist in [docs/manual-test-checkli
 GNU GPL v3 or later.
 
 Bundled third-party components and their licenses are declared in `thirdpartylibs.xml`.
+
+## 1.2.0-beta2: WHMCS-gated Bunny Stream ingestion
+
+The 1.2 line introduces Bunny Stream as a managed video provider while preserving Google Drive and protected local PDF support.
+
+For Bunny uploads, **Bunny management credentials never exist in Moodle**. Moodle stores only the WHMCS gateway URL, WHMCS service ID and a service-scoped gateway token. The upload flow is:
+
+```text
+Teacher browser
+  -> Moodle capability/session check
+  -> WHMCS Media Gateway
+       -> active WHMCS service check
+       -> exact Moodle site binding
+       -> HMAC + timestamp + replay nonce validation
+       -> quota / overage reservation
+       -> Bunny Stream management API
+  <- short-lived video-scoped TUS authorization
+Teacher browser
+  -> Bunny Stream TUS endpoint directly
+```
+
+Video bytes therefore do not traverse Moodle PHP or WHMCS. Large uploads are chunked and resumable, and long uploads can renew the short-lived TUS authorization without creating a second Bunny asset or reserving quota twice.
+
+The commercial quota model is controlled in WHMCS. The provisioning module defaults to **7 GB included storage**, supports soft overage, and exposes a `video_storage_gb` snapshot metric for WHMCS Usage Billing. The gateway reserves concurrent uploads before issuing a Bunny authorization so simultaneous teachers cannot overrun quota based on stale usage.
+
+This beta currently covers **provider provisioning, direct upload, accounting, lifecycle binding/release, Backup & Restore reconciliation, and retention**. Learner-facing Bunny HLS playback is intentionally not enabled yet; a Bunny-backed activity displays a processing/provider placeholder until the secure playback phase is completed and validated.
+
+The WHMCS companion source is maintained under `integrations/whmcs/` in the development repository. It must be deployed to WHMCS separately from the Moodle plugin package.
+
+## Release 1.2.0-beta5-m45
+
+Beta3 hardens database upgrades for installations that passed through earlier RC/beta builds. The `videoplayer_views` progress schema is now repaired idempotently before watched-range completion is enabled. The migration no longer depends on MySQL/MariaDB physical column ordering, so a missing `duration` column cannot make the `watchedranges` DDL fail with an `AFTER duration` error.
+
+Database recovery baseline: `2026092202`; package build: `2026092204`. Run Moodle's normal upgrade process; do not add the columns manually.
+
+
+### Partial-schema recovery
+
+Beta5 adds a defensive recovery path for Moodle sites that previously installed RC/beta builds whose database savepoints advanced farther than the physical schema. Course-cache generation now detects whether optional completion columns exist before selecting them, and upgrade savepoint `2026092204` recreates missing completion, Bunny metadata, and watched-progress fields without manual SQL.

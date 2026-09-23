@@ -152,3 +152,100 @@ Resource source/type normalization is owned by `classes/local/drive.php`. Runtim
 This prevents divergent behavior for opaque Drive sharing links. In particular, legacy/opaque `/file/d/{id}/view` records using `type=auto` retain the historical video fallback consistently in the learner view, course index, cache task and lifecycle callbacks.
 
 `drive::RESOURCE_TYPES` is the canonical registry used by form options and persistence validation. `drive::SOURCE_GOOGLEDRIVE` and `drive::SOURCE_LOCALPDF` are the canonical source identifiers.
+
+
+## Seek-safe HTML5 video completion
+
+Video resume and video completion are intentionally separate concerns. `lastposition` records where playback should resume, while `watchedranges` stores a bounded canonical JSON union of media intervals that were actually reproduced. The browser adds only contiguous HTML5 playback intervals; seeking resets the contiguous sample. The server merges and clamps the ranges to the detected duration and derives completion from unique watched seconds rather than the furthest seek position.
+
+
+## Moodle completion form integration
+
+Custom activity-completion controls are namespaced using Moodle 4.5's `core_completion\form\form_trait::get_suffix()` API. Form preprocessing, postprocessing, rule creation and validation must concatenate the returned suffix to the base field name. The plugin must not call a non-core `get_suffixed_name()` helper.
+
+## Managed Bunny Stream provider
+
+Bunny video ingestion is a separate provider path; it does not use `protected.php` or the Google Drive resolver.
+
+```text
+Moodle activity form
+  -> create_bunny_upload external function
+  -> whmcs_gateway_client
+  -> WHMCS Drive Resource Media Gateway
+       -> authenticate service + Moodle site
+       -> reserve quota atomically
+       -> create Bunny video using WHMCS-only API key
+       -> return scoped TUS signature
+  -> teacher browser
+       -> Bunny TUS upload directly
+       -> complete_bunny_upload
+  -> Moodle save
+       -> bind_bunny_asset adhoc task
+       -> WHMCS asset reference
+```
+
+The browser never receives the Bunny management API key. The presigned upload material is restricted to one Bunny library, one video GUID and an expiration timestamp. Moodle pins the TUS host to `video.bunnycdn.com` before returning authorization to the uploader.
+
+WHMCS is the authoritative commercial control plane for managed video. It owns service state, quota, reservations, provider asset ownership, retention and usage accounting. Moodle owns course/context authorization and the activity-to-provider reference.
+
+### Storage accounting
+
+Quota decisions use:
+
+```text
+projected = provider-accounted usage + pending reservations + incoming source size
+```
+
+A reservation is created under a database lock before Bunny authorization is emitted. On upload completion, the reservation is converted into usage. Initial accounting may use source bytes while Bunny is still processing; WHMCS cron subsequently reconciles each asset to Bunny's provider-reported `storageSize`, which captures encoded representations as they become available.
+
+### Provider asset lifecycle
+
+A Bunny asset can have multiple Moodle references. Deleting or replacing an activity releases only that reference. Physical provider deletion is deferred until no active references remain and the WHMCS retention period expires. Course restore never trusts a copied provider GUID by itself: the restored reference is reconciled through WHMCS and is accepted only when the asset belongs to the same WHMCS service tenant.
+
+## Resilient progress-schema evolution
+
+Upgrade code treats database column order as non-contractual. Runtime behavior depends on field names and types, not on whether MySQL places one field physically after another. The `2026092202` repair migration verifies `lastposition`, `duration` and `watchedranges` independently and creates only missing fields.
+
+This makes upgrades idempotent for sites that installed pre-release builds with partially applied progress schemas while preserving the canonical fresh-install definition in `db/install.xml`.
+
+
+## Runtime compatibility during schema recovery
+
+Course-cache callbacks must remain callable even when a pre-release installation has an advanced plugin version but a partially applied database schema. `videoplayer_get_coursemodule_info()` therefore builds its completion-field projection from columns that physically exist and applies backward-compatible defaults until XMLDB repair savepoint `2026092204` restores the canonical schema.
+
+This compatibility path is temporary runtime protection, not a substitute for the database migration.
+
+
+## Elearning Stream provider flow
+
+The customer-facing provider name is **Elearning Stream**. The persisted source key and internal adapter class retain the historical `bunnystream` / `bunny_stream` identifiers for upgrade compatibility.
+
+Existing-video URL flow:
+
+```text
+Teacher pastes Elearning Stream URL
+        -> Moodle validates HTTPS/provider URL shape
+        -> extract video GUID only
+        -> WHMCS authenticated asset-import endpoint
+        -> provider-library verification
+        -> service ownership + quota/accounting
+        -> normal asset bind lifecycle
+```
+
+The original pasted URL is form-only data and is removed before Moodle DML persistence.
+
+
+### Elearning Stream protected playback
+
+```text
+Learner HTML5 player
+      -> Moodle protected.php
+      -> activity_context authorization
+      -> protected_resource_service
+      -> WHMCS service-scoped playback authorization
+      -> short-lived signed provider MP4 URL (server-side only)
+      -> http_range_proxy
+      -> learner
+```
+
+The browser-facing `<video>` source remains a Moodle URL. WHMCS verifies that the asset belongs to the requesting service and signs a short-lived MP4 fallback URL. Moodle caches the authorization briefly and forwards byte ranges through the existing protected proxy. A player recovery request with `refresh=1` invalidates the cached authorization before retrying.

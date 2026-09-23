@@ -1,0 +1,59 @@
+name: Elearning Stream WHMCS Integration Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'feature/bunny-whmcs-*'
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bunny-whmcs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  php-syntax:
+    name: PHP ${{ matrix.php }} syntax
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.2', '8.3']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+
+      - name: Lint PHP
+        run: find . -name '*.php' -not -path './thirdpartylibs/*' -print0 | xargs -0 -n1 php -l
+
+  integration-invariants:
+    name: Security and integration invariants
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Elearning Stream/WHMCS boundaries
+        run: bash .github/scripts/bunny-whmcs-invariants.sh
+
+      - name: Validate AMD syntax
+        run: |
+          node --check amd/src/bunnyupload.js
+          node --check amd/build/bunnyupload.min.js
+
+      - name: Validate Moodle XMLDB syntax
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          ET.parse('db/install.xml')
+          print('db/install.xml: OK')
+          PY

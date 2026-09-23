@@ -2,7 +2,70 @@
 
 All notable changes to Drive Resource are documented here. The Moodle component remains `mod_videoplayer` for upgrade compatibility.
 
+## 1.2.0-beta7-m45 — 2026-09-23
+
+- Completes Elearning Stream learner playback using the existing Drive Resource HTML5 player.
+- Adds authenticated WHMCS playback authorization and short-lived signed MP4 fallback URLs.
+- Keeps provider CDN URLs and signing tokens server-side; learners receive only Moodle `protected.php` URLs.
+- Proxies Elearning Stream video through the existing Range/206 streaming layer.
+- Adds strict `*.b-cdn.net` upstream validation and SSRF regression coverage.
+- Adds a short-lived Moodle application cache for playback authorization and honors `refresh=1` during stall recovery.
+- Adds WHMCS settings for Elearning Stream CDN hostname, playback token key and playback TTL.
+- Requires MP4 fallback for videos delivered through the native HTML5 player.
+- Release build: `2026092206`.
+
+## 1.2.0-beta6-m45 — 2026-09-23
+
+- Rebrands the customer-facing video service as **Elearning Stream** in Moodle and WHMCS.
+- Adds a teacher workflow to choose between direct upload and an existing Elearning Stream URL.
+- Parses only the provider video GUID from supported HTTPS playback/embed URLs; the pasted URL itself is never stored.
+- Adds an authenticated WHMCS `asset-import.php` endpoint that verifies the video in the configured library, prevents cross-service reuse, accounts storage/quota and reuses the normal bind lifecycle.
+- Adds regression tests and CI invariants for URL parsing, ownership enforcement and branding.
+- Release build: `2026092205`.
+
+## 1.2.0-beta5-m45 — 2026-09-23
+
+- Fixes `dmlreadexception: Unknown column 'completionprogressenabled'` on installations with partially applied RC/beta schemas.
+- Makes `videoplayer_get_coursemodule_info()` detect available completion columns before building the course-cache query.
+- Adds repair savepoint `2026092204` for `completionprogressenabled`, Bunny provider metadata and watched-progress fields.
+- Recreates the Bunny provider index if the field exists but the index is missing.
+- Keeps the repair independent of physical MySQL/MariaDB column ordering.
+- Corrects the hardening maturity invariant to validate the current beta release line.
+- Release build: `2026092204`.
+
+## 1.2.0-beta4-m45 — 2026-09-23
+
+- Rebuilds `nativevideo.min.js` and its source map with Moodle 4.5 so AMD source/build parity passes on every CI matrix job.
+- Keeps the beta3 resilient DDL recovery for incomplete `videoplayer_views` schemas.
+- Fixes ARIA container semantics for the custom video and PDF control surfaces.
+- Removes the temporary CI artifact-capture instrumentation used to repair the stale AMD bundle.
+- Release build: `2026092203`.
+
+## 1.2.0-beta2-m45 - 2026-09-22
+
+### Seek-safe progress integration
+
+- Integrated watched-range video completion into the WHMCS-gated Bunny 1.2 beta line.
+- Seeking changes the resume position but skipped video no longer increases completion evidence.
+- Added the `watchedranges` persistence field, Backup & Restore support, Privacy API metadata and regression coverage.
+- Added upgrade savepoint `2026092201` for sites upgrading from Bunny beta1.
+- Rebuilt the native video AMD production bundle and source map from the RC19 progress source.
+- Version: `2026092201`; release: `1.2.0-beta2-m45`.
+
+## 1.1.33-rc19-m45 - 2026-09-20
+
+### Moodle 4.5 completion-form hotfix
+
+- Fixed a fatal error when creating or editing a Drive Resource activity with completion enabled: `mod_videoplayer_mod_form::get_suffixed_name()` does not exist in Moodle 4.5.
+- Replaced the invalid helper with Moodle 4.5's supported `get_suffix()` contract for custom completion element names in preprocessing, postprocessing, rules and validation.
+- Added a hardening invariant that fails CI if the unsupported helper is reintroduced.
+- Version: `2026092016`; release: `1.1.33-rc19-m45`.
+
 ## Unreleased - commercial hardening and validation
+
+- RC19 fixes HTML5 video completion so seeking no longer counts skipped media as watched.
+- Video completion now uses the persisted union of media ranges actually reproduced; resume position remains independent.
+- Added bounded watched-range validation, XMLDB upgrade state, Backup/Restore, Privacy API metadata and regression tests.
 
 - Deep audit: centralized all runtime resource-type resolution through `drive::resolve_record_type()` and introduced canonical source/type constants.
 - Fixed inconsistent `auto` behavior where opaque Drive `/file/d/.../view` links could be treated as generic files in some code paths while other paths treated them as videos.
@@ -102,3 +165,28 @@ All notable changes to Drive Resource are documented here. The Moodle component 
 
 - Declared Moodle 4.5 LTS compatibility (`requires = 2024100700`, `supported = [405, 405]`).
 - Added a safe upgrade savepoint for the Moodle 4.5 compatibility build.
+
+## 1.2.0-beta1-m45 - 2026-09-21
+
+### Bunny Stream / WHMCS ingestion foundation
+
+- Added Bunny Stream as a first-class managed video source without placing Bunny API credentials in Moodle.
+- Added a WHMCS media gateway boundary with service-scoped HMAC authentication, exact Moodle-site binding, timestamp validation and replay-nonce protection.
+- Added browser-to-Bunny direct TUS uploads so video bytes bypass Moodle PHP and WHMCS.
+- Added bounded chunk retry/resume and renewal of short-lived TUS authorization for long uploads.
+- Added WHMCS provisioning lifecycle: create, suspend, unsuspend, terminate and package change.
+- Added 7 GB default included-storage policy, atomic upload reservations, optional soft overage and a `video_storage_gb` WHMCS snapshot usage metric.
+- Added provider storage reconciliation using Bunny `storageSize`, plus cleanup of abandoned uploads and retention-delayed deletion of unreferenced assets.
+- Added Moodle provider metadata fields, lifecycle tasks, capability checks and server-side WHMCS binding/release.
+- Added Backup & Restore handling that never exports transient upload reservations and revalidates restored Bunny asset ownership through WHMCS.
+- Added a dedicated Bunny/WHMCS CI invariant gate.
+- Bunny learner playback remains disabled in beta1 until the WHMCS-gated HLS playback contract is implemented and device-tested.
+
+## 1.2.0-beta3-m45 — 2026-09-23
+
+- Fixes the Moodle XMLDB upgrade failure `Unknown column 'duration' in 'videoplayer_views'` when adding `watchedranges`.
+- Removes physical column-order coupling from the `watchedranges` migration.
+- Adds repair savepoint `2026092202` to restore missing `lastposition`, `duration` and `watchedranges` fields idempotently.
+- Adds CI invariants that reject reintroduction of an `AFTER duration` dependency.
+- Existing learner progress rows are preserved; no manual SQL migration is required.
+- Fixes ARIA container semantics for the custom video and PDF control surfaces so Moodle HTML validation no longer reports unlabeled generic `div` warnings.

@@ -45,6 +45,9 @@ class backup_videoplayer_activity_structure_step extends backup_activity_structu
             'introformat',
             'source',
             'videourl',
+            'providerassetid',
+            'providerfilesize',
+            'providerstatus',
             'type',
             'displaymode',
             'disabledownload',
@@ -78,6 +81,7 @@ class backup_videoplayer_activity_structure_step extends backup_activity_structu
             'timespent',
             'lastposition',
             'duration',
+            'watchedranges',
             'points',
         ]);
 

@@ -100,3 +100,54 @@ The SSRF regression suite also covers lookalike Google suffixes, loopback target
 The learner delivery model is not optional. The historical `disabledownload` column is retained only for database/backup compatibility and is pinned by normalization; the current activity form no longer presents it as an effective security control. Authorization and URL confidentiality are provided by the Moodle protected endpoint, not by a checkbox.
 
 Resource typing is also centralized before protected URL construction so different controllers cannot disagree about how an opaque Drive sharing URL should be handled.
+
+
+## Video progress integrity
+
+HTML5 seek position is not trusted as evidence that content was watched. Video completion uses a bounded union of short contiguous playback ranges submitted through the authenticated Moodle progress API. The server validates, clamps and merges those ranges before deriving completion. `lastposition` remains resume-only state.
+
+
+## Completion-form hotfix security impact
+
+RC19 changes only the Moodle form field-name suffix API used by custom completion controls. It does not weaken authorization, protected streaming, URL confidentiality or SSRF controls. Completion thresholds remain server-validated and continue to feed Moodle Completion API through the existing progress service.
+
+## Elearning Stream credential boundary
+
+The Elearning Stream provider management API key and Elearning Stream playback signing key live **only in WHMCS**. They are not Moodle settings, activity fields, JavaScript configuration or browser storage.
+
+Moodle authenticates to the WHMCS media gateway using a service-scoped token. Every gateway request is additionally bound to the exact configured Moodle site and signed with HMAC-SHA256 over a timestamp, nonce and request-body hash. WHMCS rejects stale requests and records single-use nonces to prevent replay.
+
+The teacher browser receives only a short-lived Elearning Stream upload authorization scoped to a single library/video/expiration. It does not receive the provider management API key. The browser uploader uses `credentials: omit` for provider requests and validates that the TUS upload host is `video.bunnycdn.com`.
+
+### Quota abuse controls
+
+WHMCS validates that the underlying product service is Active before authorizing an upload. Quota is reserved transactionally before the provider upload is created. Pending reservations are included in the projected usage calculation, preventing parallel uploads from independently consuming the same remaining allowance.
+
+Completed-but-unsaved uploads receive a bounded unbound grace period. Abandoned reservations and orphaned provider assets are reconciled by WHMCS cron. Deletion is delayed by retention policy after the last Moodle reference is released.
+
+### Backup and tenant isolation
+
+A Moodle backup may contain a Bunny asset GUID because the restored course needs to reference the existing managed asset. It must not contain the transient WHMCS upload reservation. During restore, the GUID is unusable until WHMCS confirms that it belongs to the same service tenant. Cross-tenant GUID reuse is rejected.
+
+## Upgrade integrity for progress evidence
+
+Watched-range completion depends on `lastposition`, `duration` and `watchedranges` being available together. Build `2026092202` repairs these fields idempotently without deleting or rewriting learner progress rows.
+
+No privilege, URL-confidentiality or Bunny credential boundary is relaxed by this repair. The change only hardens schema consistency before progress evidence is processed.
+
+
+## Partial-schema integrity recovery
+
+Build `2026092204` repairs missing completion and Bunny metadata fields without relaxing the access-control boundary. No Bunny API credential is added to Moodle, no provider URL is exposed, and no existing learner progress row is discarded. Provider metadata fields are recreated with the same nullable/default constraints as the canonical install schema.
+
+
+### Existing-video URL import
+
+The pasted Elearning Stream URL is never used as an upstream proxy target and is never persisted. Moodle accepts only supported HTTPS provider URL shapes, extracts a GUID, and sends only that identifier through the authenticated WHMCS channel. WHMCS verifies the asset in the configured provider library, rejects active ownership by another service, and applies quota accounting before issuing a bindable reference.
+
+
+### Protected Elearning Stream playback
+
+The provider CDN hostname and playback token key exist only in WHMCS. Moodle receives a short-lived signed MP4 URL over the authenticated service channel, validates that it is HTTPS and on the approved provider CDN, and never places that URL in learner-facing HTML.
+
+The browser requests Moodle `protected.php`; normal login, course, context and capability validation occurs before WHMCS authorization. The upstream URL then passes through the bounded Range/206 proxy. Lookalike CDN domains, credentials in URLs, non-HTTPS schemes and nonstandard ports are rejected.

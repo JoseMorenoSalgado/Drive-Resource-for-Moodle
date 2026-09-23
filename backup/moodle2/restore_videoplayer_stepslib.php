@@ -25,6 +25,7 @@
 
 
 use mod_videoplayer\local\drive;
+use mod_videoplayer\local\provider\bunny_stream;
 
 /**
  * Restore structure step for the videoplayer activity.
@@ -69,13 +70,15 @@ class restore_videoplayer_activity_structure_step extends restore_activity_struc
         );
         $data->source = in_array(
             $source,
-            [drive::SOURCE_GOOGLEDRIVE, drive::SOURCE_LOCALPDF],
+            [drive::SOURCE_GOOGLEDRIVE, bunny_stream::SOURCE, drive::SOURCE_LOCALPDF],
             true
         ) ? $source : drive::SOURCE_GOOGLEDRIVE;
 
         $type = clean_param((string)($data->type ?? drive::TYPE_AUTO), PARAM_ALPHANUMEXT);
         if ($data->source === drive::SOURCE_LOCALPDF) {
             $data->type = 'pdf';
+        } else if ($data->source === bunny_stream::SOURCE) {
+            $data->type = 'video';
         } else {
             $data->type = drive::is_supported_configured_type($type) ? $type : drive::TYPE_AUTO;
         }
@@ -104,11 +107,40 @@ class restore_videoplayer_activity_structure_step extends restore_activity_struc
         }
         if ($data->source === drive::SOURCE_LOCALPDF) {
             $data->videourl = '';
+            $data->providerassetid = null;
+            $data->provideruploadid = null;
+            $data->providerfilesize = 0;
+            $data->providerstatus = null;
+        } else if ($data->source === bunny_stream::SOURCE) {
+            $data->videourl = '';
+            $assetid = trim((string)($data->providerassetid ?? ''));
+            $data->providerassetid = bunny_stream::is_valid_asset_id($assetid) ? $assetid : null;
+            // Upload reservations are intentionally not portable backup data.
+            $data->provideruploadid = null;
+            $data->providerfilesize = max(0, (int)($data->providerfilesize ?? 0));
+            $status = bunny_stream::normalise_status((string)($data->providerstatus ?? ''));
+            $data->providerstatus = $status !== '' ? $status : null;
+        } else {
+            $data->providerassetid = null;
+            $data->provideruploadid = null;
+            $data->providerfilesize = 0;
+            $data->providerstatus = null;
         }
 
         $newitemid = $DB->insert_record('videoplayer', $data);
         $this->set_mapping('videoplayer', $oldid, $newitemid, true);
         $this->apply_activity_instance($newitemid);
+
+        if ($data->source === bunny_stream::SOURCE && !empty($data->providerassetid)) {
+            $task = new \mod_videoplayer\task\reconcile_bunny_asset();
+            $task->set_component('mod_videoplayer');
+            $task->set_custom_data([
+                'instanceid' => (int)$newitemid,
+                'courseid' => (int)$data->course,
+                'videoid' => (string)$data->providerassetid,
+            ]);
+            \core\task\manager::queue_adhoc_task($task, true);
+        }
     }
 
     /**
@@ -133,6 +165,7 @@ class restore_videoplayer_activity_structure_step extends restore_activity_struc
         $data->timespent = $data->timespent ?? 0;
         $data->lastposition = $data->lastposition ?? 0;
         $data->duration = $data->duration ?? 0;
+        $data->watchedranges = $data->watchedranges ?? null;
         $data->points = $data->points ?? 0;
 
         $DB->insert_record('videoplayer_views', $data);

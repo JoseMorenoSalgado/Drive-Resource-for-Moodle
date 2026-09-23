@@ -1,6 +1,6 @@
 # Drive Resource installation and upgrade
 
-## Supported platform for 1.1.33-rc17-m45
+## Supported platform for 1.2.0-beta7-m45
 
 - Moodle 4.5 LTS
 - PHP 8.1+
@@ -66,7 +66,7 @@ Paste a normal supported Drive/Docs sharing URL into the activity. The learner m
 
 ## Post-upgrade validation
 
-After installing rc17:
+After installing rc19:
 
 1. purge Moodle caches;
 2. hard-refresh the browser;
@@ -108,3 +108,98 @@ Record the tested commit SHA and environment. Do not promote an RC build while a
 When upgrading from RC17, no schema change is required for the canonical type-resolution cleanup. Purge Moodle caches after deploying the updated code and verify at least one existing activity stored as `type=auto` with a normal `drive.google.com/file/d/.../view` URL. It must resolve consistently in the course index and learner view.
 
 Legacy `displaymode` and `disabledownload` columns remain in the database for restore compatibility; administrators should not manually remove them.
+
+
+## RC19 progress schema upgrade
+
+Upgrading from RC18 or earlier automatically adds the nullable `videoplayer_views.watchedranges` field through Moodle XMLDB. No manual SQL migration is required. Complete the normal Moodle upgrade before learners resume video activities.
+
+
+## RC19 completion-form hotfix validation
+
+RC19 is a code/API compatibility hotfix with no schema change. After deployment and cache purge, create a new Drive Resource activity and edit an existing one in a course with completion tracking enabled. The settings form must open normally, automatic completion must expose the progress-percentage rule, and saving the activity must not raise `get_suffixed_name()` errors.
+
+## Bunny Stream + WHMCS beta installation
+
+The Bunny provider requires two separately deployed components.
+
+### WHMCS
+
+1. Copy `integrations/whmcs/modules/addons/driveresource_gateway/` to the WHMCS `modules/addons/` directory.
+2. Activate **Drive Resource Media Gateway** in WHMCS.
+3. Configure the Bunny Stream Library ID and Bunny Stream API key in the addon. These credentials stay in WHMCS.
+4. Copy `integrations/whmcs/modules/servers/driveresource/` to WHMCS `modules/servers/`.
+5. Create a WHMCS server/product using the **Drive Resource Video** provisioning module.
+6. Set **Included Storage GB** to 7 (or the commercial allowance), enable/disable overage, and set the retention period.
+7. For Usage Billing, enable the `video_storage_gb` metric on the WHMCS product and configure its included amount and per-GB overage price. Keep this included amount aligned with the provisioning-module quota.
+8. Set the service's **Moodle Site URL** to the exact HTTPS `$CFG->wwwroot` value, including a subdirectory if Moodle is installed in one.
+9. Provision the WHMCS service and obtain its generated service ID/token for the Moodle administrator.
+
+### Moodle
+
+Under Drive Resource administration settings configure:
+
+- WHMCS gateway URL: the HTTPS base of the deployed addon, for example `https://billing.example.com/modules/addons/driveresource_gateway`;
+- WHMCS service ID;
+- WHMCS service token;
+- gateway timeout.
+
+Do not enter a Bunny API key in Moodle.
+
+After upgrading to database version `2026092103`, purge Moodle caches. Verify that the activity form offers **Bunny Stream (direct upload)** and that a teacher with `mod/videoplayer:uploadvideo` can select a video, receive quota information, upload it directly and save the activity.
+
+### Beta validation boundary
+
+For `1.2.0-beta1-m45`, verify ingestion and accounting only. Bunny learner playback is deliberately gated until the secure HLS playback phase is implemented. Google Drive and local PDF behavior must continue to pass their existing regression checks.
+
+## Beta3 DDL recovery
+
+If an upgrade from an earlier RC/beta stops with:
+
+```text
+Unknown column 'duration' in 'videoplayer_views'
+ALTER TABLE ... ADD watchedranges ... AFTER duration
+```
+
+deploy `1.2.0-beta7-m45` or newer and run the normal Moodle upgrade again:
+
+```bash
+php admin/cli/upgrade.php --non-interactive
+php admin/cli/purge_caches.php
+```
+
+The `2026092202` repair step verifies and creates missing `lastposition`, `duration` and `watchedranges` columns without relying on physical column order. Do **not** run a manual `ALTER TABLE`; the migration is designed to recover the interrupted upgrade while preserving existing progress records.
+
+
+## Beta5 partial-schema recovery
+
+If Moodle reports `Unknown column 'completionprogressenabled'` after an earlier RC/beta installation, deploy `1.2.0-beta7-m45` or newer and open the normal Moodle upgrade page or run:
+
+```bash
+php admin/cli/upgrade.php --non-interactive
+php admin/cli/purge_caches.php
+```
+
+Build `2026092204` detects and recreates missing completion, Bunny provider metadata and watched-progress fields. Do not issue manual `ALTER TABLE` statements before attempting the beta5 repair.
+
+
+## Elearning Stream URL workflow
+
+After configuring the WHMCS companion, teachers can choose **Elearning Stream** in the activity form and select either **Upload a new video** or **Use an existing video URL**.
+
+For an existing video, paste a supported HTTPS playback/embed URL. Moodle extracts only the video GUID and sends that identifier to the authenticated WHMCS gateway. WHMCS verifies the video in the configured provider library, rejects assets assigned to another service, and accounts storage before the Moodle activity is saved. The original pasted URL is not stored in the Moodle activity table.
+
+
+## Elearning Stream protected playback requirements
+
+In the WHMCS Drive Resource Media Gateway configure the fields shown as:
+
+- **Elearning Stream Library ID**
+- **Elearning Stream API Key**
+- **Elearning Stream CDN Hostname**
+- **Elearning Stream Token Key**
+- **Elearning Stream Playback TTL** (300 seconds recommended)
+
+The provider video library must have MP4 fallback enabled. Videos that were encoded without an MP4 fallback cannot be delivered through the native HTML5 protected playback path until the provider generates that fallback.
+
+Learners never receive the upstream CDN URL. Their browser requests `mod/videoplayer/protected.php`, which validates Moodle access and then proxies the authorized MP4 byte ranges.

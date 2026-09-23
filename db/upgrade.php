@@ -426,5 +426,168 @@ function xmldb_videoplayer_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026092015, 'videoplayer');
     }
 
+    // Bunny Stream provider metadata. Provider credentials remain in WHMCS.
+    if ($oldversion < 2026092103) {
+        $table = new xmldb_table('videoplayer');
+        if ($dbman->table_exists($table)) {
+            $fields = [
+                new xmldb_field('providerassetid', XMLDB_TYPE_CHAR, '64', null, null, null, null, 'videourl'),
+                new xmldb_field('provideruploadid', XMLDB_TYPE_CHAR, '64', null, null, null, null, 'providerassetid'),
+                new xmldb_field('providerfilesize', XMLDB_TYPE_INTEGER, '20', null, XMLDB_NOTNULL, null, '0', 'provideruploadid'),
+                new xmldb_field('providerstatus', XMLDB_TYPE_CHAR, '32', null, null, null, null, 'providerfilesize'),
+            ];
+            foreach ($fields as $field) {
+                if (!$dbman->field_exists($table, $field)) {
+                    $dbman->add_field($table, $field);
+                }
+            }
+
+            $index = new xmldb_index('providerasset_idx', XMLDB_INDEX_NOTUNIQUE, ['providerassetid']);
+            if (!$dbman->index_exists($table, $index)) {
+                $dbman->add_index($table, $index);
+            }
+        }
+
+        upgrade_mod_savepoint(true, 2026092103, 'videoplayer');
+    }
+
+    // Persist the union of media ranges actually reproduced by the learner.
+    // Do not couple this DDL step to a physical column order. Some pre-release
+    // installations can have an advanced plugin savepoint with an incomplete
+    // videoplayer_views schema, and MySQL would otherwise fail on AFTER duration.
+    if ($oldversion < 2026092201) {
+        $viewstable = new xmldb_table('videoplayer_views');
+        if ($dbman->table_exists($viewstable)) {
+            $watchedranges = new xmldb_field('watchedranges', XMLDB_TYPE_TEXT);
+            if (!$dbman->field_exists($viewstable, $watchedranges)) {
+                $dbman->add_field($viewstable, $watchedranges);
+            }
+        }
+
+        upgrade_mod_savepoint(true, 2026092201, 'videoplayer');
+    }
+
+    // Repair incomplete RC/beta progress schemas before enabling watched-range
+    // completion. Field order is intentionally unspecified so the migration is
+    // idempotent across MySQL/MariaDB and PostgreSQL.
+    if ($oldversion < 2026092202) {
+        $viewstable = new xmldb_table('videoplayer_views');
+        if ($dbman->table_exists($viewstable)) {
+            $progressfields = [
+                new xmldb_field(
+                    'lastposition',
+                    XMLDB_TYPE_NUMBER,
+                    '12, 3',
+                    null,
+                    XMLDB_NOTNULL,
+                    null,
+                    '0'
+                ),
+                new xmldb_field(
+                    'duration',
+                    XMLDB_TYPE_NUMBER,
+                    '12, 3',
+                    null,
+                    XMLDB_NOTNULL,
+                    null,
+                    '0'
+                ),
+                new xmldb_field('watchedranges', XMLDB_TYPE_TEXT),
+            ];
+
+            foreach ($progressfields as $progressfield) {
+                if (!$dbman->field_exists($viewstable, $progressfield)) {
+                    $dbman->add_field($viewstable, $progressfield);
+                }
+            }
+        }
+
+        upgrade_mod_savepoint(true, 2026092202, 'videoplayer');
+    }
+
+    // Repair critical fields that may be missing on sites which passed through
+    // pre-release builds with an advanced savepoint but an incomplete schema.
+    // Field ordering is deliberately omitted: runtime correctness must never
+    // depend on a predecessor column being physically present.
+    if ($oldversion < 2026092204) {
+        $table = new xmldb_table('videoplayer');
+        if ($dbman->table_exists($table)) {
+            $repairfields = [
+                new xmldb_field(
+                    'completionprogressenabled',
+                    XMLDB_TYPE_INTEGER,
+                    '1',
+                    null,
+                    XMLDB_NOTNULL,
+                    null,
+                    '1'
+                ),
+                new xmldb_field('providerassetid', XMLDB_TYPE_CHAR, '64'),
+                new xmldb_field('provideruploadid', XMLDB_TYPE_CHAR, '64'),
+                new xmldb_field(
+                    'providerfilesize',
+                    XMLDB_TYPE_INTEGER,
+                    '20',
+                    null,
+                    XMLDB_NOTNULL,
+                    null,
+                    '0'
+                ),
+                new xmldb_field('providerstatus', XMLDB_TYPE_CHAR, '32'),
+            ];
+
+            foreach ($repairfields as $repairfield) {
+                if (!$dbman->field_exists($table, $repairfield)) {
+                    $dbman->add_field($table, $repairfield);
+                }
+            }
+
+            $providerindex = new xmldb_index(
+                'providerasset_idx',
+                XMLDB_INDEX_NOTUNIQUE,
+                ['providerassetid']
+            );
+            if (
+                $dbman->field_exists($table, new xmldb_field('providerassetid'))
+                && !$dbman->index_exists($table, $providerindex)
+            ) {
+                $dbman->add_index($table, $providerindex);
+            }
+        }
+
+        $viewstable = new xmldb_table('videoplayer_views');
+        if ($dbman->table_exists($viewstable)) {
+            $progressfields = [
+                new xmldb_field(
+                    'lastposition',
+                    XMLDB_TYPE_NUMBER,
+                    '12, 3',
+                    null,
+                    XMLDB_NOTNULL,
+                    null,
+                    '0'
+                ),
+                new xmldb_field(
+                    'duration',
+                    XMLDB_TYPE_NUMBER,
+                    '12, 3',
+                    null,
+                    XMLDB_NOTNULL,
+                    null,
+                    '0'
+                ),
+                new xmldb_field('watchedranges', XMLDB_TYPE_TEXT),
+            ];
+
+            foreach ($progressfields as $progressfield) {
+                if (!$dbman->field_exists($viewstable, $progressfield)) {
+                    $dbman->add_field($viewstable, $progressfield);
+                }
+            }
+        }
+
+        upgrade_mod_savepoint(true, 2026092204, 'videoplayer');
+    }
+
     return true;
 }

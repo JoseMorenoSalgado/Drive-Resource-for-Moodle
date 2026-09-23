@@ -22,10 +22,11 @@ use mod_videoplayer\local\http_range_proxy;
 use mod_videoplayer\local\plugin_config;
 use mod_videoplayer\local\protected_stream;
 use mod_videoplayer\local\resource\resource_descriptor;
+use mod_videoplayer\local\whmcs_gateway_client;
 use mod_videoplayer\task\precache_pdf;
 
 /**
- * Delivers authorised Drive Resource bytes to the browser.
+ * Delivers authorised Drive Resource bytes to the browser from approved managed sources.
  *
  * The service does not perform authentication itself. Callers must construct it
  * only after Moodle login and capability checks have succeeded.
@@ -60,6 +61,31 @@ final class protected_resource_service {
                 throw new \moodle_exception('protectedresourceunavailable', 'mod_videoplayer');
             }
             protected_stream::send_stored_pdf($file, $resource->filename());
+        }
+
+        if ($resource->is_bunny_stream()) {
+            $videoid = $resource->provider_asset_id();
+            if ($videoid === null) {
+                throw new \moodle_exception('protectedresourceunavailable', 'mod_videoplayer');
+            }
+
+            try {
+                $url = (new whmcs_gateway_client())->playback_url($videoid, $forcerefresh);
+            } catch (\Throwable $exception) {
+                debugging(
+                    'Drive Resource Elearning Stream playback authorization failed: '
+                        . $exception->getMessage(),
+                    DEBUG_DEVELOPER
+                );
+                $this->send_stream_unavailable();
+            }
+
+            http_range_proxy::proxy(
+                $url,
+                $resource->filename(),
+                'video/mp4',
+                'ELEARNING_STREAM'
+            );
         }
 
         $fileid = $resource->fileid();

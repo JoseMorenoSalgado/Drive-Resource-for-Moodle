@@ -17,7 +17,7 @@
 namespace mod_videoplayer\local\stream;
 
 /**
- * Google-owned upstream URL allow-list for protected proxy requests.
+ * Approved upstream URL allow-list for protected proxy requests.
  *
  * @package    mod_videoplayer
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
@@ -28,7 +28,7 @@ final class upstream_url_policy {
      * Resolve and validate one upstream redirect target.
      *
      * Only absolute HTTPS URLs and root-relative redirects are accepted. The
-     * resulting URL must remain inside the Google-owned upstream allow-list.
+     * resulting URL must remain inside the approved upstream allow-list.
      *
      * @param string $baseurl Current trusted URL.
      * @param string $location Raw Location header.
@@ -101,6 +101,12 @@ final class upstream_url_policy {
             }
         }
 
-        return str_ends_with($host, '.c.drive.google.com');
+        if (str_ends_with($host, '.c.drive.google.com')) {
+            return true;
+        }
+
+        // Elearning Stream playback is resolved by WHMCS to the configured
+        // provider CDN. Do not allow the bare suffix or lookalike domains.
+        return $host !== 'b-cdn.net' && str_ends_with($host, '.b-cdn.net');
     }
 }

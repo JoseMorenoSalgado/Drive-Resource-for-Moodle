@@ -34,4 +34,28 @@ $functions = [
         'ajax' => true,
         'services' => [MOODLE_OFFICIAL_MOBILE_SERVICE],
     ],
+    'mod_videoplayer_create_bunny_upload' => [
+        'classname' => 'mod_videoplayer\\external\\create_bunny_upload',
+        'methodname' => 'execute',
+        'classpath' => '',
+        'description' => 'Request a WHMCS-gated, short-lived direct Bunny Stream upload.',
+        'type' => 'write',
+        'ajax' => true,
+    ],
+    'mod_videoplayer_refresh_bunny_upload' => [
+        'classname' => 'mod_videoplayer\\external\\refresh_bunny_upload',
+        'methodname' => 'execute',
+        'classpath' => '',
+        'description' => 'Refresh a WHMCS-gated direct Bunny Stream upload authorization.',
+        'type' => 'write',
+        'ajax' => true,
+    ],
+    'mod_videoplayer_complete_bunny_upload' => [
+        'classname' => 'mod_videoplayer\\external\\complete_bunny_upload',
+        'methodname' => 'execute',
+        'classpath' => '',
+        'description' => 'Confirm a completed browser-to-Bunny Stream upload with WHMCS.',
+        'type' => 'write',
+        'ajax' => true,
+    ],
 ];

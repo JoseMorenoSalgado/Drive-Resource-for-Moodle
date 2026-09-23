@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
  * Language strings for Drive Resource.
@@ -23,15 +23,32 @@
  */
 
 defined('MOODLE_INTERNAL') || die();
-
 $string['audionotsupported'] = 'Su navegador no puede reproducir este audio.';
 $string['backtoresource'] = 'Volver al recurso';
+$string['bunnyassetuploaded'] = 'Video subido correctamente';
+$string['bunnyplaybackphasepending'] = 'El video quedó vinculado a Elearning Stream y está listo para el flujo de reproducción administrado.';
+$string['bunnyuploadauthorizing'] = 'Verificando servicio y cuota de almacenamiento…';
+$string['bunnyuploadbutton'] = 'Subir video';
+$string['bunnyuploadexisting'] = 'Esta actividad ya tiene un video de Elearning Stream vinculado.';
+$string['bunnyuploadfailed'] = 'No se pudo completar la carga del video.';
+$string['bunnyuploading'] = 'Subiendo directamente al almacenamiento de video…';
+$string['bunnyuploadintro'] = 'El video se sube directamente desde el navegador a Elearning Stream. Las credenciales del proveedor nunca se almacenan en Moodle.';
+$string['bunnyuploadinvalidsize'] = 'El video seleccionado tiene un tamaño de archivo no válido.';
+$string['bunnyuploadinvalidtype'] = 'El archivo seleccionado no se reconoce como video.';
+$string['bunnyuploadlabel'] = 'Subir video';
+$string['bunnyuploadoverage'] = 'Almacenamiento adicional: {$a}.';
+$string['bunnyuploadprocessing'] = 'Carga completada. El video se está procesando.';
+$string['bunnyuploadquota'] = 'Almacenamiento después de la carga: {$a->projected} / {$a->included}.';
+$string['bunnyuploadready'] = 'Listo para subir.';
+$string['bunnyuploadreauthorizing'] = 'Renovando la autorización segura de carga…';
+$string['bunnyuploadrequired'] = 'Sube el video antes de guardar este recurso de Elearning Stream.';
+$string['bunnyuploadretrying'] = 'Conexión interrumpida. Reanudando la carga…';
+$string['completionpercentage'] = 'Porcentaje requerido de finalización';
+$string['completionpercentage_help'] = 'Porcentaje necesario para considerar este recurso como completado.';
 $string['completionprogressdesc'] = 'Alcanzar al menos el {$a}% de progreso';
 $string['completionprogressenabled'] = 'Requerir porcentaje de progreso';
 $string['completionprogressgroup'] = 'Progreso requerido';
-$string['completionprogressgroup_help'] = 'Cuando la finalización automática está activada, exige que el estudiante alcance este porcentaje del recurso. Video y audio usan la posición de reproducción, los PDF usan el avance por páginas y los recursos genéricos usan el tiempo activo de visualización.';
-$string['completionpercentage'] = 'Porcentaje requerido de finalización';
-$string['completionpercentage_help'] = 'Porcentaje necesario para considerar este recurso como completado.';
+$string['completionprogressgroup_help'] = 'Cuando la finalización automática está activada, exige que el estudiante alcance este porcentaje del recurso. El video usa la unión de los rangos realmente reproducidos, el audio usa la posición de reproducción, los PDF usan el avance por páginas y los recursos genéricos usan el tiempo activo de visualización.';
 $string['disablecontextmenu'] = 'Desactivar clic derecho y acciones básicas de copia';
 $string['disabledownload'] = 'Desactivar descarga';
 $string['disabledownload_help'] = 'Oculta acciones de descarga y sirve el recurso en línea mediante el proxy protegido.';
@@ -52,13 +69,14 @@ $string['invalidcompletionpercentage'] = 'El porcentaje de finalización debe es
 $string['invaliddriveurl'] = 'Ingrese una URL válida de Google Drive o Google Docs.';
 $string['invalidlocalpdf'] = 'Solo se permiten archivos PDF para este origen.';
 $string['invalidpointsperpage'] = 'Los puntos deben estar entre 0 y 100.';
+$string['invalidstreamurl'] = 'Ingrese una URL válida de Elearning Stream.';
 $string['invalidurl'] = 'La URL proporcionada no es válida.';
 $string['lastposition'] = 'Posición de reanudación';
 $string['loadingpdf'] = 'Cargando PDF...';
 $string['localpdffile'] = 'Archivo PDF local';
 $string['localpdffile_help'] = 'Suba un único archivo PDF. El archivo se almacena en Moodle y se entrega únicamente mediante las verificaciones de acceso de Drive Resource.';
 $string['modulename'] = 'Drive Resource';
-$string['modulename_help'] = 'Use esta actividad para insertar videos, PDF, imágenes, documentos, hojas de cálculo y presentaciones desde Google Drive o almacenamiento protegido local.';
+$string['modulename_help'] = 'Use esta actividad para publicar videos mediante Elearning Stream y recursos protegidos desde Google Drive o almacenamiento local.';
 $string['modulenameplural'] = 'Drive Resources';
 $string['nextmatch'] = 'Siguiente coincidencia';
 $string['nextpage'] = 'Siguiente';
@@ -94,8 +112,9 @@ $string['privacy:metadata:videoplayer_views:timespent'] = 'Tiempo activo de lect
 $string['privacy:metadata:videoplayer_views:totalpages'] = 'Total de páginas detectadas.';
 $string['privacy:metadata:videoplayer_views:userid'] = 'ID del usuario.';
 $string['privacy:metadata:videoplayer_views:videoplayerid'] = 'ID de la instancia.';
-$string['progresslocktimeout'] = 'No se pudo guardar el progreso porque todavía se está procesando otra actualización. Inténtelo nuevamente.';
+$string['privacy:metadata:videoplayer_views:watchedranges'] = 'Rangos de tiempo multimedia realmente reproducidos por el estudiante.';
 $string['progress'] = 'Progreso';
+$string['progresslocktimeout'] = 'No se pudo guardar el progreso porque todavía se está procesando otra actualización. Inténtelo nuevamente.';
 $string['progressreport'] = 'Reporte de progreso';
 $string['protectedresource'] = 'Recurso protegido';
 $string['protectedresourceunavailable'] = 'El recurso protegido no está disponible actualmente.';
@@ -128,11 +147,27 @@ $string['setting_playercolormode_desc'] = 'Usa el color principal del tema Moodl
 $string['setting_playercolormode_theme'] = 'Usar color del tema Moodle';
 $string['setting_showresourcetype'] = 'Mostrar tipo de recurso';
 $string['setting_showresourcetype_desc'] = 'Muestra el tipo de recurso detectado.';
+$string['setting_whmcsgatewayheading'] = 'Pasarela multimedia WHMCS';
+$string['setting_whmcsgatewayheading_desc'] = 'Las credenciales de Elearning Stream permanecen exclusivamente en WHMCS. Moodle solo guarda la identidad del servicio WHMCS y un token limitado a ese servicio.';
+$string['setting_whmcsgatewayurl'] = 'URL de la pasarela WHMCS';
+$string['setting_whmcsgatewayurl_desc'] = 'URL base HTTPS de la instalación WHMCS que aloja el módulo Drive Resource Media Gateway.';
+$string['setting_whmcsserviceid'] = 'ID del servicio WHMCS';
+$string['setting_whmcsserviceid_desc'] = 'Servicio WHMCS activo propietario de esta instalación Moodle y de su cuota de Drive Resource.';
+$string['setting_whmcsservicetoken'] = 'Token del servicio WHMCS';
+$string['setting_whmcsservicetoken_desc'] = 'Token limitado al servicio generado por la pasarela de WHMCS. No es una credencial del proveedor de video.';
+$string['setting_whmcstimeout'] = 'Tiempo de espera de WHMCS';
+$string['setting_whmcstimeout_desc'] = 'Tiempo máximo para solicitudes servidor a servidor, en segundos (5–60).';
+$string['sourcebunnystream'] = 'Elearning Stream';
 $string['sourcegoogledrive'] = 'Google Drive';
 $string['sourcelocalpdf'] = 'PDF local protegido';
+$string['streaminputmode'] = 'Origen del video en Elearning Stream';
+$string['streammodeupload'] = 'Subir un video nuevo';
+$string['streammodeurl'] = 'Usar un video existente mediante URL';
+$string['streamurl'] = 'URL de Elearning Stream';
+$string['streamurl_help'] = 'Pegue la URL de reproducción, HLS o inserción de un video existente en Elearning Stream. La URL completa no se guarda; solo se registra el identificador validado por WHMCS.';
 $string['task_cleanup_pdf_cache'] = 'Limpiar caché PDF de Drive Resource';
-$string['trackingdisabled'] = 'El seguimiento de progreso está desactivado en este sitio.';
 $string['timespent'] = 'Tiempo activo';
+$string['trackingdisabled'] = 'El seguimiento de progreso está desactivado en este sitio.';
 $string['typeaudio'] = 'Audio';
 $string['typeauto'] = 'Automático';
 $string['typedocument'] = 'Documento';
@@ -159,6 +194,7 @@ $string['videoplayer:editreport'] = 'Editar reportes de Drive Resource';
 $string['videoplayer:editreport_help'] = 'Permite editar reportes y progreso de usuarios en Drive Resource.';
 $string['videoplayer:manage'] = 'Gestionar Drive Resource';
 $string['videoplayer:manage_help'] = 'Permite gestionar la configuración de Drive Resource.';
+$string['videoplayer:uploadvideo'] = 'Gestionar videos mediante Elearning Stream';
 $string['videoplayer:view'] = 'Ver Drive Resource';
 $string['videoplayer:view_help'] = 'Permite a usuarios autenticados y matriculados ver el contenido protegido de Drive Resource.';
 $string['videoplayer:viewreport'] = 'Ver reportes de Drive Resource';
@@ -169,5 +205,11 @@ $string['videounmute'] = 'Activar sonido';
 $string['videourl'] = 'URL de Google Drive';
 $string['videourl_help'] = 'Pegue una URL compartible de Google Drive o Google Docs.';
 $string['videovolume'] = 'Volumen';
+$string['whmcsgatewayhttpsrequired'] = 'La pasarela multimedia de WHMCS debe usar una URL HTTPS segura.';
+$string['whmcsgatewayinvalidresponse'] = 'WHMCS devolvió una autorización de carga no válida.';
+$string['whmcsgatewayinvaliduploadendpoint'] = 'WHMCS devolvió un destino de carga de video no confiable.';
+$string['whmcsgatewaynotconfigured'] = 'La pasarela multimedia de WHMCS no está configurada.';
+$string['whmcsgatewayremoteerror'] = 'La pasarela multimedia rechazó la solicitud: {$a}';
+$string['whmcsgatewayrequestfailed'] = 'La pasarela multimedia de WHMCS no pudo procesar la solicitud.';
 $string['zoomin'] = 'Acercar';
 $string['zoomout'] = 'Alejar';

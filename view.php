@@ -65,7 +65,7 @@ if (!isguestuser()) {
     ]) ?: null;
 }
 
-if ($resource->is_available()) {
+if ($resource->is_available() && !$resource->is_bunny_stream()) {
     if ($resource->is_pdf_like()) {
         $PAGE->requires->js_call_amd('mod_videoplayer/pdfviewer', 'init');
     } else if ($resource->is_video()) {
