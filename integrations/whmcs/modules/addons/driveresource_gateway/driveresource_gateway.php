@@ -26,7 +26,7 @@ function driveresource_gateway_config(): array
     return [
         'name' => 'Drive Resource Media Gateway',
         'description' => 'WHMCS authorization, quota and Elearning Stream credential boundary for Drive Resource.',
-        'version' => '0.3.2',
+        'version' => '0.4.0',
         'author' => 'Elearning Cloud',
         'fields' => [
             'bunny_library_id' => [
@@ -104,6 +104,12 @@ function driveresource_gateway_activate(): array
                 $table->string('status', 16)->default('active')->index();
                 $table->string('backend_key', 32)->default('elearningstream')->index();
                 $table->string('backend_profile', 64)->default('default');
+                $table->string('connection_status', 16)->default('pending')->index();
+                $table->unsignedInteger('connection_checked_at')->nullable();
+                $table->string('connection_message', 255)->nullable();
+                $table->char('transfer_period', 7)->nullable()->index();
+                $table->unsignedBigInteger('transfer_bytes')->default(0);
+                $table->unsignedInteger('transfer_updated_at')->nullable();
                 $table->unsignedBigInteger('quota_bytes')->default(7000000000);
                 $table->unsignedBigInteger('used_bytes')->default(0);
                 $table->unsignedBigInteger('reserved_bytes')->default(0);
@@ -161,7 +167,20 @@ function driveresource_gateway_activate(): array
             });
         }
 
+        if (!$schema->hasTable('mod_driveresource_usage_reports')) {
+            $schema->create('mod_driveresource_usage_reports', static function (Blueprint $table): void {
+                $table->bigIncrements('id');
+                $table->unsignedInteger('service_id')->index();
+                $table->char('report_id', 64);
+                $table->char('period_key', 7)->index();
+                $table->unsignedBigInteger('bytes')->default(0);
+                $table->unsignedInteger('created_at');
+                $table->unique(['service_id', 'report_id'], 'dr_usage_report_unique');
+            });
+        }
+
         driveresource_gateway_ensure_multitenant_schema();
+        driveresource_gateway_ensure_portal_schema();
 
         return ['status' => 'success', 'description' => 'Drive Resource Media Gateway activated.'];
     } catch (Throwable $exception) {
@@ -182,6 +201,9 @@ function driveresource_gateway_upgrade(array $vars): void
     $installed = (string) ($vars['version'] ?? '0.0.0');
     if (version_compare($installed, '0.3.0', '<')) {
         driveresource_gateway_ensure_multitenant_schema();
+    }
+    if (version_compare($installed, '0.4.0', '<')) {
+        driveresource_gateway_ensure_portal_schema();
     }
 }
 
@@ -222,6 +244,63 @@ function driveresource_gateway_ensure_multitenant_schema(): void
         ->whereNull('backend_profile')
         ->orWhere('backend_profile', '')
         ->update(['backend_profile' => 'default']);
+}
+
+/**
+ * Ensure client-portal connection and transfer metering schema.
+ *
+ * @return void
+ */
+function driveresource_gateway_ensure_portal_schema(): void
+{
+    $schema = Capsule::schema();
+    if (!$schema->hasTable('mod_driveresource_services')) {
+        return;
+    }
+
+    $columns = [
+        'connection_status' => static function (Blueprint $table): void {
+            $table->string('connection_status', 16)->default('pending')->index();
+        },
+        'connection_checked_at' => static function (Blueprint $table): void {
+            $table->unsignedInteger('connection_checked_at')->nullable();
+        },
+        'connection_message' => static function (Blueprint $table): void {
+            $table->string('connection_message', 255)->nullable();
+        },
+        'transfer_period' => static function (Blueprint $table): void {
+            $table->char('transfer_period', 7)->nullable()->index();
+        },
+        'transfer_bytes' => static function (Blueprint $table): void {
+            $table->unsignedBigInteger('transfer_bytes')->default(0);
+        },
+        'transfer_updated_at' => static function (Blueprint $table): void {
+            $table->unsignedInteger('transfer_updated_at')->nullable();
+        },
+    ];
+
+    foreach ($columns as $column => $callback) {
+        if (!$schema->hasColumn('mod_driveresource_services', $column)) {
+            $schema->table('mod_driveresource_services', $callback);
+        }
+    }
+
+    if (!$schema->hasTable('mod_driveresource_usage_reports')) {
+        $schema->create('mod_driveresource_usage_reports', static function (Blueprint $table): void {
+            $table->bigIncrements('id');
+            $table->unsignedInteger('service_id')->index();
+            $table->char('report_id', 64);
+            $table->char('period_key', 7)->index();
+            $table->unsignedBigInteger('bytes')->default(0);
+            $table->unsignedInteger('created_at');
+            $table->unique(['service_id', 'report_id'], 'dr_usage_report_unique');
+        });
+    }
+
+    Capsule::table('mod_driveresource_services')
+        ->whereNull('connection_status')
+        ->orWhere('connection_status', '')
+        ->update(['connection_status' => 'pending']);
 }
 
 /**
