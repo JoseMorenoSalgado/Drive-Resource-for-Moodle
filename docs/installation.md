@@ -151,3 +151,21 @@ After upgrading to database version `2026092103`, purge Moodle caches. Verify th
 ### Beta validation boundary
 
 For `1.2.0-beta1-m45`, verify ingestion and accounting only. Bunny learner playback is deliberately gated until the secure HLS playback phase is implemented. Google Drive and local PDF behavior must continue to pass their existing regression checks.
+
+## Beta3 DDL recovery
+
+If an upgrade from an earlier RC/beta stops with:
+
+```text
+Unknown column 'duration' in 'videoplayer_views'
+ALTER TABLE ... ADD watchedranges ... AFTER duration
+```
+
+deploy `1.2.0-beta3-m45` or newer and run the normal Moodle upgrade again:
+
+```bash
+php admin/cli/upgrade.php --non-interactive
+php admin/cli/purge_caches.php
+```
+
+The `2026092202` repair step verifies and creates missing `lastposition`, `duration` and `watchedranges` columns without relying on physical column order. Do **not** run a manual `ALTER TABLE`; the migration is designed to recover the interrupted upgrade while preserving existing progress records.
