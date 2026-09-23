@@ -261,3 +261,12 @@ To add an S3-compatible implementation:
 8. add CI invariants and production tests before exposing the backend in product configuration.
 
 Backend switching for a service with existing assets must use an explicit migration workflow. `ChangePackage` intentionally rejects an in-place backend change when media or bytes remain.
+
+
+## WHMCS provisioning token contract
+
+Do not set `RequiresServer=true` for the Elearning Stream provisioning module: no server hostname or server credential is part of the service contract.
+
+The Moodle gateway token must be created by `driveresource_CreateAccount()`. Its plaintext copy belongs only in WHMCS protected service properties; the gateway database stores only SHA-256 of that token. Administrators may retrieve the service token through the module's administrator service fields to configure Moodle.
+
+Do not allow operators to repair an unprovisioned service by inventing a password manually. Re-run the module Create action so the WHMCS password and gateway token hash are created atomically by the module.
