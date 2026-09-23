@@ -8,7 +8,7 @@ The historical Moodle component name remains `mod_videoplayer` to preserve upgra
 
 - Product: Drive Resource
 - Moodle component: `mod_videoplayer`
-- Release: `1.2.0-beta6-m45`
+- Release: `1.2.0-beta7-m45`
 - Target: Moodle 4.5 LTS
 - PHP baseline: PHP 8.1+
 - Video runtime: native HTML5 Media API
@@ -38,6 +38,12 @@ Google Docs, Sheets and Slides are exported to PDF on the server side and render
 Teachers can select **Elearning Stream** as the resource source and either upload a new video or paste the URL of an existing managed video. Pasted provider URLs are not persisted in Moodle: the plugin extracts the video identifier, WHMCS verifies the asset against the configured library/service, enforces storage accounting, and stores only provider metadata required for the managed lifecycle.
 
 The persisted source identifier remains `bunnystream` internally for upgrade compatibility; administrators and learners see **Elearning Stream**.
+
+### Protected Elearning Stream playback
+
+Elearning Stream videos use the same Drive Resource HTML5 player as protected Google Drive video. The learner receives only a Moodle `protected.php` URL. Moodle obtains a short-lived provider MP4 fallback URL from the authenticated WHMCS gateway, caches that authorization briefly, and proxies video bytes with byte-range support. The upstream CDN hostname and signing token are not rendered into learner templates.
+
+The Elearning Stream video library must have MP4 fallback enabled for videos that will be played through this native HTML5 path.
 
 ## Moodle 4.5 form compatibility
 
