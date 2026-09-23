@@ -33,6 +33,7 @@ grep -q 'NAME="providerfilesize"' db/install.xml || fail "providerfilesize is mi
 grep -q 'NAME="providerstatus"' db/install.xml || fail "providerstatus is missing from install.xml."
 grep -q 'NAME="providerasset_idx"' db/install.xml || fail "providerasset_idx is missing from install.xml."
 grep -q '2026092103' db/upgrade.php || fail "Bunny provider upgrade savepoint is missing."
+grep -q '2026092202' db/upgrade.php || fail "Progress schema repair savepoint is missing."
 
 echo "Checking Moodle/Bunny secret boundary..."
 if grep -RniE 'AccessKey:|bunny_api_key|bunny_token_key' classes amd db lib.php mod_form.php settings.php view.php templates; then
