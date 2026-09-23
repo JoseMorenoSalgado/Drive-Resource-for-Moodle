@@ -201,3 +201,9 @@ A reservation is created under a database lock before Bunny authorization is emi
 ### Provider asset lifecycle
 
 A Bunny asset can have multiple Moodle references. Deleting or replacing an activity releases only that reference. Physical provider deletion is deferred until no active references remain and the WHMCS retention period expires. Course restore never trusts a copied provider GUID by itself: the restored reference is reconciled through WHMCS and is accepted only when the asset belongs to the same WHMCS service tenant.
+
+## Resilient progress-schema evolution
+
+Upgrade code treats database column order as non-contractual. Runtime behavior depends on field names and types, not on whether MySQL places one field physically after another. The `2026092202` repair migration verifies `lastposition`, `duration` and `watchedranges` independently and creates only missing fields.
+
+This makes upgrades idempotent for sites that installed pre-release builds with partially applied progress schemas while preserving the canonical fresh-install definition in `db/install.xml`.
