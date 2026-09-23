@@ -293,3 +293,42 @@ The S3-compatible registry entry is intentionally non-provisionable. A future ad
 The commercial service is a logical control-plane tenant, not a workload hosted on a WHMCS server. The provisioning module therefore declares `RequiresServer=false`.
 
 `CreateAccount` derives the tenant from the WHMCS service itself, generates a cryptographically random service token, persists only its hash in the gateway tenant table, and stores the recoverable token in WHMCS's protected service password property for administrator handoff to Moodle.
+
+
+## WHMCS customer self-service and transfer metering
+
+Each WHMCS service exposes a client dashboard backed only by rows scoped to that `service_id`. It presents connection state, storage/quota, current-month transfer and a paginated video library.
+
+The connection-validation flow is server-to-server:
+
+```text
+WHMCS Client Area
+    -> ValidateMoodleConnection
+    -> MoodleConnectionProbe
+    -> POST https://moodle/mod/videoplayer/gateway-status.php
+       headers: service/site/timestamp/nonce/HMAC
+    -> Moodle validates configured service id + wwwroot + token HMAC
+    -> replay nonce cache
+    -> connected / failed
+```
+
+No browser session or learner credential is used by the probe. Redirects are not followed; the configured Moodle URL must be the exact public `$CFG->wwwroot`.
+
+Per-service transfer is measured at the actual byte-delivery boundary:
+
+```text
+Elearning Stream signed MP4
+    -> Moodle http_range_proxy
+    -> bytes actually echoed to browser
+    -> transfer_meter
+    -> videoplayer_transfer_events
+    -> scheduled sync every 5 minutes
+    -> WHMCS authenticated usage-report.php
+    -> idempotent report id
+    -> service transfer_period / transfer_bytes
+    -> video_transfer_gb monthly Usage Billing metric
+```
+
+HEAD responses, rejected content, discarded range responses and bytes never emitted to the browser are not counted. A Service ID change cannot reattribute queued events from an old service to a new one.
+
+Client video deletion checks both tenant ownership and active Moodle references before invoking the provider delete operation. URL reassignment is blocked while active references exist; a content-bearing site/domain migration requires a dedicated migration workflow.
