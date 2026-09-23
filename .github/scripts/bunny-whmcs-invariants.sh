@@ -56,7 +56,7 @@ grep -q 'hash_hmac' integrations/whmcs/modules/addons/driveresource_gateway/lib/
 grep -q 'mod_driveresource_nonces' integrations/whmcs/modules/addons/driveresource_gateway/lib/RequestAuthenticator.php     || fail "Replay nonce protection is missing."
 
 echo "Checking multi-tenant backend architecture..."
-grep -q "'version' => '0.3.1'" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "WHMCS addon version 0.3.1 is missing."
+grep -q "'version' => '0.3.2'" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "WHMCS addon version 0.3.2 is missing."
 grep -q "function driveresource_gateway_upgrade" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "WHMCS addon upgrade function is missing."
 grep -q "backend_key" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "Service backend key schema is missing."
 grep -q "backend_profile" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "Service backend profile schema is missing."
@@ -71,6 +71,9 @@ grep -q "backend_key" integrations/whmcs/modules/addons/driveresource_gateway/li
 grep -q "'RequiresServer' => false" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Elearning Stream must not require a fake WHMCS server assignment."
 grep -q "function driveresource_AdminServicesTabFields" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Admin Moodle connection details are missing."
 grep -q "Moodle Service Token" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Admin service token handoff is missing."
+grep -q "function driveresource_AdminCustomButtonArray" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Admin provisioning repair action is missing."
+grep -q "Generar/Reparar conexión Moodle" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Admin repair button is missing."
+grep -q "function driveresource_provision_moodle_connection" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Shared idempotent Moodle provisioning helper is missing."
 
 echo "Checking quota and overage controls..."
 grep -q 'reserved_bytes' integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "Concurrent upload reservation accounting is missing."
