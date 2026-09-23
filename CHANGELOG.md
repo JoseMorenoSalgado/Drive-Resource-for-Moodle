@@ -2,6 +2,25 @@
 
 All notable changes to Drive Resource are documented here. The Moodle component remains `mod_videoplayer` for upgrade compatibility.
 
+## 1.2.0-beta4-m45 — 2026-09-23
+
+- Rebuilds `nativevideo.min.js` and its source map with Moodle 4.5 so AMD source/build parity passes on every CI matrix job.
+- Keeps the beta3 resilient DDL recovery for incomplete `videoplayer_views` schemas.
+- Fixes ARIA container semantics for the custom video and PDF control surfaces.
+- Removes the temporary CI artifact-capture instrumentation used to repair the stale AMD bundle.
+- Release build: `2026092203`.
+
+## 1.2.0-beta2-m45 - 2026-09-22
+
+### Seek-safe progress integration
+
+- Integrated watched-range video completion into the WHMCS-gated Bunny 1.2 beta line.
+- Seeking changes the resume position but skipped video no longer increases completion evidence.
+- Added the `watchedranges` persistence field, Backup & Restore support, Privacy API metadata and regression coverage.
+- Added upgrade savepoint `2026092201` for sites upgrading from Bunny beta1.
+- Rebuilt the native video AMD production bundle and source map from the RC19 progress source.
+- Version: `2026092201`; release: `1.2.0-beta2-m45`.
+
 ## 1.1.33-rc19-m45 - 2026-09-20
 
 ### Moodle 4.5 completion-form hotfix
@@ -12,6 +31,10 @@ All notable changes to Drive Resource are documented here. The Moodle component 
 - Version: `2026092016`; release: `1.1.33-rc19-m45`.
 
 ## Unreleased - commercial hardening and validation
+
+- RC19 fixes HTML5 video completion so seeking no longer counts skipped media as watched.
+- Video completion now uses the persisted union of media ranges actually reproduced; resume position remains independent.
+- Added bounded watched-range validation, XMLDB upgrade state, Backup/Restore, Privacy API metadata and regression tests.
 
 - Deep audit: centralized all runtime resource-type resolution through `drive::resolve_record_type()` and introduced canonical source/type constants.
 - Fixed inconsistent `auto` behavior where opaque Drive `/file/d/.../view` links could be treated as generic files in some code paths while other paths treated them as videos.
@@ -127,3 +150,12 @@ All notable changes to Drive Resource are documented here. The Moodle component 
 - Added Backup & Restore handling that never exports transient upload reservations and revalidates restored Bunny asset ownership through WHMCS.
 - Added a dedicated Bunny/WHMCS CI invariant gate.
 - Bunny learner playback remains disabled in beta1 until the WHMCS-gated HLS playback contract is implemented and device-tested.
+
+## 1.2.0-beta3-m45 — 2026-09-23
+
+- Fixes the Moodle XMLDB upgrade failure `Unknown column 'duration' in 'videoplayer_views'` when adding `watchedranges`.
+- Removes physical column-order coupling from the `watchedranges` migration.
+- Adds repair savepoint `2026092202` to restore missing `lastposition`, `duration` and `watchedranges` fields idempotently.
+- Adds CI invariants that reject reintroduction of an `AFTER duration` dependency.
+- Existing learner progress rows are preserved; no manual SQL migration is required.
+- Fixes ARIA container semantics for the custom video and PDF control surfaces so Moodle HTML validation no longer reports unlabeled generic `div` warnings.

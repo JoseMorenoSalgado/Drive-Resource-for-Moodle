@@ -8,7 +8,7 @@ The historical Moodle component name remains `mod_videoplayer` to preserve upgra
 
 - Product: Drive Resource
 - Moodle component: `mod_videoplayer`
-- Release: `1.2.0-beta1-m45`
+- Release: `1.2.0-beta2-m45`
 - Target: Moodle 4.5 LTS
 - PHP baseline: PHP 8.1+
 - Video runtime: native HTML5 Media API
@@ -83,7 +83,7 @@ The learner-facing page only contains Moodle URLs such as `protected.php?id=<cmi
 
 ## Video
 
-Video playback uses the browser-native `<video>` element plus `amd/src/nativevideo.js`. Plyr and Video.js are not used.
+Video playback uses the browser-native `<video>` element plus `amd/src/nativevideo.js`. Plyr and Video.js are not used. Completion is derived from the union of ranges actually reproduced, so seeking over content does not count skipped media as watched.
 
 The player treats short `waiting` events as normal buffering, delays the loading overlay to avoid UI flicker, and automatically recovers persistent stalls. Recovery preserves the learner position, refreshes the short-lived server-side Drive playback URL through `protected.php`, and falls back to the protected source stream when required. Google URLs remain server-side throughout the recovery path.
 
@@ -133,6 +133,8 @@ Large resources are not loaded completely into PHP memory. The plugin supports t
 Upstream URLs are restricted to an explicit HTTPS Google host policy before they are proxied.
 
 ## Progress and completion
+
+Video completion is seek-safe: seeking changes the resume position but does not count skipped media as watched. Completion uses the persisted union of media ranges actually reproduced by the learner.
 
 Per-user state is stored in `videoplayer_views` and includes:
 
@@ -196,7 +198,7 @@ GNU GPL v3 or later.
 
 Bundled third-party components and their licenses are declared in `thirdpartylibs.xml`.
 
-## 1.2.0-beta1: WHMCS-gated Bunny Stream ingestion
+## 1.2.0-beta2: WHMCS-gated Bunny Stream ingestion
 
 The 1.2 line introduces Bunny Stream as a managed video provider while preserving Google Drive and protected local PDF support.
 
@@ -223,3 +225,9 @@ The commercial quota model is controlled in WHMCS. The provisioning module defau
 This beta currently covers **provider provisioning, direct upload, accounting, lifecycle binding/release, Backup & Restore reconciliation, and retention**. Learner-facing Bunny HLS playback is intentionally not enabled yet; a Bunny-backed activity displays a processing/provider placeholder until the secure playback phase is completed and validated.
 
 The WHMCS companion source is maintained under `integrations/whmcs/` in the development repository. It must be deployed to WHMCS separately from the Moodle plugin package.
+
+## Release 1.2.0-beta4-m45
+
+Beta3 hardens database upgrades for installations that passed through earlier RC/beta builds. The `videoplayer_views` progress schema is now repaired idempotently before watched-range completion is enabled. The migration no longer depends on MySQL/MariaDB physical column ordering, so a missing `duration` column cannot make the `watchedranges` DDL fail with an `AFTER duration` error.
+
+Database recovery baseline: `2026092202`; package build: `2026092203`. Run Moodle's normal upgrade process; do not add the columns manually.

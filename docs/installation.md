@@ -1,6 +1,6 @@
 # Drive Resource installation and upgrade
 
-## Supported platform for 1.1.33-rc19-m45
+## Supported platform for 1.2.0-beta4-m45
 
 - Moodle 4.5 LTS
 - PHP 8.1+
@@ -110,6 +110,11 @@ When upgrading from RC17, no schema change is required for the canonical type-re
 Legacy `displaymode` and `disabledownload` columns remain in the database for restore compatibility; administrators should not manually remove them.
 
 
+## RC19 progress schema upgrade
+
+Upgrading from RC18 or earlier automatically adds the nullable `videoplayer_views.watchedranges` field through Moodle XMLDB. No manual SQL migration is required. Complete the normal Moodle upgrade before learners resume video activities.
+
+
 ## RC19 completion-form hotfix validation
 
 RC19 is a code/API compatibility hotfix with no schema change. After deployment and cache purge, create a new Drive Resource activity and edit an existing one in a course with completion tracking enabled. The settings form must open normally, automatic completion must expose the progress-percentage rule, and saving the activity must not raise `get_suffixed_name()` errors.
@@ -146,3 +151,21 @@ After upgrading to database version `2026092103`, purge Moodle caches. Verify th
 ### Beta validation boundary
 
 For `1.2.0-beta1-m45`, verify ingestion and accounting only. Bunny learner playback is deliberately gated until the secure HLS playback phase is implemented. Google Drive and local PDF behavior must continue to pass their existing regression checks.
+
+## Beta3 DDL recovery
+
+If an upgrade from an earlier RC/beta stops with:
+
+```text
+Unknown column 'duration' in 'videoplayer_views'
+ALTER TABLE ... ADD watchedranges ... AFTER duration
+```
+
+deploy `1.2.0-beta4-m45` or newer and run the normal Moodle upgrade again:
+
+```bash
+php admin/cli/upgrade.php --non-interactive
+php admin/cli/purge_caches.php
+```
+
+The `2026092202` repair step verifies and creates missing `lastposition`, `duration` and `watchedranges` columns without relying on physical column order. Do **not** run a manual `ALTER TABLE`; the migration is designed to recover the interrupted upgrade while preserving existing progress records.

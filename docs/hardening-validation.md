@@ -157,3 +157,11 @@ For every manual validation cycle record:
 The hardening phase is complete only when all automated gates are green, every P0 criterion has evidence, the manual checklist is signed off on staging, and no open release-blocking defect remains.
 
 Only then should `MATURITY_RC` be considered for promotion to a stable release.
+
+
+### HTML5 completion integrity
+
+- Seek from the beginning to near the end and confirm skipped media does not increase completion.
+- Watch disjoint video segments and confirm only the union of actually reproduced ranges is counted.
+- Reload the activity and confirm resume position and watched completion persist independently.
+- Verify older audio/PDF progress remains unaffected by the video watched-range field.

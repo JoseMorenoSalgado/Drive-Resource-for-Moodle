@@ -13,6 +13,7 @@
         "initialposition": 12,
         "initialduration": 240,
         "initialtimespent": 30,
+        "watchedranges": "[[0,12]]",
         "trackprogress": true,
         "disablecontextmenu": true,
         "playerstyle": "",
@@ -32,6 +33,8 @@
      data-initial-position="{{initialposition}}"
      data-initial-duration="{{initialduration}}"
      data-initial-timespent="{{initialtimespent}}"
+     data-initial-completion="{{completionpercent}}"
+     data-watched-ranges="{{watchedranges}}"
      data-tracking-enabled="{{#trackprogress}}1{{/trackprogress}}{{^trackprogress}}0{{/trackprogress}}"
      data-disable-context-menu="{{#disablecontextmenu}}1{{/disablecontextmenu}}{{^disablecontextmenu}}0{{/disablecontextmenu}}"
      {{#playerstyle}}style="{{playerstyle}}"{{/playerstyle}}>
@@ -45,6 +48,7 @@
          data-primary-src="{{videourl}}"
          data-fallback-src="{{videofallbackurl}}"
          tabindex="0"
+         role="group"
          aria-label="{{title}}">
         <video class="mod-videoplayer-native-video js-drive-resource-video"
                preload="metadata"
