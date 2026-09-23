@@ -60,6 +60,9 @@ grep -q 'CURLOPT_LOW_SPEED_LIMIT' classes/local/http_range_proxy.php     || fail
 grep -q 'connection_aborted()' classes/local/http_range_proxy.php     || fail "HTTP proxy no longer stops abandoned browser range requests."
 grep -q 'MAX_RECOVERY_ATTEMPTS' amd/src/nativevideo.js     || fail "Video recovery is no longer bounded."
 grep -q "searchParams.set('refresh', '1')" amd/src/nativevideo.js     || fail "Video recovery no longer refreshes the protected signed stream."
+grep -q 'watchedranges' amd/src/nativevideo.js     || fail "Video completion no longer submits watched ranges."
+grep -q 'watched_range_set' classes/local/progress/progress_service.php     || fail "Server completion no longer validates watched ranges."
+grep -q 'watchedranges' db/install.xml     || fail "Watched-range persistence is missing from XMLDB."
 
 echo "Checking canonical resource type resolution..."
 if grep -nE 'drive::detect_type\(' lib.php index.php classes/local/resource/resource_descriptor.php classes/task/precache_pdf.php; then
