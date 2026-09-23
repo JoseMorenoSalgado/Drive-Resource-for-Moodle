@@ -21,6 +21,9 @@ require_file "amd/build/nativevideo.min.js.map"
 require_file "amd/build/pdfviewer.min.js"
 require_file "amd/build/pdfviewer.min.js.map"
 require_file "protected.php"
+require_file "gateway-status.php"
+require_file "classes/local/transfer_meter.php"
+require_file "classes/task/sync_transfer_usage.php"
 
 echo "Checking browser-facing URL confidentiality..."
 if grep -RniE     'drive\.google\.com|docs\.google\.com|googleusercontent\.com|googlevideo\.com|content-workspacevideo-pa\.googleapis\.com'     templates amd/src; then
@@ -47,6 +50,15 @@ grep -q 'session\\manager::write_close' protected.php     || fail "protected.php
 
 if grep -nE 'required_param\([^,]+,[[:space:]]*PARAM_URL|optional_param\([^,]+,[^,]+,[[:space:]]*PARAM_URL' protected.php; then
     fail "protected.php accepts a browser-supplied arbitrary URL."
+fi
+
+echo "Checking signed Moodle gateway probe..."
+grep -q 'NO_MOODLE_COOKIES' gateway-status.php     || fail "gateway-status.php must not create Moodle browser sessions."
+grep -q 'hash_hmac' gateway-status.php     || fail "gateway-status.php no longer verifies HMAC."
+grep -q 'hash_equals' gateway-status.php     || fail "gateway-status.php no longer uses constant-time signature comparison."
+grep -q 'gatewaynonces' gateway-status.php     || fail "gateway-status.php replay protection is missing."
+if grep -nE 'require_login\(|require_sesskey\(' gateway-status.php; then
+    fail "Server-to-server gateway-status.php must use HMAC authentication instead of browser sessions."
 fi
 
 echo "Checking upstream redirect confinement..."
