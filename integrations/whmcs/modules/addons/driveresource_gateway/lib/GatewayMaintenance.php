@@ -38,11 +38,14 @@ final class GatewayMaintenance
     private function expireAbandonedUploads(): void
     {
         $now = time();
-        $rows = Capsule::table('mod_driveresource_uploads')
-            ->whereIn('status', ['reserved', 'authorized'])
-            ->where('expires_at', '<', $now - 3600)
-            ->orderBy('expires_at', 'asc')
+        $rows = Capsule::table('mod_driveresource_uploads as u')
+            ->join('mod_driveresource_services as s', 's.service_id', '=', 'u.service_id')
+            ->where('s.backend_key', BackendRegistry::ELEARNING_STREAM)
+            ->whereIn('u.status', ['reserved', 'authorized'])
+            ->where('u.expires_at', '<', $now - 3600)
+            ->orderBy('u.expires_at', 'asc')
             ->limit(100)
+            ->select('u.*')
             ->get();
 
         foreach ($rows as $row) {
@@ -102,12 +105,15 @@ final class GatewayMaintenance
     private function syncProviderStorage(): void
     {
         $cutoff = time() - 1800;
-        $rows = Capsule::table('mod_driveresource_uploads')
-            ->whereIn('status', ['processing', 'ready', 'bound'])
-            ->whereNotNull('video_id')
-            ->where('updated_at', '<', $cutoff)
-            ->orderBy('updated_at', 'asc')
+        $rows = Capsule::table('mod_driveresource_uploads as u')
+            ->join('mod_driveresource_services as s', 's.service_id', '=', 'u.service_id')
+            ->where('s.backend_key', BackendRegistry::ELEARNING_STREAM)
+            ->whereIn('u.status', ['processing', 'ready', 'bound'])
+            ->whereNotNull('u.video_id')
+            ->where('u.updated_at', '<', $cutoff)
+            ->orderBy('u.updated_at', 'asc')
             ->limit(200)
+            ->select('u.*')
             ->get();
 
         $affected = [];
@@ -150,12 +156,15 @@ final class GatewayMaintenance
     private function deleteExpiredOrphans(): void
     {
         $now = time();
-        $rows = Capsule::table('mod_driveresource_uploads')
-            ->whereNotNull('delete_after')
-            ->where('delete_after', '<=', $now)
-            ->whereIn('status', ['processing', 'ready', 'bound'])
-            ->orderBy('delete_after', 'asc')
+        $rows = Capsule::table('mod_driveresource_uploads as u')
+            ->join('mod_driveresource_services as s', 's.service_id', '=', 'u.service_id')
+            ->where('s.backend_key', BackendRegistry::ELEARNING_STREAM)
+            ->whereNotNull('u.delete_after')
+            ->where('u.delete_after', '<=', $now)
+            ->whereIn('u.status', ['processing', 'ready', 'bound'])
+            ->orderBy('u.delete_after', 'asc')
             ->limit(100)
+            ->select('u.*')
             ->get();
 
         foreach ($rows as $row) {
