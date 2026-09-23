@@ -52,6 +52,50 @@ final class Config
     }
 
     /**
+     * Elearning Stream CDN hostname used for server-side playback delivery.
+     *
+     * @return string
+     */
+    public static function cdnHostname(): string
+    {
+        $hostname = strtolower(rtrim(self::required('bunny_cdn_hostname'), '.'));
+        if (
+            !preg_match('/^[a-z0-9.-]+$/', $hostname)
+            || !str_ends_with($hostname, '.b-cdn.net')
+            || $hostname === 'b-cdn.net'
+        ) {
+            throw new RuntimeException('Invalid Elearning Stream CDN hostname.');
+        }
+
+        return $hostname;
+    }
+
+    /**
+     * Elearning Stream playback token key.
+     *
+     * @return string
+     */
+    public static function playbackTokenKey(): string
+    {
+        return self::required('bunny_token_key');
+    }
+
+    /**
+     * Short lifetime for provider playback URLs returned only to Moodle.
+     *
+     * @return int
+     */
+    public static function playbackTtl(): int
+    {
+        $value = (int) (Setting::getSettingValueForModule(
+            'driveresource_gateway',
+            'playback_ttl'
+        ) ?: 300);
+
+        return max(60, min(1800, $value));
+    }
+
+    /**
      * TUS authorisation lifetime.
      *
      * @return int
