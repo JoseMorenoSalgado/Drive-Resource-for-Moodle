@@ -150,3 +150,4 @@ All notable changes to Drive Resource are documented here. The Moodle component 
 - Adds repair savepoint `2026092202` to restore missing `lastposition`, `duration` and `watchedranges` fields idempotently.
 - Adds CI invariants that reject reintroduction of an `AFTER duration` dependency.
 - Existing learner progress rows are preserved; no manual SQL migration is required.
+- Fixes ARIA container semantics for the custom video and PDF control surfaces so Moodle HTML validation no longer reports unlabeled generic `div` warnings.
