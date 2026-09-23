@@ -279,3 +279,29 @@ Do not allow operators to repair an unprovisioned service by inventing a passwor
 Repair must preserve an existing valid service password/token. If WHMCS no longer has a plaintext service token, repair generates a new cryptographically random token and atomically replaces the gateway hash before persisting the new protected WHMCS service property.
 
 Never expose a "repair" path that accepts an arbitrary operator-supplied token. Explicit rotation must be a separate administrator action.
+
+
+## WHMCS client self-service contract
+
+Client actions are exposed through WHMCS provisioning-module custom functions and remain bound to the service selected by WHMCS. Mutating actions must use POST and must never accept a caller-supplied WHMCS service id as the ownership authority.
+
+The current self-service actions are:
+- provision/repair Moodle connection;
+- rotate Moodle service token;
+- update Moodle URL;
+- validate Moodle connection;
+- delete an unreferenced provider video.
+
+The Moodle URL stored in `mod_driveresource_services.site_url` is authoritative after provisioning. Changing it marks connection state pending and is rejected while active media references exist.
+
+Provider deletion must remain idempotent and must refuse any video with active `mod_driveresource_asset_refs`.
+
+## Transfer metering contract
+
+`http_range_proxy` may receive an optional transfer callback. Increment usage only for bytes actually emitted to the browser. Do not count HEAD bodies, provider bytes discarded while retrying ranges, warning HTML, failed upstream requests or bytes after a client disconnect.
+
+Moodle stores short-lived aggregateable events in `videoplayer_transfer_events`. The scheduled task groups at most 1000 events by service/month and sends an idempotent SHA-256 batch id to WHMCS. Events collected under an old Service ID must never be reported with the current token.
+
+WHMCS stores the current UTC month in `transfer_period` and the accumulated bytes in `transfer_bytes`. Usage Billing exposes this as `video_transfer_gb` with `MetricInterface::TYPE_PERIOD_MONTH`; storage remains `TYPE_SNAPSHOT`.
+
+The signed connection probe endpoint must remain cookie-free, HTTPS-exact, HMAC-authenticated and replay-protected.
