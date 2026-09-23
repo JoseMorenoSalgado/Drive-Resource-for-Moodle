@@ -110,7 +110,8 @@ $string['privacy:metadata:videoplayer_views:timemodified'] = 'The time when the 
 $string['privacy:metadata:videoplayer_views:timespent'] = 'The active reading time saved for the user.';
 $string['privacy:metadata:videoplayer_views:totalpages'] = 'The total number of PDF pages detected by the viewer.';
 $string['privacy:metadata:videoplayer_views:userid'] = 'The ID of the user who viewed the resource.';
-$string['privacy:metadata:videoplayer_views:videoplayerid'] = 'The Drive Resource activity instance ID.';\n$string['privacy:metadata:videoplayer_views:watchedranges'] = 'The media time ranges actually reproduced by the learner.';
+$string['privacy:metadata:videoplayer_views:videoplayerid'] = 'The Drive Resource activity instance ID.';
+$string['privacy:metadata:videoplayer_views:watchedranges'] = 'The media time ranges actually reproduced by the learner.';
 $string['progress'] = 'Progress';
 $string['progresslocktimeout'] = 'Your progress could not be saved because another update is still being processed. Please try again.';
 $string['progressreport'] = 'Progress report';
