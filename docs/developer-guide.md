@@ -217,3 +217,12 @@ For the current release, `completionprogressenabled` defaults to enabled and `co
 Use **Elearning Stream** in customer-facing text. Do not rename the persisted `bunnystream` source value, internal `bunny_stream` provider class, database fields or existing external-function names in this release; those identifiers are compatibility contracts.
 
 When accepting an existing provider URL, parse only the video GUID and discard the original URL before DML. The WHMCS gateway remains authoritative for provider-library existence, service ownership and quota accounting.
+
+
+## Elearning Stream playback rules
+
+Elearning Stream learner playback must remain behind `protected.php`. Do not render the CDN hostname, MP4 fallback URL, token key or signed playback URL into Mustache/AMD configuration.
+
+The WHMCS gateway is authoritative for service ownership and signs the provider MP4 path. Moodle validates the returned HTTPS `*.b-cdn.net` URL, caches it only until near expiry, and passes it to `http_range_proxy`. Provider MP4 fallback is required for the native HTML5 path.
+
+The internal `bunny_*` setting and class identifiers are retained for compatibility and are not customer-facing naming.
