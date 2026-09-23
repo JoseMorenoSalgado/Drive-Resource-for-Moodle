@@ -236,3 +236,16 @@ The 0.3 dashboard lists multiple customer services and their Moodle site, plan, 
 ### Future S3
 
 The database and provisioning contract already carry a provider-neutral backend key/profile. `s3compatible` exists only as a reserved architecture entry and cannot be provisioned in 0.3.0. Do not manually set a service to S3: the S3 adapter must first implement multipart upload, signed delivery, usage reconciliation and lifecycle/retention.
+
+
+## WHMCS 0.3.1 service provisioning
+
+The Elearning Stream provisioning module does not require a WHMCS server object. In **Product/Services → Module Settings**, select the Elearning Stream module and save the product. Existing services may continue to show **Server: None/Ninguno**; this is valid.
+
+For a service that existed before provisioning, open the service and execute **Module Commands → Create**. Successful provisioning writes the tenant row and stores:
+- Username: `dr-{WHMCS service id}`;
+- Password: service-scoped Moodle gateway token.
+
+The module also exposes Moodle Gateway URL, Moodle Service ID and Moodle Service Token on the administrator service page. Copy those three values into Moodle Drive Resource settings.
+
+If Create returns an error, do not type an arbitrary password into the WHMCS service. Correct the module/configuration error and run Create again so WHMCS and the gateway token hash remain synchronized.
