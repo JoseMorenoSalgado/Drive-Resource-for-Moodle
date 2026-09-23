@@ -1,5 +1,37 @@
 # Drive Resource WHMCS companion
 
+## Multi-tenant control plane
+
+The WHMCS companion is installed **once** and manages many customers. Each provisioned WHMCS service is an isolated Drive Resource tenant with its own:
+
+- WHMCS service id and customer ownership;
+- exact Moodle site URL;
+- service-scoped Moodle gateway token;
+- status (active/suspended/terminated);
+- included quota, used bytes and reserved bytes;
+- overage policy and retention policy;
+- storage/media backend key and backend profile.
+
+One customer with multiple independent Moodle installations can use multiple WHMCS services under the same WHMCS client account. This preserves per-site credentials, accounting and suspension boundaries.
+
+Addon version **0.3.0** adds a paginated administration dashboard with customer, Moodle URL, product, backend, quota, storage usage, video count, status and direct access to the WHMCS service.
+
+## Backend model
+
+Existing and new services default to:
+
+```text
+backend_key     = elearningstream
+backend_profile = default
+```
+
+The product provisioning module stores backend identity per service. Backend changes are rejected while a service owns media or reserved/used storage; moving existing assets requires a controlled migration rather than an in-place provider switch.
+
+The backend registry currently exposes **Elearning Stream** as the only provisionable backend. **S3-compatible Object Storage** is reserved in the registry but intentionally non-provisionable until its upload, signed-delivery, metering and lifecycle adapter is implemented.
+
+This means S3 can be added later without replacing WHMCS tenant ids, Moodle service tokens, quotas or billing records.
+
+
 This directory contains the commercial control-plane components used by the Moodle Drive Resource plugin.
 
 It is **not part of the Moodle plugin runtime package**.
@@ -57,3 +89,14 @@ Configure **Elearning Stream CDN Hostname** and **Elearning Stream Token Key** i
 Enable MP4 fallback in the provider video library. Drive Resource uses that progressive MP4 representation so Moodle can preserve native HTML5 seek/Range behavior while keeping provider URLs server-side.
 
 Recommended **Elearning Stream Playback TTL**: 300 seconds. Moodle caches the authorization briefly and requests a fresh one when the player explicitly performs stall recovery.
+
+
+## Upgrade from gateway 0.2.x
+
+1. Replace both WHMCS module directories with the 0.3.0 package.
+2. Open the Drive Resource Media Gateway addon in WHMCS so the native addon upgrade hook runs.
+3. Confirm existing services appear in the multi-client dashboard.
+4. Existing rows are migrated to `backend_key=elearningstream` and `backend_profile=default`.
+5. Do not recreate existing services or rotate their Moodle tokens solely for this upgrade.
+
+The provisioning module refuses new provisioning until the 0.3.0 gateway columns exist, preventing partial upgrades from failing with raw database errors.
