@@ -42,7 +42,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate Bunny/WHMCS boundaries
+      - name: Validate Elearning Stream/WHMCS boundaries
         run: bash .github/scripts/bunny-whmcs-invariants.sh
 
       - name: Validate AMD syntax
