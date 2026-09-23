@@ -260,3 +260,10 @@ Database recovery baseline: `2026092202`; package build: `2026092204`. Run Moodl
 ### Partial-schema recovery
 
 Beta5 adds a defensive recovery path for Moodle sites that previously installed RC/beta builds whose database savepoints advanced farther than the physical schema. Course-cache generation now detects whether optional completion columns exist before selecting them, and upgrade savepoint `2026092204` recreates missing completion, Bunny metadata, and watched-progress fields without manual SQL.
+
+
+### WHMCS 0.3.1 provisioning
+
+Elearning Stream is a logical WHMCS provisioning service and does not require a WHMCS server assignment. After assigning the module to a product, each customer service is provisioned through **Module Commands → Create**.
+
+Provisioning generates a service-scoped Moodle token and the username `dr-{service_id}`. The administrator service page exposes the Moodle Gateway URL, Service ID and Service Token for the Moodle connection. Empty username/password fields indicate that Create has not completed successfully.
