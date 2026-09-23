@@ -621,29 +621,38 @@ function driveresource_AdminServicesTabFields(array $params): array
 {
     $serviceId = (int) ($params['serviceid'] ?? 0);
     $gatewayUrl = driveresource_gateway_url_hint($params);
-    $token = trim((string) ($params['password'] ?? ''));
+    $token = driveresource_service_token($params);
+    $service = Capsule::table('mod_driveresource_services')
+        ->where('service_id', $serviceId)
+        ->first();
 
-    if ($token === '' && isset($params['model'])) {
-        try {
-            $token = trim((string) $params['model']->serviceProperties->get('Password'));
-        } catch (Throwable $exception) {
-            $token = '';
-        }
+    $connection = $service ? strtolower((string) ($service->connection_status ?? 'pending')) : 'pending';
+    $connectionLabel = $connection === 'connected'
+        ? '<span class="label label-success">Conectado</span>'
+        : ($connection === 'failed'
+            ? '<span class="label label-danger">No conectado</span>'
+            : '<span class="label label-warning">Pendiente</span>');
+
+    $storage = '—';
+    $transfer = '—';
+    if ($service) {
+        $storage = driveresource_format_bytes((int) $service->used_bytes)
+            . ' / ' . driveresource_format_bytes((int) $service->quota_bytes);
+        $transferBytes = (string) ($service->transfer_period ?? '') === gmdate('Y-m')
+            ? (int) ($service->transfer_bytes ?? 0)
+            : 0;
+        $transfer = driveresource_format_bytes($transferBytes) . ' (' . gmdate('Y-m') . ')';
     }
 
-    $provisioned = Capsule::table('mod_driveresource_services')
-        ->where('service_id', $serviceId)
-        ->exists();
-
     return [
-        'Estado conexión Moodle' => $provisioned && strlen($token) >= 32
-            ? '<span class="label label-success">Provisionada</span>'
-            : '<span class="label label-warning">Pendiente</span>',
+        'Estado conexión Moodle' => $connectionLabel,
         'Moodle Gateway URL' => htmlspecialchars($gatewayUrl, ENT_QUOTES, 'UTF-8'),
         'Moodle Service ID' => (string) $serviceId,
         'Moodle Service Token' => $token !== ''
             ? htmlspecialchars($token, ENT_QUOTES, 'UTF-8')
             : 'Pendiente — use Generar/Reparar conexión Moodle.',
+        'Almacenamiento' => htmlspecialchars($storage, ENT_QUOTES, 'UTF-8'),
+        'Transferencia mensual' => htmlspecialchars($transfer, ENT_QUOTES, 'UTF-8'),
     ];
 }
 
@@ -881,6 +890,28 @@ function driveresource_backend_profile(array $params): string
     }
 
     return $profile;
+}
+
+/**
+ * Format decimal storage/transfer bytes.
+ *
+ * @param int $bytes Bytes.
+ * @return string
+ */
+function driveresource_format_bytes(int $bytes): string
+{
+    $bytes = max(0, $bytes);
+    if ($bytes >= 1000000000000) {
+        return number_format($bytes / 1000000000000, 2) . ' TB';
+    }
+    if ($bytes >= 1000000000) {
+        return number_format($bytes / 1000000000, 2) . ' GB';
+    }
+    if ($bytes >= 1000000) {
+        return number_format($bytes / 1000000, 2) . ' MB';
+    }
+
+    return number_format($bytes / 1000, 2) . ' KB';
 }
 
 /**
