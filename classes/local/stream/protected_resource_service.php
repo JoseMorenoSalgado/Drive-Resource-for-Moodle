@@ -69,7 +69,17 @@ final class protected_resource_service {
                 throw new \moodle_exception('protectedresourceunavailable', 'mod_videoplayer');
             }
 
-            $url = (new whmcs_gateway_client())->playback_url($videoid, $forcerefresh);
+            try {
+                $url = (new whmcs_gateway_client())->playback_url($videoid, $forcerefresh);
+            } catch (\Throwable $exception) {
+                debugging(
+                    'Drive Resource Elearning Stream playback authorization failed: '
+                        . $exception->getMessage(),
+                    DEBUG_DEVELOPER
+                );
+                $this->send_stream_unavailable();
+            }
+
             http_range_proxy::proxy(
                 $url,
                 $resource->filename(),
