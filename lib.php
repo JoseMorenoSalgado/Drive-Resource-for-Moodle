@@ -26,6 +26,7 @@
 use mod_videoplayer\local\drive;
 use mod_videoplayer\local\protected_stream;
 use mod_videoplayer\local\provider\bunny_stream;
+use mod_videoplayer\local\whmcs_gateway_client;
 
 /**
  * File area used for protected local PDF resources.
@@ -167,10 +168,30 @@ function videoplayer_normalise_instance_data(stdClass $data): stdClass {
     } else if ($data->source === bunny_stream::SOURCE) {
         $data->type = 'video';
         $data->videourl = '';
-        $data->providerassetid = trim((string)($data->providerassetid ?? ''));
-        $data->provideruploadid = trim((string)($data->provideruploadid ?? ''));
-        $data->providerfilesize = max(0, (int)($data->providerfilesize ?? 0));
-        $data->providerstatus = bunny_stream::normalise_status((string)($data->providerstatus ?? ''));
+
+        $streammode = clean_param((string)($data->streaminputmode ?? 'upload'), PARAM_ALPHA);
+        if ($streammode === 'url') {
+            $assetid = bunny_stream::extract_asset_id_from_url((string)($data->streamurl ?? ''));
+            if ($assetid === null) {
+                throw new moodle_exception('invalidstreamurl', 'mod_videoplayer');
+            }
+
+            $import = (new whmcs_gateway_client())->import_asset(
+                $assetid,
+                (int)($data->course ?? 0)
+            );
+            $data->providerassetid = (string)$import['videoid'];
+            $data->provideruploadid = (string)$import['uploadid'];
+            $data->providerfilesize = max(0, (int)$import['filesize']);
+            $data->providerstatus = bunny_stream::normalise_status((string)$import['status']);
+        } else {
+            $data->providerassetid = trim((string)($data->providerassetid ?? ''));
+            $data->provideruploadid = trim((string)($data->provideruploadid ?? ''));
+            $data->providerfilesize = max(0, (int)($data->providerfilesize ?? 0));
+            $data->providerstatus = bunny_stream::normalise_status((string)($data->providerstatus ?? ''));
+        }
+
+        unset($data->streaminputmode, $data->streamurl);
         $data->displaymode = 'standard';
         $data->disabledownload = 1;
     } else {
