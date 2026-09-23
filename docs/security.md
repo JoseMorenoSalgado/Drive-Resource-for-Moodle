@@ -144,3 +144,10 @@ Build `2026092204` repairs missing completion and Bunny metadata fields without 
 ### Existing-video URL import
 
 The pasted Elearning Stream URL is never used as an upstream proxy target and is never persisted. Moodle accepts only supported HTTPS provider URL shapes, extracts a GUID, and sends only that identifier through the authenticated WHMCS channel. WHMCS verifies the asset in the configured provider library, rejects active ownership by another service, and applies quota accounting before issuing a bindable reference.
+
+
+### Protected Elearning Stream playback
+
+The provider CDN hostname and playback token key exist only in WHMCS. Moodle receives a short-lived signed MP4 URL over the authenticated service channel, validates that it is HTTPS and on the approved provider CDN, and never places that URL in learner-facing HTML.
+
+The browser requests Moodle `protected.php`; normal login, course, context and capability validation occurs before WHMCS authorization. The upstream URL then passes through the bounded Range/206 proxy. Lookalike CDN domains, credentials in URLs, non-HTTPS schemes and nonstandard ports are rejected.
