@@ -45,6 +45,12 @@ Elearning Stream requires three Moodle-side settings before teachers can upload 
 
 The gateway URL must point to the deployed addon itself, for example `https://billing.example.com/modules/addons/driveresource_gateway`, not only to the WHMCS home page.
 
+### WHMCS multi-tenant control plane
+
+The WHMCS companion is a central control plane, installed once for many customers. Every provisioned service has an independent Moodle URL, token, quota, storage usage, status, backend and backend profile. Suspending one WHMCS service does not affect other customer sites.
+
+WHMCS gateway 0.3.0 introduces a paginated customer dashboard and a backend registry. Elearning Stream is the active managed-video backend. An S3-compatible backend identity is reserved for a future object-storage adapter; it is not selectable until multipart upload, signed delivery, accounting and lifecycle behavior are complete.
+
 ### Protected Elearning Stream playback
 
 Elearning Stream videos use the same Drive Resource HTML5 player as protected Google Drive video. The learner receives only a Moodle `protected.php` URL. Moodle obtains a short-lived provider MP4 fallback URL from the authenticated WHMCS gateway, caches that authorization briefly, and proxies video bytes with byte-range support. The upstream CDN hostname and signing token are not rendered into learner templates.
