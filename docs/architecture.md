@@ -207,3 +207,10 @@ A Bunny asset can have multiple Moodle references. Deleting or replacing an acti
 Upgrade code treats database column order as non-contractual. Runtime behavior depends on field names and types, not on whether MySQL places one field physically after another. The `2026092202` repair migration verifies `lastposition`, `duration` and `watchedranges` independently and creates only missing fields.
 
 This makes upgrades idempotent for sites that installed pre-release builds with partially applied progress schemas while preserving the canonical fresh-install definition in `db/install.xml`.
+
+
+## Runtime compatibility during schema recovery
+
+Course-cache callbacks must remain callable even when a pre-release installation has an advanced plugin version but a partially applied database schema. `videoplayer_get_coursemodule_info()` therefore builds its completion-field projection from columns that physically exist and applies backward-compatible defaults until XMLDB repair savepoint `2026092204` restores the canonical schema.
+
+This compatibility path is temporary runtime protection, not a substitute for the database migration.
