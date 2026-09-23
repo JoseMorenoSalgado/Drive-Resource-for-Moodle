@@ -93,12 +93,91 @@ function driveresource_BackendLoader(array $params): array
  */
 function driveresource_CreateAccount(array $params): string
 {
+    return driveresource_provision_moodle_connection($params, false);
+}
+
+/**
+ * Admin-only recovery action for an already-created WHMCS service.
+ *
+ * WHMCS can have a service marked Active before a provisioning command has
+ * ever run (for example after manual product assignment). This action makes
+ * the Moodle credential lifecycle explicit and recoverable.
+ *
+ * @return array<string,string>
+ */
+function driveresource_AdminCustomButtonArray(): array
+{
+    return [
+        'Generar/Reparar conexión Moodle' => 'ProvisionMoodleConnection',
+        'Rotar token Moodle' => 'RotateMoodleToken',
+    ];
+}
+
+/**
+ * Provision or repair the Moodle gateway identity for this WHMCS service.
+ *
+ * Existing tokens are preserved when WHMCS still has the plaintext service
+ * password. If the password is missing, a new token is generated and its hash
+ * is atomically replaced in the gateway tenant row.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return string
+ */
+function driveresource_ProvisionMoodleConnection(array $params): string
+{
+    return driveresource_provision_moodle_connection($params, false);
+}
+
+/**
+ * Explicitly rotate the Moodle service token.
+ *
+ * Use only when the old token is believed compromised or the administrator
+ * intentionally wants to reconnect Moodle.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return string
+ */
+function driveresource_RotateMoodleToken(array $params): string
+{
+    return driveresource_provision_moodle_connection($params, true);
+}
+
+/**
+ * Shared provisioning implementation.
+ *
+ * @param array $params WHMCS module parameters.
+ * @param bool $forcerotation Whether to replace an existing valid token.
+ * @return string
+ */
+function driveresource_provision_moodle_connection(array $params, bool $forcerotation): string
+{
     try {
         driveresource_require_gateway();
-        $serviceId = (int) $params['serviceid'];
+
+        $serviceId = (int) ($params['serviceid'] ?? 0);
+        if ($serviceId <= 0) {
+            throw new RuntimeException('WHMCS service ID is missing.');
+        }
+
         $siteUrl = driveresource_site_url($params);
-        $token = bin2hex(random_bytes(32));
         $now = time();
+        $existing = Capsule::table('mod_driveresource_services')
+            ->where('service_id', $serviceId)
+            ->first();
+
+        $token = trim((string) ($params['password'] ?? ''));
+        if ($token === '' && isset($params['model'])) {
+            try {
+                $token = trim((string) $params['model']->serviceProperties->get('Password'));
+            } catch (Throwable $exception) {
+                $token = '';
+            }
+        }
+
+        $tokenisusable = strlen($token) >= 32;
+        if ($forcerotation || !$tokenisusable) {
+            $token = bin2hex(random_bytes(32));
+        }
 
         $quotaBytes = driveresource_quota_bytes($params);
         $overageAllowed = driveresource_overage_allowed($params);
@@ -106,42 +185,71 @@ function driveresource_CreateAccount(array $params): string
         $backendKey = driveresource_backend_key($params);
         $backendProfile = driveresource_backend_profile($params);
 
+        $values = [
+            'site_url' => $siteUrl,
+            'site_hash' => hash('sha256', $siteUrl),
+            'token_hash' => hash('sha256', $token),
+            'status' => 'active',
+            'backend_key' => $backendKey,
+            'backend_profile' => $backendProfile,
+            'quota_bytes' => $quotaBytes,
+            'overage_allowed' => $overageAllowed,
+            'retention_days' => $retentionDays,
+            'updated_at' => $now,
+            'suspended_at' => null,
+            'terminated_at' => null,
+        ];
+
+        if (!$existing) {
+            $values['created_at'] = $now;
+            $values['used_bytes'] = 0;
+            $values['reserved_bytes'] = 0;
+        }
+
         Capsule::table('mod_driveresource_services')->updateOrInsert(
             ['service_id' => $serviceId],
-            [
-                'site_url' => $siteUrl,
-                'site_hash' => hash('sha256', $siteUrl),
-                'token_hash' => hash('sha256', $token),
-                'status' => 'active',
-                'backend_key' => $backendKey,
-                'backend_profile' => $backendProfile,
-                'quota_bytes' => $quotaBytes,
-                'overage_allowed' => $overageAllowed,
-                'retention_days' => $retentionDays,
-                'updated_at' => $now,
-                'created_at' => $now,
-                'suspended_at' => null,
-                'terminated_at' => null,
-            ]
+            $values
         );
 
-        // Core service properties use WHMCS-supported protected fields. The
-        // service password is the Moodle-to-WHMCS token, not a Bunny secret.
+        if (!isset($params['model'])) {
+            throw new RuntimeException('WHMCS service model is unavailable.');
+        }
+
+        // WHMCS Service Properties maps these names to protected core service
+        // fields for directly-created products.
         $params['model']->serviceProperties->save([
             'Username' => 'dr-' . $serviceId,
             'Password' => $token,
         ]);
 
+        logModuleCall(
+            'driveresource',
+            $forcerotation ? 'RotateMoodleToken' : 'ProvisionMoodleConnection',
+            [
+                'serviceid' => $serviceId,
+                'siteurl' => $siteUrl,
+                'backend' => $backendKey,
+            ],
+            [
+                'status' => 'success',
+                'username' => 'dr-' . $serviceId,
+                'tokenrotated' => $forcerotation || !$tokenisusable,
+            ],
+            null,
+            ['Password', 'password', 'token']
+        );
+
         return 'success';
     } catch (Throwable $exception) {
         logModuleCall(
             'driveresource',
-            'CreateAccount',
+            $forcerotation ? 'RotateMoodleToken' : 'ProvisionMoodleConnection',
             ['serviceid' => $params['serviceid'] ?? 0],
             ['error' => $exception->getMessage()],
             null,
-            []
+            ['Password', 'password', 'token']
         );
+
         return $exception->getMessage();
     }
 }
@@ -317,12 +425,27 @@ function driveresource_AdminServicesTabFields(array $params): array
     $gatewayUrl = driveresource_gateway_url_hint($params);
     $token = trim((string) ($params['password'] ?? ''));
 
+    if ($token === '' && isset($params['model'])) {
+        try {
+            $token = trim((string) $params['model']->serviceProperties->get('Password'));
+        } catch (Throwable $exception) {
+            $token = '';
+        }
+    }
+
+    $provisioned = Capsule::table('mod_driveresource_services')
+        ->where('service_id', $serviceId)
+        ->exists();
+
     return [
-        'Moodle Gateway URL' => $gatewayUrl,
+        'Estado conexión Moodle' => $provisioned && strlen($token) >= 32
+            ? '<span class="label label-success">Provisionada</span>'
+            : '<span class="label label-warning">Pendiente</span>',
+        'Moodle Gateway URL' => htmlspecialchars($gatewayUrl, ENT_QUOTES, 'UTF-8'),
         'Moodle Service ID' => (string) $serviceId,
         'Moodle Service Token' => $token !== ''
-            ? $token
-            : 'Not provisioned yet — click Create under Module Commands.',
+            ? htmlspecialchars($token, ENT_QUOTES, 'UTF-8')
+            : 'Pendiente — use Generar/Reparar conexión Moodle.',
     ];
 }
 
