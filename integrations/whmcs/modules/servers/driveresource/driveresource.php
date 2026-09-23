@@ -112,6 +112,7 @@ function driveresource_AdminCustomButtonArray(): array
     return [
         'Generar/Reparar conexión Moodle' => 'ProvisionMoodleConnection',
         'Rotar token Moodle' => 'RotateMoodleToken',
+        'Validar conexión Moodle' => 'ValidateMoodleConnection',
     ];
 }
 
@@ -175,6 +176,12 @@ function driveresource_UpdateMoodleUrl(array $params): string
                     'updated_at' => $now,
                 ]);
         });
+
+        if (isset($params['model'])) {
+            $params['model']->serviceProperties->save([
+                'Moodle Site URL' => $url,
+            ]);
+        }
 
         return 'success';
     } catch (Throwable $exception) {
@@ -720,12 +727,24 @@ function driveresource_require_gateway(): void
         throw new RuntimeException('Activate the Drive Resource Media Gateway addon before provisioning services.');
     }
 
-    if (
-        !$schema->hasColumn('mod_driveresource_services', 'backend_key')
-        || !$schema->hasColumn('mod_driveresource_services', 'backend_profile')
-    ) {
+    $required = [
+        'backend_key',
+        'backend_profile',
+        'connection_status',
+        'connection_checked_at',
+        'transfer_period',
+        'transfer_bytes',
+    ];
+    foreach ($required as $column) {
+        if (!$schema->hasColumn('mod_driveresource_services', $column)) {
+            throw new RuntimeException(
+                'Drive Resource Media Gateway 0.4.0 schema upgrade is required before using this service.'
+            );
+        }
+    }
+    if (!$schema->hasTable('mod_driveresource_usage_reports')) {
         throw new RuntimeException(
-            'Drive Resource Media Gateway 0.3.0 schema upgrade is required before provisioning services.'
+            'Drive Resource Media Gateway 0.4.0 usage schema is missing.'
         );
     }
 }
