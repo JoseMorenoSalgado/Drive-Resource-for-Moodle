@@ -226,8 +226,13 @@ This beta currently covers **provider provisioning, direct upload, accounting, l
 
 The WHMCS companion source is maintained under `integrations/whmcs/` in the development repository. It must be deployed to WHMCS separately from the Moodle plugin package.
 
-## Release 1.2.0-beta4-m45
+## Release 1.2.0-beta5-m45
 
 Beta3 hardens database upgrades for installations that passed through earlier RC/beta builds. The `videoplayer_views` progress schema is now repaired idempotently before watched-range completion is enabled. The migration no longer depends on MySQL/MariaDB physical column ordering, so a missing `duration` column cannot make the `watchedranges` DDL fail with an `AFTER duration` error.
 
-Database recovery baseline: `2026092202`; package build: `2026092203`. Run Moodle's normal upgrade process; do not add the columns manually.
+Database recovery baseline: `2026092202`; package build: `2026092204`. Run Moodle's normal upgrade process; do not add the columns manually.
+
+
+### Partial-schema recovery
+
+Beta5 adds a defensive recovery path for Moodle sites that previously installed RC/beta builds whose database savepoints advanced farther than the physical schema. Course-cache generation now detects whether optional completion columns exist before selecting them, and upgrade savepoint `2026092204` recreates missing completion, Bunny metadata, and watched-progress fields without manual SQL.
