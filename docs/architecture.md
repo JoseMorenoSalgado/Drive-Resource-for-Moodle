@@ -256,3 +256,33 @@ The browser-facing `<video>` source remains a Moodle URL. WHMCS verifies that th
 Moodle does not contain provider management credentials. Its Elearning Stream control-plane configuration consists only of the WHMCS addon URL, provisioned WHMCS service ID and service-scoped token.
 
 Activity-form validation checks that those three values exist before an Elearning Stream URL/import or upload workflow can proceed. This keeps configuration failures outside the instance persistence path and prevents partial activity creation.
+
+
+## WHMCS multi-tenant backend architecture
+
+The commercial control plane is independent from the Moodle activity lifecycle:
+
+```text
+                         WHMCS 9
+                           |
+              +------------+-------------+
+              |            |             |
+          service 101   service 102   service 103
+          customer A    customer B    customer C
+          Moodle A      Moodle B      Moodle C
+          quota/token   quota/token   quota/token
+              |            |             |
+              +------+-----+-------------+
+                     |
+              BackendRegistry
+                  /       \
+                 /         \
+      Elearning Stream     S3-compatible
+      active backend       reserved/future
+```
+
+A WHMCS service is the tenant/security/accounting boundary. The service row stores `backend_key` and `backend_profile`; credentials remain backend-owned in WHMCS and are not copied to Moodle.
+
+Current managed-video endpoints require backend capabilities before they execute. Elearning Stream is lazy-loaded only when a matching service invokes video upload/playback work. Daily maintenance also filters by backend, so a future S3-only tenant will not require Elearning Stream credentials.
+
+The S3-compatible registry entry is intentionally non-provisionable. A future adapter can implement multipart/direct upload, signed protected delivery, authoritative object-size reconciliation and lifecycle deletion while reusing the existing service id, token authentication, quota, overage and billing model.
