@@ -176,3 +176,10 @@ Backend changes are blocked for services that still own media or accounted/reser
 The Moodle service token is generated with `random_bytes()` during WHMCS provisioning. The gateway stores only a SHA-256 hash; WHMCS stores the plaintext token in its protected service-property mechanism so an authorised administrator can copy it to the matching Moodle site.
 
 The token is never derived from the customer password, Bunny/Elearning Stream API key, server credentials or service id. Removing the fake WHMCS server dependency reduces accidental credential reuse between infrastructure and Moodle authentication.
+
+
+### Moodle token repair and rotation
+
+Unprovisioned or partially provisioned WHMCS services are repaired through an administrator-only module action. Repair reuses an existing valid WHMCS-protected token when available. If no recoverable plaintext token exists, a new token is generated with `random_bytes()` and the gateway hash is replaced.
+
+Intentional rotation is separate from repair. Rotating a token immediately invalidates the token configured in Moodle until the administrator copies the new token to that Moodle site.
