@@ -286,3 +286,10 @@ A WHMCS service is the tenant/security/accounting boundary. The service row stor
 Current managed-video endpoints require backend capabilities before they execute. Elearning Stream is lazy-loaded only when a matching service invokes video upload/playback work. Daily maintenance also filters by backend, so a future S3-only tenant will not require Elearning Stream credentials.
 
 The S3-compatible registry entry is intentionally non-provisionable. A future adapter can implement multipart/direct upload, signed protected delivery, authoritative object-size reconciliation and lifecycle deletion while reusing the existing service id, token authentication, quota, overage and billing model.
+
+
+### Serverless WHMCS provisioning
+
+The commercial service is a logical control-plane tenant, not a workload hosted on a WHMCS server. The provisioning module therefore declares `RequiresServer=false`.
+
+`CreateAccount` derives the tenant from the WHMCS service itself, generates a cryptographically random service token, persists only its hash in the gateway tenant table, and stores the recoverable token in WHMCS's protected service password property for administrator handoff to Moodle.
