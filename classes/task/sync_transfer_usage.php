@@ -51,7 +51,7 @@ final class sync_transfer_usage extends scheduled_task {
             return;
         }
 
-        $configuredserviceid = (int)get_config('mod_videoplayer', 'whmcsserviceid');
+        $configuredserviceid = (int) get_config('mod_videoplayer', 'whmcsserviceid');
 
         // Never report bytes collected under an old service identity using the
         // current service token. Stale events are discarded rather than
@@ -76,17 +76,17 @@ final class sync_transfer_usage extends scheduled_task {
 
         $groups = [];
         foreach ($records as $record) {
-            $key = (int)$record->serviceid . '|' . (string)$record->periodkey;
+            $key = (int) $record->serviceid . '|' . (string) $record->periodkey;
             if (!isset($groups[$key])) {
                 $groups[$key] = [
-                    'serviceid' => (int)$record->serviceid,
-                    'period' => (string)$record->periodkey,
+                    'serviceid' => (int) $record->serviceid,
+                    'period' => (string) $record->periodkey,
                     'bytes' => 0,
                     'ids' => [],
                 ];
             }
-            $groups[$key]['bytes'] += max(0, (int)$record->bytes);
-            $groups[$key]['ids'][] = (int)$record->id;
+            $groups[$key]['bytes'] += max(0, (int) $record->bytes);
+            $groups[$key]['ids'][] = (int) $record->id;
         }
 
         $client = new whmcs_gateway_client();
