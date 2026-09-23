@@ -56,6 +56,26 @@ class mod_videoplayer_mod_form extends moodleform_mod {
         $mform->addElement('select', 'source', get_string('resourcesource', 'mod_videoplayer'), $sources);
         $mform->setDefault('source', drive::SOURCE_GOOGLEDRIVE);
 
+        $streammodes = [
+            'upload' => get_string('streammodeupload', 'mod_videoplayer'),
+            'url' => get_string('streammodeurl', 'mod_videoplayer'),
+        ];
+        $mform->addElement(
+            'select',
+            'streaminputmode',
+            get_string('streaminputmode', 'mod_videoplayer'),
+            $streammodes
+        );
+        $mform->setType('streaminputmode', PARAM_ALPHA);
+        $mform->setDefault('streaminputmode', 'upload');
+        $mform->hideIf('streaminputmode', 'source', 'neq', bunny_stream::SOURCE);
+
+        $mform->addElement('text', 'streamurl', get_string('streamurl', 'mod_videoplayer'), ['size' => 90]);
+        $mform->setType('streamurl', PARAM_URL);
+        $mform->addHelpButton('streamurl', 'streamurl', 'mod_videoplayer');
+        $mform->hideIf('streamurl', 'source', 'neq', bunny_stream::SOURCE);
+        $mform->hideIf('streamurl', 'streaminputmode', 'neq', 'url');
+
         $mform->addElement('text', 'videourl', get_string('driveurl', 'mod_videoplayer'), ['size' => 90]);
         $mform->setType('videourl', PARAM_URL);
         $mform->addHelpButton('videourl', 'driveurl', 'mod_videoplayer');
@@ -115,6 +135,7 @@ class mod_videoplayer_mod_form extends moodleform_mod {
 
         $mform->addElement('static', 'bunnyuploadpanel', get_string('bunnyuploadlabel', 'mod_videoplayer'), $uploadhtml);
         $mform->hideIf('bunnyuploadpanel', 'source', 'neq', bunny_stream::SOURCE);
+        $mform->hideIf('bunnyuploadpanel', 'streaminputmode', 'neq', 'upload');
 
         $types = [
             drive::TYPE_AUTO => get_string('typeauto', 'mod_videoplayer'),
@@ -300,21 +321,30 @@ class mod_videoplayer_mod_form extends moodleform_mod {
         }
 
         if ($source === bunny_stream::SOURCE) {
-            $assetid = trim((string)($data['providerassetid'] ?? ''));
-            $uploadid = trim((string)($data['provideruploadid'] ?? ''));
-            $status = bunny_stream::normalise_status((string)($data['providerstatus'] ?? ''));
-            $existingassetid = !empty($this->current)
-                ? trim((string)($this->current->providerassetid ?? ''))
-                : '';
-            $isexistingboundasset = bunny_stream::is_valid_asset_id($existingassetid)
-                && hash_equals($existingassetid, $assetid);
+            $streammode = clean_param((string)($data['streaminputmode'] ?? 'upload'), PARAM_ALPHA);
 
-            if (
-                !bunny_stream::is_valid_asset_id($assetid)
-                || (!$isexistingboundasset && !bunny_stream::is_valid_upload_id($uploadid))
-                || $status === ''
-            ) {
-                $errors['bunnyuploadpanel'] = get_string('bunnyuploadrequired', 'mod_videoplayer');
+            if ($streammode === 'url') {
+                $streamurl = trim((string)($data['streamurl'] ?? ''));
+                if (!bunny_stream::is_supported_url($streamurl)) {
+                    $errors['streamurl'] = get_string('invalidstreamurl', 'mod_videoplayer');
+                }
+            } else {
+                $assetid = trim((string)($data['providerassetid'] ?? ''));
+                $uploadid = trim((string)($data['provideruploadid'] ?? ''));
+                $status = bunny_stream::normalise_status((string)($data['providerstatus'] ?? ''));
+                $existingassetid = !empty($this->current)
+                    ? trim((string)($this->current->providerassetid ?? ''))
+                    : '';
+                $isexistingboundasset = bunny_stream::is_valid_asset_id($existingassetid)
+                    && hash_equals($existingassetid, $assetid);
+
+                if (
+                    !bunny_stream::is_valid_asset_id($assetid)
+                    || (!$isexistingboundasset && !bunny_stream::is_valid_upload_id($uploadid))
+                    || $status === ''
+                ) {
+                    $errors['bunnyuploadpanel'] = get_string('bunnyuploadrequired', 'mod_videoplayer');
+                }
             }
         }
 
