@@ -48,3 +48,12 @@ Do not copy this `integrations/whmcs` directory beneath `mod/videoplayer` on a p
 Moodle can register an existing Elearning Stream video by URL. Moodle sends only the parsed video GUID to `api/asset-import.php`. The gateway verifies the asset in the configured library, rejects a video already owned by another active WHMCS service, accounts its provider storage against the service quota, and returns a normal upload reference for binding.
 
 The full pasted URL is never stored by Moodle or WHMCS.
+
+
+## Protected playback
+
+Configure **Elearning Stream CDN Hostname** and **Elearning Stream Token Key** in the addon in addition to the library ID/API key. The addon generates short-lived HS256 playback URLs only for assets accounted to the authenticated WHMCS service.
+
+Enable MP4 fallback in the provider video library. Drive Resource uses that progressive MP4 representation so Moodle can preserve native HTML5 seek/Range behavior while keeping provider URLs server-side.
+
+Recommended **Elearning Stream Playback TTL**: 300 seconds. Moodle caches the authorization briefly and requests a fresh one when the player explicitly performs stall recovery.
