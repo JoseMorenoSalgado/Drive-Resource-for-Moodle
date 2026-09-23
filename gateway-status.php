@@ -29,7 +29,7 @@ require_once(__DIR__ . '/../../config.php');
 /**
  * Send one safe JSON response and terminate.
  *
- * @package mod_videoplayer
+ * @package    mod_videoplayer
  * @param int $status HTTP status.
  * @param array $payload JSON payload.
  * @return never
@@ -47,8 +47,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     mod_videoplayer_gateway_status_response(405, ['ok' => false]);
 }
 
-$serviceid = (int)get_config('mod_videoplayer', 'whmcsserviceid');
-$token = trim((string)get_config('mod_videoplayer', 'whmcsservicetoken'));
+$serviceid = (int) get_config('mod_videoplayer', 'whmcsserviceid');
+$token = trim((string) get_config('mod_videoplayer', 'whmcsservicetoken'));
 if ($serviceid <= 0 || strlen($token) < 32) {
     mod_videoplayer_gateway_status_response(503, [
         'ok' => false,
@@ -71,14 +71,14 @@ if (!is_array($payload)) {
     mod_videoplayer_gateway_status_response(400, ['ok' => false]);
 }
 
-$requestservice = (int)($payload['serviceid'] ?? 0);
-$siteurl = rtrim(trim((string)($payload['siteurl'] ?? '')), '/');
-$requestid = strtolower(trim((string)($payload['requestid'] ?? '')));
-$timestamp = (int)($_SERVER['HTTP_X_DRIVE_RESOURCE_TIMESTAMP'] ?? 0);
-$headernonce = strtolower(trim((string)($_SERVER['HTTP_X_DRIVE_RESOURCE_NONCE'] ?? '')));
-$headerservice = (int)($_SERVER['HTTP_X_DRIVE_RESOURCE_SERVICE'] ?? 0);
-$headersite = rtrim(trim((string)($_SERVER['HTTP_X_DRIVE_RESOURCE_SITE'] ?? '')), '/');
-$signature = strtolower(trim((string)($_SERVER['HTTP_X_DRIVE_RESOURCE_SIGNATURE'] ?? '')));
+$requestservice = (int) ($payload['serviceid'] ?? 0);
+$siteurl = rtrim(trim((string) ($payload['siteurl'] ?? '')), '/');
+$requestid = strtolower(trim((string) ($payload['requestid'] ?? '')));
+$timestamp = (int) ($_SERVER['HTTP_X_DRIVE_RESOURCE_TIMESTAMP'] ?? 0);
+$headernonce = strtolower(trim((string) ($_SERVER['HTTP_X_DRIVE_RESOURCE_NONCE'] ?? '')));
+$headerservice = (int) ($_SERVER['HTTP_X_DRIVE_RESOURCE_SERVICE'] ?? 0);
+$headersite = rtrim(trim((string) ($_SERVER['HTTP_X_DRIVE_RESOURCE_SITE'] ?? '')), '/');
+$signature = strtolower(trim((string) ($_SERVER['HTTP_X_DRIVE_RESOURCE_SIGNATURE'] ?? '')));
 
 if (
     $requestservice !== $serviceid
@@ -114,6 +114,6 @@ mod_videoplayer_gateway_status_response(200, [
     'status' => 'connected',
     'serviceid' => $serviceid,
     'siteurl' => rtrim($CFG->wwwroot, '/'),
-    'pluginversion' => (int)get_config('mod_videoplayer', 'version'),
+    'pluginversion' => (int) get_config('mod_videoplayer', 'version'),
     'timestamp' => time(),
 ]);
