@@ -2,6 +2,15 @@
 
 All notable changes to Drive Resource are documented here. The Moodle component remains `mod_videoplayer` for upgrade compatibility.
 
+## WHMCS companion 0.3.2 — 2026-09-23
+
+- Adds an explicit **Generar/Reparar conexión Moodle** admin module action for services that exist in WHMCS but were never provisioned.
+- Adds a separate **Rotar token Moodle** admin action for intentional credential rotation.
+- Refactors `CreateAccount` to use the same idempotent provisioning path as the repair action.
+- Preserves an existing valid service token when repairing; generates a new token only when the service password is missing or rotation is explicitly requested.
+- Shows Moodle connection status, gateway URL, service ID and token in the WHMCS administrator service fields.
+- WHMCS companion version: `0.3.2`.
+
 ## WHMCS companion 0.3.1 — 2026-09-23
 
 - Removes the unnecessary WHMCS server requirement from the Elearning Stream provisioning module.
