@@ -50,9 +50,12 @@ final class GatewayMaintenance
     private function expireAbandonedUploads(): void
     {
         $now = time();
-        $rows = Capsule::table('mod_driveresource_uploads as u')
-            ->join('mod_driveresource_services as s', 's.service_id', '=', 'u.service_id')
-            ->where('s.backend_key', BackendRegistry::ELEARNING_STREAM)
+        $query = Capsule::table('mod_driveresource_uploads as u')
+            ->join('mod_driveresource_services as s', 's.service_id', '=', 'u.service_id');
+        if (Capsule::schema()->hasColumn('mod_driveresource_services', 'backend_key')) {
+            $query->where('s.backend_key', BackendRegistry::ELEARNING_STREAM);
+        }
+        $rows = $query
             ->whereIn('u.status', ['reserved', 'authorized'])
             ->where('u.expires_at', '<', $now - 3600)
             ->orderBy('u.expires_at', 'asc')
@@ -117,9 +120,12 @@ final class GatewayMaintenance
     private function syncProviderStorage(): void
     {
         $cutoff = time() - 1800;
-        $rows = Capsule::table('mod_driveresource_uploads as u')
-            ->join('mod_driveresource_services as s', 's.service_id', '=', 'u.service_id')
-            ->where('s.backend_key', BackendRegistry::ELEARNING_STREAM)
+        $query = Capsule::table('mod_driveresource_uploads as u')
+            ->join('mod_driveresource_services as s', 's.service_id', '=', 'u.service_id');
+        if (Capsule::schema()->hasColumn('mod_driveresource_services', 'backend_key')) {
+            $query->where('s.backend_key', BackendRegistry::ELEARNING_STREAM);
+        }
+        $rows = $query
             ->whereIn('u.status', ['processing', 'ready', 'bound'])
             ->whereNotNull('u.video_id')
             ->where('u.updated_at', '<', $cutoff)
@@ -168,9 +174,12 @@ final class GatewayMaintenance
     private function deleteExpiredOrphans(): void
     {
         $now = time();
-        $rows = Capsule::table('mod_driveresource_uploads as u')
-            ->join('mod_driveresource_services as s', 's.service_id', '=', 'u.service_id')
-            ->where('s.backend_key', BackendRegistry::ELEARNING_STREAM)
+        $query = Capsule::table('mod_driveresource_uploads as u')
+            ->join('mod_driveresource_services as s', 's.service_id', '=', 'u.service_id');
+        if (Capsule::schema()->hasColumn('mod_driveresource_services', 'backend_key')) {
+            $query->where('s.backend_key', BackendRegistry::ELEARNING_STREAM);
+        }
+        $rows = $query
             ->whereNotNull('u.delete_after')
             ->where('u.delete_after', '<=', $now)
             ->whereIn('u.status', ['processing', 'ready', 'bound'])
