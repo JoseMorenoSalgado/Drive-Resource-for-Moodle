@@ -8,7 +8,7 @@ The historical Moodle component name remains `mod_videoplayer` to preserve upgra
 
 - Product: Drive Resource
 - Moodle component: `mod_videoplayer`
-- Release: `1.2.0-beta1-m45`
+- Release: `1.2.0-beta2-m45`
 - Target: Moodle 4.5 LTS
 - PHP baseline: PHP 8.1+
 - Video runtime: native HTML5 Media API
@@ -134,6 +134,8 @@ Upstream URLs are restricted to an explicit HTTPS Google host policy before they
 
 ## Progress and completion
 
+Video completion is seek-safe: seeking changes the resume position but does not count skipped media as watched. Completion uses the persisted union of media ranges actually reproduced by the learner.
+
 Per-user state is stored in `videoplayer_views` and includes:
 
 - generic progress;
@@ -196,7 +198,7 @@ GNU GPL v3 or later.
 
 Bundled third-party components and their licenses are declared in `thirdpartylibs.xml`.
 
-## 1.2.0-beta1: WHMCS-gated Bunny Stream ingestion
+## 1.2.0-beta2: WHMCS-gated Bunny Stream ingestion
 
 The 1.2 line introduces Bunny Stream as a managed video provider while preserving Google Drive and protected local PDF support.
 
