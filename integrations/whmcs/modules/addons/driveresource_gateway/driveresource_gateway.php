@@ -45,13 +45,20 @@ function driveresource_gateway_config(): array
                 'FriendlyName' => 'Elearning Stream CDN Hostname',
                 'Type' => 'text',
                 'Size' => '45',
-                'Description' => 'Example: vz-xxxxxxxx-xxx.b-cdn.net. Reserved for secure playback phase.',
+                'Description' => 'Provider CDN hostname used by Moodle protected playback. Example: vz-xxxxxxxx-xxx.b-cdn.net.',
             ],
             'bunny_token_key' => [
                 'FriendlyName' => 'Elearning Stream Token Key',
                 'Type' => 'password',
                 'Size' => '45',
                 'Description' => 'Server-side playback signing key. Never copied to Moodle.',
+            ],
+            'playback_ttl' => [
+                'FriendlyName' => 'Elearning Stream Playback TTL',
+                'Type' => 'text',
+                'Size' => '10',
+                'Default' => '300',
+                'Description' => 'Lifetime in seconds for short-lived server-side playback URLs (60–1800).',
             ],
             'tus_ttl' => [
                 'FriendlyName' => 'Direct Upload TTL',
