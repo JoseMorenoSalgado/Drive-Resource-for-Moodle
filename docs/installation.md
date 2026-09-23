@@ -1,6 +1,6 @@
 # Drive Resource installation and upgrade
 
-## Supported platform for 1.2.0-beta8-m45
+## Supported platform for 1.2.0-beta9-m45
 
 - Moodle 4.5 LTS
 - PHP 8.1+
@@ -264,3 +264,25 @@ After success, the administrator service fields show:
 - Moodle Service Token.
 
 Copy those values to the matching Moodle Drive Resource settings. Use **Rotar token Moodle** only when the previous token must intentionally be invalidated.
+
+
+## WHMCS 0.4.0 client portal upgrade
+
+Install the WHMCS 0.4.0 companion by replacing both module directories, then open **Drive Resource Media Gateway** in the WHMCS administrator area so the addon upgrade hook adds connection and transfer columns plus the idempotent usage-report table.
+
+Upgrade the matching Moodle site to **Drive Resource 1.2.0-beta9-m45** and run Moodle upgrade/cron. Beta9 creates `videoplayer_transfer_events`, adds the signed `gateway-status.php` endpoint and schedules transfer synchronization every five minutes.
+
+After both sides are upgraded:
+
+1. provision or repair the WHMCS service if it has no token;
+2. enter Gateway URL, Service ID and Service Token in Moodle;
+3. open the customer's WHMCS service dashboard;
+4. click **Validar conexión**;
+5. confirm the connection card shows **Conectado**;
+6. play an Elearning Stream video long enough to deliver bytes;
+7. run Moodle cron or wait for the five-minute task;
+8. confirm the transfer card increases.
+
+The client can edit the Moodle URL only when no active asset references remain. If a production Moodle with active content changes domain, use a controlled migration workflow rather than forcing a URL reassignment.
+
+The client video list permits permanent deletion only for videos with zero active Moodle references.
