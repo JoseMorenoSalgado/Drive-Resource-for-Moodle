@@ -207,7 +207,7 @@ final class ClientPortal
                     $html .= $this->customActionFields('DeleteVideo');
                     $html .= '<input type="hidden" name="uploadid" value="' . $this->e((string) $upload->upload_id) . '">';
                     $html .= '<button type="submit" class="btn btn-xs btn-danger" '
-                        . 'onclick="return confirm('¿Eliminar este video de forma permanente?')">Eliminar</button>';
+                        . 'onclick="return confirm(&quot;¿Eliminar este video de forma permanente?&quot;)">Eliminar</button>';
                     $html .= '</form>';
                 } else {
                     $html .= '<button class="btn btn-xs btn-default" type="button" disabled>Protegido</button>';
