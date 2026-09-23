@@ -63,6 +63,10 @@ grep -q "searchParams.set('refresh', '1')" amd/src/nativevideo.js     || fail "V
 grep -q 'watchedranges' amd/src/nativevideo.js     || fail "Video completion no longer submits watched ranges."
 grep -q 'watched_range_set' classes/local/progress/progress_service.php     || fail "Server completion no longer validates watched ranges."
 grep -q 'watchedranges' db/install.xml     || fail "Watched-range persistence is missing from XMLDB."
+grep -q '2026092202' db/upgrade.php     || fail "Progress-schema repair savepoint is missing from upgrade.php."
+if grep -A12 "new xmldb_field('watchedranges'" db/upgrade.php | grep -q "'duration'"; then
+    fail "watchedranges DDL must not depend on AFTER duration column ordering."
+fi
 
 echo "Checking canonical resource type resolution..."
 if grep -nE 'drive::detect_type\(' lib.php index.php classes/local/resource/resource_descriptor.php classes/task/precache_pdf.php; then
