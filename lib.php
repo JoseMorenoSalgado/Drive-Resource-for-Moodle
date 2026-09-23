@@ -65,11 +65,25 @@ function videoplayer_supports($feature) {
 function videoplayer_get_coursemodule_info($coursemodule) {
     global $DB;
 
-    $fields = 'id, name, intro, introformat, completionprogressenabled, completionpercentage';
+    // Pre-release installations may have an advanced plugin version with a
+    // partially applied schema. Build the cached-module query from columns
+    // that actually exist so course cache generation cannot take Moodle down
+    // before the repair migration has a chance to run.
+    static $coursemodulefields = null;
+    if ($coursemodulefields === null) {
+        $columns = $DB->get_columns('videoplayer');
+        $coursemodulefields = ['id', 'name', 'intro', 'introformat'];
+        foreach (['completionprogressenabled', 'completionpercentage'] as $optionalfield) {
+            if (isset($columns[$optionalfield])) {
+                $coursemodulefields[] = $optionalfield;
+            }
+        }
+    }
+
     $instance = $DB->get_record(
         'videoplayer',
         ['id' => (int)$coursemodule->instance],
-        $fields,
+        implode(', ', $coursemodulefields),
         IGNORE_MISSING
     );
     if (!$instance) {
@@ -89,8 +103,11 @@ function videoplayer_get_coursemodule_info($coursemodule) {
     }
 
     if ((int)$coursemodule->completion === COMPLETION_TRACKING_AUTOMATIC) {
-        $threshold = !empty($instance->completionprogressenabled)
-            ? max(1, min(100, (int)$instance->completionpercentage))
+        $progressenabled = property_exists($instance, 'completionprogressenabled')
+            ? !empty($instance->completionprogressenabled)
+            : true;
+        $threshold = $progressenabled
+            ? max(1, min(100, (int)($instance->completionpercentage ?? 80)))
             : 0;
         $result->customdata['customcompletionrules']['completionprogress'] = $threshold;
     }
