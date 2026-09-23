@@ -1,6 +1,6 @@
 # Drive Resource installation and upgrade
 
-## Supported platform for 1.1.33-rc19-m45
+## Supported platform for 1.2.0-beta4-m45
 
 - Moodle 4.5 LTS
 - PHP 8.1+
@@ -161,7 +161,7 @@ Unknown column 'duration' in 'videoplayer_views'
 ALTER TABLE ... ADD watchedranges ... AFTER duration
 ```
 
-deploy `1.2.0-beta3-m45` or newer and run the normal Moodle upgrade again:
+deploy `1.2.0-beta4-m45` or newer and run the normal Moodle upgrade again:
 
 ```bash
 php admin/cli/upgrade.php --non-interactive
