@@ -40,6 +40,7 @@ final class GatewayMaintenance
         $this->syncProviderStorage();
         $this->deleteExpiredOrphans();
         $this->purgeNonces();
+        $this->purgeUsageReports();
     }
 
     /**
@@ -238,6 +239,26 @@ final class GatewayMaintenance
                 'used_bytes' => max(0, $bytes),
                 'updated_at' => time(),
             ]);
+    }
+
+    /**
+     * Keep idempotency report history bounded.
+     *
+     * Reports older than 18 months are no longer needed to protect retries of
+     * current billing periods and can be removed safely.
+     *
+     * @return void
+     */
+    private function purgeUsageReports(): void
+    {
+        if (!Capsule::schema()->hasTable('mod_driveresource_usage_reports')) {
+            return;
+        }
+
+        $cutoff = gmdate('Y-m', strtotime('-18 months'));
+        Capsule::table('mod_driveresource_usage_reports')
+            ->where('period_key', '<', $cutoff)
+            ->delete();
     }
 
     /**
