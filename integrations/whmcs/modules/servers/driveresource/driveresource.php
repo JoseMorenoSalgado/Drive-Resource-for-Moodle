@@ -23,7 +23,7 @@ function driveresource_MetaData(): array
     return [
         'DisplayName' => 'Elearning Stream',
         'APIVersion' => '1.1',
-        'RequiresServer' => true,
+        'RequiresServer' => false,
     ];
 }
 
@@ -299,6 +299,50 @@ function driveresource_TestConnection(array $params): array
 function driveresource_MetricProvider(array $params): MetricsProvider
 {
     return new MetricsProvider($params);
+}
+
+/**
+ * Show Moodle connection details on the WHMCS administrator service page.
+ *
+ * The service password is the service-scoped Moodle gateway token. WHMCS
+ * stores it in its protected service property store; this callback surfaces it
+ * only to authorised WHMCS administrators working on the service.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return array<string,string>
+ */
+function driveresource_AdminServicesTabFields(array $params): array
+{
+    $serviceId = (int) ($params['serviceid'] ?? 0);
+    $gatewayUrl = driveresource_gateway_url_hint($params);
+    $token = trim((string) ($params['password'] ?? ''));
+
+    return [
+        'Moodle Gateway URL' => $gatewayUrl,
+        'Moodle Service ID' => (string) $serviceId,
+        'Moodle Service Token' => $token !== ''
+            ? $token
+            : 'Not provisioned yet — click Create under Module Commands.',
+    ];
+}
+
+/**
+ * Build the addon URL hint from the current WHMCS installation.
+ *
+ * This is display-only. Moodle administrators should still verify the public
+ * WHMCS base URL if WHMCS runs behind a proxy or custom admin topology.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return string
+ */
+function driveresource_gateway_url_hint(array $params): string
+{
+    $systemUrl = rtrim((string) ($params['systemurl'] ?? ''), '/');
+    if ($systemUrl === '') {
+        return '/modules/addons/driveresource_gateway';
+    }
+
+    return $systemUrl . '/modules/addons/driveresource_gateway';
 }
 
 /**
