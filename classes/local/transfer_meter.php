@@ -37,7 +37,7 @@ final class transfer_meter {
     public static function record(string $videoid, int $bytes): void {
         global $DB;
 
-        $serviceid = (int)get_config('mod_videoplayer', 'whmcsserviceid');
+        $serviceid = (int) get_config('mod_videoplayer', 'whmcsserviceid');
         $videoid = strtolower(trim($videoid));
         if (
             $serviceid <= 0
@@ -48,7 +48,7 @@ final class transfer_meter {
             return;
         }
 
-        $record = (object)[
+        $record = (object) [
             'serviceid' => $serviceid,
             'videoid' => $videoid,
             'bytes' => $bytes,
