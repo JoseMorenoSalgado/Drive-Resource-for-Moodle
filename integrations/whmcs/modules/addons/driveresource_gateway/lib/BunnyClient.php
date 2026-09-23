@@ -57,7 +57,12 @@ final class BunnyClient
      */
     public function deleteVideo(string $videoId): void
     {
-        $this->request('DELETE', '/library/' . $this->libraryId . '/videos/' . rawurlencode($videoId), null, [200, 204]);
+        $this->request(
+            'DELETE',
+            '/library/' . $this->libraryId . '/videos/' . rawurlencode($videoId),
+            null,
+            [200, 204, 404]
+        );
     }
 
     /**
