@@ -45,6 +45,18 @@ final class upstream_url_policy_test extends \advanced_testcase {
     }
 
     /**
+     * Elearning Stream CDN playback hosts are accepted only as strict subdomains.
+     *
+     * @return void
+     */
+    public function test_elearning_stream_cdn_hosts_are_allowed(): void {
+        $videoid = 'd4b3b9ce-531f-4f7a-a8db-847f47a889e9';
+        $this->assertTrue(upstream_url_policy::is_allowed(
+            'https://vz-example.b-cdn.net/' . $videoid . '/play_720p.mp4?token=HS256-test&expires=1'
+        ));
+    }
+
+    /**
      * Non-HTTPS and lookalike hosts are rejected.
      *
      * @return void
@@ -61,6 +73,9 @@ final class upstream_url_policy_test extends \advanced_testcase {
         $this->assertFalse(upstream_url_policy::is_allowed('//drive.google.com/uc?id=abc'));
         $this->assertFalse(upstream_url_policy::is_allowed('https://user:pass@drive.google.com/uc?id=abc'));
         $this->assertFalse(upstream_url_policy::is_allowed('https://drive.google.com:8443/uc?id=abc'));
+        $this->assertFalse(upstream_url_policy::is_allowed('https://b-cdn.net/video/play_720p.mp4'));
+        $this->assertFalse(upstream_url_policy::is_allowed('https://evilb-cdn.net/video/play_720p.mp4'));
+        $this->assertFalse(upstream_url_policy::is_allowed('https://vz-example.b-cdn.net.evil.example/video.mp4'));
     }
 
     /**
