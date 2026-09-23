@@ -131,6 +131,8 @@ final class MoodleConnectionProbe
             'message' => 'Conexión con Moodle verificada correctamente.',
             'pluginversion' => max(0, (int) ($decoded['pluginversion'] ?? 0)),
         ];
+    }
+
     /**
      * Resolve and pin a public IP for the customer-supplied Moodle hostname.
      *
@@ -183,6 +185,5 @@ final class MoodleConnectionProbe
         }
 
         return $addresses[0];
-    }
     }
 }
