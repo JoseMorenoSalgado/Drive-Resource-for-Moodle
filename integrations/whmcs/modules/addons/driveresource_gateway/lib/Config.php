@@ -11,6 +11,101 @@ use WHMCS\Module\Addon\Setting;
 final class Config
 {
     /**
+     * Branded customer-facing gateway URL.
+     *
+     * @return string
+     */
+    public static function publicGatewayUrl(): string
+    {
+        $value = rtrim(trim((string) Setting::getSettingValueForModule(
+            'driveresource_gateway',
+            'public_gateway_url'
+        )), '/');
+
+        $parts = $value !== '' ? parse_url($value) : false;
+        if (
+            !$parts
+            || strtolower((string) ($parts['scheme'] ?? '')) !== 'https'
+            || empty($parts['host'])
+            || !empty($parts['user'])
+            || !empty($parts['pass'])
+            || !empty($parts['query'])
+            || !empty($parts['fragment'])
+        ) {
+            throw new RuntimeException('Invalid public Elearning Stream Gateway URL.');
+        }
+
+        return $value;
+    }
+
+    /**
+     * Configured managed-video provider.
+     *
+     * @return string
+     */
+    public static function videoProvider(): string
+    {
+        $provider = strtolower(trim((string) Setting::getSettingValueForModule(
+            'driveresource_gateway',
+            'video_provider'
+        )));
+        return $provider !== '' ? $provider : 'elearningstream';
+    }
+
+    /**
+     * Configured object-storage provider family.
+     *
+     * @return string
+     */
+    public static function objectStorageProvider(): string
+    {
+        $provider = strtolower(trim((string) Setting::getSettingValueForModule(
+            'driveresource_gateway',
+            'object_storage_provider'
+        )));
+        return $provider !== '' ? $provider : 'disabled';
+    }
+
+    /**
+     * Whether the default S3-compatible protected-document profile is complete.
+     *
+     * This validates configuration presence only; provider connectivity belongs
+     * to the object-storage adapter before the PDF data plane is enabled.
+     *
+     * @return bool
+     */
+    public static function objectStorageConfigured(): bool
+    {
+        if (self::objectStorageProvider() === 'disabled') {
+            return false;
+        }
+
+        foreach ([
+            'object_storage_endpoint',
+            'object_storage_bucket',
+            'object_storage_access_key',
+            'object_storage_secret_key',
+        ] as $setting) {
+            if (trim((string) Setting::getSettingValueForModule(
+                'driveresource_gateway',
+                $setting
+            )) === '') {
+                return false;
+            }
+        }
+
+        $endpoint = trim((string) Setting::getSettingValueForModule(
+            'driveresource_gateway',
+            'object_storage_endpoint'
+        ));
+        $parts = parse_url($endpoint);
+
+        return is_array($parts)
+            && strtolower((string) ($parts['scheme'] ?? '')) === 'https'
+            && !empty($parts['host']);
+    }
+
+    /**
      * Get a required addon setting.
      *
      * @param string $name Setting key.
