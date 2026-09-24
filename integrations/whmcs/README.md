@@ -14,7 +14,7 @@ The WHMCS companion is installed **once** and manages many customers. Each provi
 
 One customer with multiple independent Moodle installations can use multiple WHMCS services under the same WHMCS client account. This preserves per-site credentials, accounting and suspension boundaries.
 
-Addon version **0.4.0** adds a paginated administration dashboard with customer, Moodle URL, product, backend, quota, storage usage, video count, status and direct access to the WHMCS service.
+Addon version **0.4.1** adds a paginated administration dashboard with customer, Moodle URL, product, backend, quota, storage usage, video count, status and direct access to the WHMCS service.
 
 ## Backend model
 
@@ -93,7 +93,7 @@ Recommended **Elearning Stream Playback TTL**: 300 seconds. Moodle caches the au
 
 ## Upgrade from gateway 0.2.x
 
-1. Replace both WHMCS module directories with the 0.4.0 package.
+1. Replace both WHMCS module directories with the 0.4.1 package.
 2. Open the Drive Resource Media Gateway addon in WHMCS so the native addon upgrade hook runs.
 3. Confirm existing services appear in the multi-client dashboard.
 4. Existing rows are migrated to `backend_key=elearningstream` and `backend_profile=default`.
@@ -159,3 +159,24 @@ WHMCS stores one logical monthly counter per service and exposes:
 - `video_transfer_gb` — monthly period.
 
 The idempotency ledger prevents retry double-counting and is pruned after its retention window.
+
+
+## Branded public video aliases
+
+Set **Elearning Stream Public Aliases** to customer-facing hostnames accepted when teachers paste an existing video URL, for example:
+
+```text
+video.elearningcloud.io
+```
+
+The setting contains hostnames only. The gateway never fetches the pasted URL. It validates the hostname, extracts the GUID and verifies the video through the configured Video Library API. Moodle persists only the provider GUID and WHMCS accounting reference.
+
+## Localisation
+
+The server module ships module-local `english.php` and `spanish.php` dictionaries. Client dashboard labels, statuses, confirmations and connection-probe messages follow the current WHMCS client/admin language context.
+
+## Redacted audit trail
+
+WHMCS 0.4.1 creates `mod_driveresource_audit` and records successful sensitive actions including Moodle URL changes, connection provisioning/token rotation, connection validation and client video deletion.
+
+Audit metadata is filtered before persistence. Token/password/secret/signature/API-key/credential keys are discarded and are never shown in the administrator audit panel.
