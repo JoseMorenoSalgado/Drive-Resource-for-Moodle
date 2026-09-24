@@ -3,6 +3,7 @@
 namespace WHMCS\Module\Server\Driveresource;
 
 use WHMCS\Database\Capsule;
+use WHMCS\Module\Addon\Setting;
 
 /**
  * Client-facing Elearning Stream service dashboard.
@@ -141,24 +142,24 @@ final class ClientPortal
         );
         $html .= '</div>';
 
+        $gatewayUrl = $this->publicGatewayUrl();
         $html .= '<div class="panel panel-default dr-panel">';
         $html .= '<div class="panel-heading"><strong>'
             . $this->e($this->translator->t('connect_moodle')) . '</strong></div>';
         $html .= '<div class="panel-body">';
 
-        $html .= '<form method="post" action="' . $this->formAction() . '" class="dr-form">';
-        $html .= $this->customActionFields('UpdateMoodleUrl');
         $html .= '<div class="form-group">';
-        $html .= '<label for="dr-moodle-url">'
+        $html .= '<label for="dr-gateway-url">'
             . $this->e($this->translator->t('moodle_url')) . '</label>';
         $html .= '<div class="input-group">';
-        $html .= '<input id="dr-moodle-url" name="moodleurl" type="url" class="form-control" required '
-            . 'placeholder="https://campus.ejemplo.com" value="' . $this->e((string) $service->site_url) . '">';
-        $html .= '<span class="input-group-btn"><button class="btn btn-primary" type="submit">'
+        $html .= '<input id="dr-gateway-url" type="text" class="form-control" readonly value="'
+            . $this->e($gatewayUrl) . '">';
+        $html .= '<span class="input-group-btn"><button class="btn btn-default" type="button" '
+            . 'onclick="drCopyField(&quot;dr-gateway-url&quot;)">'
             . $this->e($this->translator->t('save_url')) . '</button></span>';
         $html .= '</div>';
         $html .= '<p class="help-block">' . $this->e($this->translator->t('moodle_url_help')) . '</p>';
-        $html .= '</div></form>';
+        $html .= '</div>';
 
         $html .= '<div class="form-group">';
         $html .= '<label>' . $this->e($this->translator->t('service_id')) . '</label>';
@@ -173,7 +174,8 @@ final class ClientPortal
         $html .= '<span class="input-group-btn">';
         $html .= '<button type="button" class="btn btn-default" onclick="drToggleToken()">'
             . $this->e($this->translator->t('show')) . '</button>';
-        $html .= '<button type="button" class="btn btn-default" onclick="drCopyToken()">'
+        $html .= '<button type="button" class="btn btn-default" '
+            . 'onclick="drCopyField(&quot;dr-service-token&quot;)">'
             . $this->e($this->translator->t('copy')) . '</button>';
         $html .= '</span></div></div>';
 
@@ -253,12 +255,48 @@ final class ClientPortal
         $html .= '<script>'
             . 'function drToggleToken(){var e=document.getElementById("dr-service-token");'
             . 'if(e){e.type=e.type==="password"?"text":"password";}}'
-            . 'function drCopyToken(){var e=document.getElementById("dr-service-token");'
+            . 'function drCopyField(id){var e=document.getElementById(id);'
             . 'if(e&&e.value&&navigator.clipboard){navigator.clipboard.writeText(e.value);}}'
             . '</script>';
         $html .= '</div>';
 
         return $html;
+    }
+
+    /**
+     * Customer-facing gateway URL to paste into Moodle.
+     *
+     * The branded URL is configured in the addon. If it is not set, retain a
+     * safe compatibility fallback to the physical addon path.
+     *
+     * @return string
+     */
+    private function publicGatewayUrl(): string
+    {
+        $configured = trim((string) Setting::getSettingValueForModule(
+            'driveresource_gateway',
+            'public_gateway_url'
+        ));
+
+        if ($configured !== '') {
+            $parts = parse_url($configured);
+            if (
+                is_array($parts)
+                && strtolower((string) ($parts['scheme'] ?? '')) === 'https'
+                && !empty($parts['host'])
+                && empty($parts['user'])
+                && empty($parts['pass'])
+                && empty($parts['query'])
+                && empty($parts['fragment'])
+            ) {
+                return rtrim($configured, '/');
+            }
+        }
+
+        $systemUrl = rtrim((string) ($this->params['systemurl'] ?? ''), '/');
+        return $systemUrl !== ''
+            ? $systemUrl . '/modules/addons/driveresource_gateway'
+            : '/modules/addons/driveresource_gateway';
     }
 
     /**
