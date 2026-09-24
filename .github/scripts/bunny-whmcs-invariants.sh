@@ -66,7 +66,7 @@ grep -q 'hash_hmac' integrations/whmcs/modules/addons/driveresource_gateway/lib/
 grep -q 'mod_driveresource_nonces' integrations/whmcs/modules/addons/driveresource_gateway/lib/RequestAuthenticator.php     || fail "Replay nonce protection is missing."
 
 echo "Checking multi-tenant backend architecture..."
-grep -q "'version' => '0.4.1'" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "WHMCS addon version 0.4.1 is missing."
+grep -q "'version' => '0.4.2'" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "WHMCS addon version 0.4.2 is missing."
 grep -q "function driveresource_gateway_upgrade" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "WHMCS addon upgrade function is missing."
 grep -q "backend_key" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "Service backend key schema is missing."
 grep -q "backend_profile" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "Service backend profile schema is missing."
@@ -98,6 +98,12 @@ grep -q "videos_title" integrations/whmcs/modules/servers/driveresource/lang/spa
 grep -q "Translator::fromParams" integrations/whmcs/modules/servers/driveresource/lib/ClientPortal.php     || fail "Client portal is not using module localisation."
 grep -q "generate_token('plain')" integrations/whmcs/modules/servers/driveresource/lib/ClientPortal.php     || fail "Client self-service forms are missing the WHMCS CSRF token."
 grep -q "MoodleConnectionProbe" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Signed Moodle probe is not wired."
+
+echo "Checking custom-theme WHMCS client-area fallback..."
+grep -q "ClientAreaProductDetailsOutput" integrations/whmcs/modules/addons/driveresource_gateway/hooks.php     || fail "Custom-theme client-area fallback hook is missing."
+grep -q "data-dr-service-id" integrations/whmcs/modules/servers/driveresource/lib/ClientPortal.php     || fail "Client portal service identity marker is missing."
+grep -q "servertype.*driveresource" integrations/whmcs/modules/addons/driveresource_gateway/hooks.php     || fail "Client-area fallback does not verify the product provisioning module."
+grep -q "h.userid.*clientId" integrations/whmcs/modules/addons/driveresource_gateway/hooks.php     || fail "Client-area fallback does not verify service ownership."
 
 echo "Checking per-service transfer metering..."
 grep -q "NAME=\"videoplayer_transfer_events\"" db/install.xml     || fail "Moodle transfer queue table is missing."
