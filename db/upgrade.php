@@ -614,5 +614,10 @@ function xmldb_videoplayer_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026092208, 'videoplayer');
     }
 
+    // Custom Elearning Stream public URL aliases and WHMCS-side URL authority.
+    if ($oldversion < 2026092209) {
+        upgrade_mod_savepoint(true, 2026092209, 'videoplayer');
+    }
+
     return true;
 }
