@@ -99,8 +99,8 @@ grep -q "validate_connection" integrations/whmcs/modules/servers/driveresource/l
 grep -q "videos_title" integrations/whmcs/modules/servers/driveresource/lang/spanish.php     || fail "Spanish video library string is missing."
 grep -q "Translator::fromParams" integrations/whmcs/modules/servers/driveresource/lib/ClientPortal.php     || fail "Client portal is not using module localisation."
 grep -q "generate_token('plain')" integrations/whmcs/modules/servers/driveresource/lib/ClientPortal.php     || fail "Client self-service forms are missing the WHMCS CSRF token."
-grep -q "\^\[a-f0-9\]{64}\$" integrations/whmcs/modules/servers/driveresource/lib/ClientPortal.php     || fail "Client portal no longer validates Drive Resource token format."
-grep -q "\^\[a-f0-9\]{64}\$" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Admin service token handoff no longer validates Drive Resource token format."
+grep -Fq "preg_match('/^[a-f0-9]{64}$/'" integrations/whmcs/modules/servers/driveresource/lib/ClientPortal.php     || fail "Client portal no longer validates Drive Resource token format."
+grep -Fq "preg_match('/^[a-f0-9]{64}$/'" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Admin service token handoff no longer validates Drive Resource token format."
 grep -q "MoodleConnectionProbe" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Signed Moodle probe is not wired."
 
 echo "Checking custom-theme WHMCS client-area fallback..."
