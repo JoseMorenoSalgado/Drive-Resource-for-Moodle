@@ -186,8 +186,21 @@ function driveresource_gateway_activate(): array
             });
         }
 
+        if (!$schema->hasTable('mod_driveresource_audit')) {
+            $schema->create('mod_driveresource_audit', static function (Blueprint $table): void {
+                $table->bigIncrements('id');
+                $table->unsignedInteger('service_id')->index();
+                $table->string('actor_type', 16)->index();
+                $table->unsignedInteger('actor_id')->nullable()->index();
+                $table->string('action', 64)->index();
+                $table->text('metadata_json')->nullable();
+                $table->unsignedInteger('created_at')->index();
+            });
+        }
+
         driveresource_gateway_ensure_multitenant_schema();
         driveresource_gateway_ensure_portal_schema();
+        driveresource_gateway_ensure_audit_schema();
 
         return ['status' => 'success', 'description' => 'Drive Resource Media Gateway activated.'];
     } catch (Throwable $exception) {
@@ -211,6 +224,9 @@ function driveresource_gateway_upgrade(array $vars): void
     }
     if (version_compare($installed, '0.4.0', '<')) {
         driveresource_gateway_ensure_portal_schema();
+    }
+    if (version_compare($installed, '0.4.1', '<')) {
+        driveresource_gateway_ensure_audit_schema();
     }
 }
 
@@ -308,6 +324,29 @@ function driveresource_gateway_ensure_portal_schema(): void
         ->whereNull('connection_status')
         ->orWhere('connection_status', '')
         ->update(['connection_status' => 'pending']);
+}
+
+/**
+ * Ensure redacted control-plane audit persistence exists.
+ *
+ * @return void
+ */
+function driveresource_gateway_ensure_audit_schema(): void
+{
+    $schema = Capsule::schema();
+    if ($schema->hasTable('mod_driveresource_audit')) {
+        return;
+    }
+
+    $schema->create('mod_driveresource_audit', static function (Blueprint $table): void {
+        $table->bigIncrements('id');
+        $table->unsignedInteger('service_id')->index();
+        $table->string('actor_type', 16)->index();
+        $table->unsignedInteger('actor_id')->nullable()->index();
+        $table->string('action', 64)->index();
+        $table->text('metadata_json')->nullable();
+        $table->unsignedInteger('created_at')->index();
+    });
 }
 
 /**
