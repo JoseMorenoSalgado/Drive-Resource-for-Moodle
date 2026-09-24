@@ -10,6 +10,11 @@ if (!defined('WHMCS')) {
     die('This file cannot be accessed directly');
 }
 
+require_once __DIR__ . '/lib/Translator.php';
+require_once __DIR__ . '/lib/ClientPortal.php';
+require_once __DIR__ . '/lib/MetricsProvider.php';
+require_once __DIR__ . '/lib/MoodleConnectionProbe.php';
+
 use WHMCS\Database\Capsule;
 use WHMCS\Module\Server\Driveresource\ClientPortal;
 use WHMCS\Module\Server\Driveresource\MetricsProvider;
