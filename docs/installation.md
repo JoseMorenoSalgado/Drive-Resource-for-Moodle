@@ -322,3 +322,30 @@ After replacing the WHMCS module files with companion 0.4.2:
 The customer page should show Drive Resource cards for Moodle connection, storage, current-month transfer and videos. Companion 0.4.2 also supplies a product-details output fallback for compatible custom WHMCS themes that omit standard provisioning-module output.
 
 If the Client Area still shows only the generic WHMCS domain/username cards and the service Username is not `dr-{service_id}`, verify the product is actually assigned to the `driveresource` module and reprovision that service.
+
+
+## WHMCS 0.4.3 direct installation
+
+WHMCS 0.4.3 removes the previous `whmcs-root/` packaging wrapper. Extract the ZIP **directly into the WHMCS document root**. The archive places files at:
+
+```text
+modules/addons/driveresource_gateway/
+modules/servers/driveresource/
+```
+
+After extraction, open **Addons → Drive Resource Media Gateway** and review **Drive Resource installation health**.
+
+A healthy commercial configuration should report:
+
+```text
+Loaded companion: 0.4.3
+Server module: OK
+Products using driveresource: >= 1
+Pending provisioning: 0
+Generic usernames: 0
+Wrong product type: 0
+```
+
+For **Stream Pro** use Product Type **Other** and provisioning module **Elearning Stream / driveresource**. WHMCS documents Product Type Other for non-hosting products; using Shared Hosting causes generic domain/account UI that is not appropriate for Elearning Stream.
+
+If an existing service shows a username such as one derived from the domain instead of `dr-{service_id}`, run **Generate/Repair Moodle connection** from the administrator service page. Do not copy the generic WHMCS password into Moodle: 0.4.3 recognizes only the module-generated 64-character hexadecimal service token as a valid Moodle credential.
