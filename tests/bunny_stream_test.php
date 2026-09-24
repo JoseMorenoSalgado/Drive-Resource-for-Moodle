@@ -79,6 +79,41 @@ final class bunny_stream_test extends \advanced_testcase {
     }
 
     /**
+     * Candidate URL parsing remains hostname-neutral for WHMCS alias validation.
+     */
+    public function test_candidate_stream_url_accepts_custom_https_hostname(): void {
+        $videoid = 'd4b3b9ce-531f-4f7a-a8db-847f47a889e9';
+
+        $this->assertSame(
+            $videoid,
+            bunny_stream::extract_candidate_asset_id_from_url(
+                'https://video.elearningcloud.io/videos/' . $videoid
+            )
+        );
+        $this->assertSame(
+            $videoid,
+            bunny_stream::extract_candidate_asset_id_from_url(
+                'https://custom.example.org/watch?guid=' . $videoid
+            )
+        );
+        $this->assertNull(
+            bunny_stream::extract_candidate_asset_id_from_url(
+                'http://video.elearningcloud.io/videos/' . $videoid
+            )
+        );
+        $this->assertNull(
+            bunny_stream::extract_candidate_asset_id_from_url(
+                'https://user:pass@video.elearningcloud.io/videos/' . $videoid
+            )
+        );
+        $this->assertNull(
+            bunny_stream::extract_candidate_asset_id_from_url(
+                'https://video.elearningcloud.io:8443/videos/' . $videoid
+            )
+        );
+    }
+
+    /**
      * Arbitrary, insecure and credential-bearing URLs are rejected.
      */
     public function test_existing_stream_url_rejects_untrusted_urls(): void {
