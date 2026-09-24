@@ -1,5 +1,19 @@
 # Drive Resource security model
 
+## Elearning Stream gateway boundary
+
+Production Moodle installations do not store Bunny, S3 or other provider management credentials. Moodle stores only:
+
+- the branded HTTPS gateway URL;
+- a numeric Service ID;
+- a 64-character service-scoped token.
+
+The gateway retains provider secrets and performs provider-specific authorization. Requests are signed with HMAC and protected by timestamp/nonce replay controls. The customer-facing gateway URL may be a branded reverse proxy such as `https://stream.elearningcloud.io`; it must preserve POST bodies and headers rather than redirecting signed requests.
+
+The Moodle site URL remains an internal server-side binding used to validate the exact `$CFG->wwwroot`. It is not a replacement for the customer-facing gateway URL.
+
+S3 credentials are subject to the same boundary: endpoint, bucket, access key and secret key belong only in the gateway. The current S3 control plane is configuration-only; protected-document delivery must not be enabled until the data-plane adapter has SSRF restrictions, range-safe streaming, authorization, lifecycle and usage-accounting coverage.
+
 ## Security boundary
 
 Drive Resource does not rely on a hidden button or obfuscated JavaScript for authorization. The enforceable boundary is the Moodle server.
