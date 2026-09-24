@@ -614,9 +614,32 @@ function xmldb_videoplayer_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026092208, 'videoplayer');
     }
 
-    // Custom Elearning Stream public URL aliases and WHMCS-side URL authority.
+    // Custom Elearning Stream public URL aliases and gateway-side URL authority.
     if ($oldversion < 2026092209) {
         upgrade_mod_savepoint(true, 2026092209, 'videoplayer');
+    }
+
+    // New activities are video-first. Existing legacy source values are preserved;
+    // only the database default changes for future records.
+    if ($oldversion < 2026092401) {
+        $table = new xmldb_table('videoplayer');
+        if ($dbman->table_exists($table)) {
+            $sourcefield = new xmldb_field(
+                'source',
+                XMLDB_TYPE_CHAR,
+                '32',
+                null,
+                XMLDB_NOTNULL,
+                null,
+                'bunnystream',
+                'introformat'
+            );
+            if ($dbman->field_exists($table, $sourcefield)) {
+                $dbman->change_field_default($table, $sourcefield);
+            }
+        }
+
+        upgrade_mod_savepoint(true, 2026092401, 'videoplayer');
     }
 
     return true;
