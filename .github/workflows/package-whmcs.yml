@@ -58,7 +58,7 @@ EOF
 
           (
             cd dist-whmcs/package
-            zip -qr ../elearning-stream-whmcs-0.4.3.zip modules README-Drive-Resource-WHMCS.md
+            zip -qr ../elearning-stream-whmcs-0.4.3.zip modules README-Drive-Resource-WHMCS.md INSTALL-Drive-Resource-WHMCS.txt
           )
 
       - name: Upload WHMCS package
