@@ -2,6 +2,18 @@
 
 All notable changes to Drive Resource are documented here. The Moodle component remains `mod_videoplayer` for upgrade compatibility.
 
+## WHMCS companion 0.4.1 + Moodle 1.2.0-beta10-m45 — 2026-09-23
+
+- Adds centrally configured Elearning Stream public hostname aliases for pasted existing-video URLs.
+- Supports branded public video hostnames such as `video.elearningcloud.io` without persisting or fetching the pasted URL from Moodle.
+- Moves authoritative pasted-video hostname validation to WHMCS while preserving provider Video Library ownership verification.
+- Adds module-local English and Spanish dictionaries for the WHMCS customer portal and connection workflow.
+- Adds a redacted WHMCS audit trail for Moodle URL changes, token provisioning/rotation, connection validation and video deletion.
+- Adds the recent audit trail to the WHMCS multi-client administration dashboard.
+- Audit metadata excludes token/password/secret/signature/API-key fields.
+- Moodle release: `1.2.0-beta10-m45`, build `2026092209`.
+- WHMCS companion version: `0.4.1`.
+
 ## WHMCS companion 0.4.0 + Moodle 1.2.0-beta9-m45 — 2026-09-23
 
 - Adds a customer self-service WHMCS dashboard for each Elearning Stream service.
