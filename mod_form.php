@@ -334,7 +334,7 @@ class mod_videoplayer_mod_form extends moodleform_mod {
 
                 if ($streammode === 'url') {
                     $streamurl = trim((string)($data['streamurl'] ?? ''));
-                    if (!bunny_stream::is_supported_url($streamurl)) {
+                    if (bunny_stream::extract_candidate_asset_id_from_url($streamurl) === null) {
                         $errors['streamurl'] = get_string('invalidstreamurl', 'mod_videoplayer');
                     }
                 } else {
