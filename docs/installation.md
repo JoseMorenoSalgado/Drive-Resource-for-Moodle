@@ -1,6 +1,6 @@
-# Drive Resource installation and upgrade
+# Elearning Stream installation and upgrade
 
-## Supported platform for 1.2.0-beta10-m45
+## Supported platform for 1.2.0-rc1-m45
 
 - Moodle 4.5 LTS
 - PHP 8.1+
@@ -11,6 +11,39 @@
 - writable `$CFG->localcachedir`
 
 This compatibility package declares Moodle 4.5 only. Do not install it on Moodle 5.x without a separately tested release.
+
+
+## Production connection model
+
+Install the matching **Elearning Stream Gateway 0.5.0** companion in WHMCS. In the addon configure **Public Gateway URL** to the branded HTTPS endpoint that customers will paste into Moodle; the recommended production value is:
+
+```text
+https://stream.elearningcloud.io
+```
+
+That hostname must terminate HTTPS and reverse-proxy or serve the addon root without changing signed request methods, bodies, paths or headers. Do not use an HTTP 301/302 redirect for the gateway API.
+
+In Moodle configure only:
+
+- **Elearning Stream connection URL**;
+- **Service ID**;
+- **Service token**;
+- **Gateway timeout** (15 seconds recommended).
+
+The customer portal now displays these connection values. The Moodle site's own URL remains an internal service binding and is not the connection URL pasted into Moodle.
+
+### Provider configuration
+
+The WHMCS product has independent provider selectors:
+
+- **Video Provider**: Elearning Stream in 0.5.0;
+- **Protected PDF Storage**: Disabled or S3-compatible object storage;
+- independent provider profiles for each lane.
+
+The addon can store S3-compatible settings for Amazon S3, Cloudflare R2, Wasabi, Backblaze B2, Hetzner Object Storage and custom S3 endpoints. This release does **not** yet enable the protected-PDF S3 data plane; configuration is staged for the dedicated adapter and must not be presented as working PDF storage until that adapter passes production validation.
+
+New Moodle activities are video-only. Existing Google Drive/local-PDF activities remain available only for backward compatibility.
+
 
 ## Filesystem installation
 
