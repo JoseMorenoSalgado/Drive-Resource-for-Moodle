@@ -177,7 +177,7 @@ final class AdminDashboard
         echo '<div class="row">';
         $this->healthMetric('Loaded companion', '0.5.0', true);
         $this->healthMetric('Server module', $serverOk ? 'OK' : 'Missing', $serverOk);
-        $this->healthMetric('Products using driveresource', (string) count($products), count($products) > 0);
+        $this->healthMetric('Products using Elearning Stream', (string) count($products), count($products) > 0);
         $this->healthMetric('Assigned services', (string) $assigned, true);
         $this->healthMetric('Provisioned services', (string) $provisioned, $pending === 0);
         $this->healthMetric('Pending provisioning', (string) $pending, $pending === 0);
@@ -187,7 +187,7 @@ final class AdminDashboard
 
         if (count($products) === 0) {
             echo '<div class="alert alert-danger" style="margin-bottom:0">'
-                . '<strong>No product is assigned to the driveresource module.</strong> '
+                . '<strong>No product is assigned to the Elearning Stream module.</strong> '
                 . 'Open Products/Services → Stream Pro → Module Settings and select Elearning Stream.'
                 . '</div>';
         } else {
@@ -199,7 +199,7 @@ final class AdminDashboard
                 echo '<td>#' . (int) $product->id . '</td>';
                 echo '<td>' . $this->e((string) $product->name) . '</td>';
                 echo '<td>' . $this->e((string) $product->type) . '</td>';
-                echo '<td><code>' . $this->e((string) $product->servertype) . '</code></td>';
+                echo '<td>Elearning Stream</td>';
                 echo '<td>' . ($typeOk
                     ? '<span class="label label-success">Ready</span>'
                     : '<span class="label label-warning">Set Product Type to Other</span>')
@@ -213,7 +213,7 @@ final class AdminDashboard
             echo '<div class="alert alert-warning" style="margin:12px 0 0">'
                 . '<strong>' . $genericUsernames . ' service(s) still have a generic WHMCS username.</strong> '
                 . 'Run Generate/Repair Moodle connection on each affected service. '
-                . 'A provisioned Drive Resource service must use username <code>dr-{service_id}</code>.'
+                . 'A provisioned Elearning Stream service must use username <code>dr-{service_id}</code>.'
                 . '</div>';
         }
 
@@ -297,7 +297,7 @@ final class AdminDashboard
         $this->metric('Storage used', $this->gb((int) $summary['used']) . ' GB');
         $this->metric('Included capacity', $this->gb((int) $summary['quota']) . ' GB');
         $this->metric('Services in overage', (string) $summary['overage']);
-        $this->metric('Moodle connected', (string) $summary['connected']);
+        $this->metric('Connected sites', (string) $summary['connected']);
         $this->metric('Transfer this month', $this->gb((int) $summary['transfer']) . ' GB');
         echo '</div>';
     }
