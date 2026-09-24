@@ -71,6 +71,68 @@ final class Config
     }
 
     /**
+     * Customer-facing hostnames accepted when importing an existing video URL.
+     *
+     * These values are identifiers only; the gateway never fetches the pasted
+     * URL. Ownership is still verified against the configured Video Library.
+     *
+     * @return string[]
+     */
+    public static function publicVideoHosts(): array
+    {
+        $hosts = [
+            self::cdnHostname(),
+            'video.bunnycdn.com',
+            'iframe.mediadelivery.net',
+        ];
+
+        $raw = (string) (Setting::getSettingValueForModule(
+            'driveresource_gateway',
+            'bunny_public_aliases'
+        ) ?: '');
+
+        foreach (preg_split('/[\s,;]+/', $raw, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $candidate) {
+            $host = strtolower(rtrim(trim((string) $candidate), '.'));
+            if (
+                $host === ''
+                || strlen($host) > 253
+                || filter_var($host, FILTER_VALIDATE_IP) !== false
+                || !preg_match(
+                    '/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/',
+                    $host
+                )
+            ) {
+                throw new RuntimeException(
+                    'Invalid Elearning Stream public hostname alias: ' . $candidate
+                );
+            }
+            $hosts[] = $host;
+        }
+
+        return array_values(array_unique($hosts));
+    }
+
+    /**
+     * Whether a pasted video URL hostname is approved for import.
+     *
+     * @param string $host Candidate hostname.
+     * @return bool
+     */
+    public static function isAllowedPublicVideoHost(string $host): bool
+    {
+        $host = strtolower(rtrim(trim($host), '.'));
+        if ($host === '') {
+            return false;
+        }
+
+        if (in_array($host, self::publicVideoHosts(), true)) {
+            return true;
+        }
+
+        return str_ends_with($host, '.mediadelivery.net');
+    }
+
+    /**
      * Elearning Stream playback token key.
      *
      * @return string
