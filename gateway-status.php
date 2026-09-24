@@ -49,7 +49,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 
 $serviceid = (int) get_config('mod_videoplayer', 'whmcsserviceid');
 $token = trim((string) get_config('mod_videoplayer', 'whmcsservicetoken'));
-if ($serviceid <= 0 || strlen($token) < 32) {
+if ($serviceid <= 0 || !preg_match('/^[a-f0-9]{64}$/', $token)) {
     mod_videoplayer_gateway_status_response(503, [
         'ok' => false,
         'status' => 'not_configured',
