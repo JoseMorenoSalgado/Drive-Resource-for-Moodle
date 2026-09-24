@@ -296,3 +296,10 @@ Provisioning generates a service-scoped Moodle token and the username `dr-{servi
 ### WHMCS custom-theme compatibility
 
 WHMCS companion 0.4.2 includes a secure `ClientAreaProductDetailsOutput` fallback for third-party client themes that do not print the provisioning module's normal `ClientArea()` output. The fallback verifies service ownership and `driveresource` product assignment and automatically suppresses itself when the standard dashboard is already rendered.
+
+
+### WHMCS 0.4.3 install health
+
+The WHMCS companion ZIP now extracts directly into the WHMCS root and includes an Installation Health panel in the addon dashboard. The panel detects missing module files, missing product assignment, unprovisioned services, generic usernames and products incorrectly configured as hosting instead of **Other**.
+
+Only module-generated 64-character hexadecimal values are accepted as Moodle service tokens; generic WHMCS service passwords are never presented as Drive Resource credentials.
