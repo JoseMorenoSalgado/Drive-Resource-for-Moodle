@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Language strings for Drive Resource.
+ * Cadenas de idioma de Elearning Stream.
  *
  * @package    mod_videoplayer
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
@@ -58,9 +58,9 @@ $string['duration'] = 'Duración';
 $string['enablegamification'] = 'Activar gamificación de lectura';
 $string['enablegamification_help'] = 'Otorga hitos y puntos personales conforme el estudiante avanza en el recurso.';
 $string['enablewatermark'] = 'Mostrar marca de agua dinámica';
-$string['eventprogressupdated'] = 'Progreso de Drive Resource actualizado';
-$string['eventresourcecompleted'] = 'Drive Resource completado';
-$string['eventrewardawarded'] = 'Recompensa de Drive Resource otorgada';
+$string['eventprogressupdated'] = 'Progreso de Elearning Stream actualizado';
+$string['eventresourcecompleted'] = 'Recurso de Elearning Stream completado';
+$string['eventrewardawarded'] = 'Recompensa de Elearning Stream otorgada';
 $string['fitscreen'] = 'Ajustar a pantalla';
 $string['fullscreen'] = 'Pantalla completa';
 $string['gamification'] = 'Gamificación';
@@ -82,8 +82,8 @@ $string['nextmatch'] = 'Siguiente coincidencia';
 $string['nextpage'] = 'Siguiente';
 $string['nomatches'] = 'Sin coincidencias';
 $string['noprogressrecords'] = 'Todavía no hay registros de progreso para este recurso.';
-$string['noresources'] = 'No hay Drive Resources en este curso.';
-$string['noresourcesavailable'] = 'No hay Drive Resources disponibles para usted en este curso.';
+$string['noresources'] = 'No hay recursos de Elearning Stream en este curso.';
+$string['noresourcesavailable'] = 'No hay recursos de Elearning Stream disponibles para usted en este curso.';
 $string['openprotectedresource'] = 'Abrir recurso protegido';
 $string['pdfjsrequired'] = 'No se pudo cargar el visor local PDF.js.';
 $string['pluginadministration'] = 'Administración de Elearning Stream';
@@ -165,9 +165,9 @@ $string['streaminputmode'] = 'Origen del video en Elearning Stream';
 $string['streammodeupload'] = 'Subir un video nuevo';
 $string['streammodeurl'] = 'Usar un video existente mediante URL';
 $string['streamurl'] = 'URL de Elearning Stream';
-$string['streamurl_help'] = 'Pegue la URL de reproducción, HLS o inserción de un video existente en Elearning Stream. La URL completa no se guarda; solo se registra el identificador validado por WHMCS.';
-$string['task_cleanup_pdf_cache'] = 'Limpiar caché PDF de Drive Resource';
-$string['task_synctransferusage'] = 'Sincronizar transferencia de Elearning Stream con WHMCS';
+$string['streamurl_help'] = 'Pegue la URL de reproducción, HLS o inserción de un video existente en Elearning Stream. La URL completa no se guarda; solo se registra el identificador validado por la pasarela.';
+$string['task_cleanup_pdf_cache'] = 'Limpiar caché PDF de Elearning Stream';
+$string['task_synctransferusage'] = 'Sincronizar transferencia de Elearning Stream';
 $string['timespent'] = 'Tiempo activo';
 $string['trackingdisabled'] = 'El seguimiento de progreso está desactivado en este sitio.';
 $string['typeaudio'] = 'Audio';
@@ -188,19 +188,19 @@ $string['videoname'] = 'Nombre del recurso';
 $string['videonotsupported'] = 'Su navegador no puede reproducir este video.';
 $string['videopause'] = 'Pausar';
 $string['videoplay'] = 'Reproducir';
-$string['videoplayer:addinstance'] = 'Agregar un nuevo Drive Resource';
-$string['videoplayer:addinstance_help'] = 'Permite agregar una nueva actividad Drive Resource al curso.';
-$string['videoplayer:edit'] = 'Editar Drive Resource';
-$string['videoplayer:edit_help'] = 'Permite editar la configuración de Drive Resource.';
-$string['videoplayer:editreport'] = 'Editar reportes de Drive Resource';
-$string['videoplayer:editreport_help'] = 'Permite editar reportes y progreso de usuarios en Drive Resource.';
-$string['videoplayer:manage'] = 'Gestionar Drive Resource';
-$string['videoplayer:manage_help'] = 'Permite gestionar la configuración de Drive Resource.';
+$string['videoplayer:addinstance'] = 'Agregar un nuevo Elearning Stream';
+$string['videoplayer:addinstance_help'] = 'Permite agregar una nueva actividad Elearning Stream al curso.';
+$string['videoplayer:edit'] = 'Editar Elearning Stream';
+$string['videoplayer:edit_help'] = 'Permite editar la configuración de Elearning Stream.';
+$string['videoplayer:editreport'] = 'Editar reportes de Elearning Stream';
+$string['videoplayer:editreport_help'] = 'Permite editar reportes y progreso de usuarios en Elearning Stream.';
+$string['videoplayer:manage'] = 'Gestionar Elearning Stream';
+$string['videoplayer:manage_help'] = 'Permite gestionar la configuración de Elearning Stream.';
 $string['videoplayer:uploadvideo'] = 'Gestionar videos mediante Elearning Stream';
-$string['videoplayer:view'] = 'Ver Drive Resource';
-$string['videoplayer:view_help'] = 'Permite a usuarios autenticados y matriculados ver el contenido protegido de Drive Resource.';
-$string['videoplayer:viewreport'] = 'Ver reportes de Drive Resource';
-$string['videoplayer:viewreport_help'] = 'Permite ver reportes relacionados con Drive Resource.';
+$string['videoplayer:view'] = 'Ver Elearning Stream';
+$string['videoplayer:view_help'] = 'Permite a usuarios autenticados y matriculados ver el contenido protegido de Elearning Stream.';
+$string['videoplayer:viewreport'] = 'Ver reportes de Elearning Stream';
+$string['videoplayer:viewreport_help'] = 'Permite ver reportes relacionados con Elearning Stream.';
 $string['videoseek'] = 'Buscar en el video';
 $string['videospeed'] = 'Velocidad de reproducción';
 $string['videounmute'] = 'Activar sonido';
