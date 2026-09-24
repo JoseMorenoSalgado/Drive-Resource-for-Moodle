@@ -101,6 +101,9 @@ grep -q "Translator::fromParams" integrations/whmcs/modules/servers/driveresourc
 grep -q "generate_token('plain')" integrations/whmcs/modules/servers/driveresource/lib/ClientPortal.php     || fail "Client self-service forms are missing the WHMCS CSRF token."
 grep -Fq "preg_match('/^[a-f0-9]{64}$/'" integrations/whmcs/modules/servers/driveresource/lib/ClientPortal.php     || fail "Client portal no longer validates Drive Resource token format."
 grep -Fq "preg_match('/^[a-f0-9]{64}$/'" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Admin service token handoff no longer validates Drive Resource token format."
+grep -Fq "\$tokenisusable = (bool) preg_match('/^[a-f0-9]{64}$/'" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Provisioning must reject generic WHMCS passwords and generate the module token."
+grep -Fq "!preg_match('/^[a-f0-9]{64}$/'" integrations/whmcs/modules/servers/driveresource/lib/MoodleConnectionProbe.php     || fail "Connection probe must require the exact Drive Resource token format."
+grep -q "standard HTTPS port 443" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Stored Moodle URL validation must match the signed probe port policy."
 grep -q "MoodleConnectionProbe" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Signed Moodle probe is not wired."
 
 echo "Checking custom-theme WHMCS client-area fallback..."
