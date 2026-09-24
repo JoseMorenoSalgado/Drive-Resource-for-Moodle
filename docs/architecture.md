@@ -1,5 +1,36 @@
 # Drive Resource architecture
 
+## Elearning Stream production architecture
+
+The commercial user-facing surface is now video-first. The installed Moodle component remains `mod_videoplayer` so upgrades, capabilities, backup records and database tables remain compatible.
+
+The control plane is deliberately provider-neutral:
+
+```text
+Moodle Elearning Stream activity
+        |
+        | Service ID + service-scoped HMAC token
+        v
+https://stream.elearningcloud.io
+        |
+        v
+Elearning Stream Gateway (WHMCS control plane)
+        |
+        +--> Video provider lane
+        |      -> Elearning Stream today
+        |      -> additional managed-video adapters later
+        |
+        +--> Protected object lane
+               -> Disabled for video-only plans
+               -> S3-compatible provider profile
+```
+
+Video provider identity (`video_backend_key/profile`) and protected-object provider identity (`object_backend_key/profile`) are independent. Legacy `backend_key/profile` remain as video-provider aliases for upgrade compatibility.
+
+The exact Moodle `$CFG->wwwroot` is still stored server-side as a trust binding for signed connection validation, but it is no longer a customer-editable connection field. Customers copy the branded public gateway URL, Service ID and service token into Moodle.
+
+New Moodle activities expose only Elearning Stream video. Google Drive and Moodle-local PDF code paths remain legacy compatibility paths for existing records. Protected PDF on S3 is a separate provider lane; its data plane must remain disabled until its adapter passes the same access, range, lifecycle and accounting gates as video.
+
 ## Scope
 
 Drive Resource is a Moodle 4.5 activity module that presents Google Drive learning resources without delegating the learner experience to the Google Drive viewer. The component name remains `mod_videoplayer`; the architecture is resource-oriented rather than video-only.
