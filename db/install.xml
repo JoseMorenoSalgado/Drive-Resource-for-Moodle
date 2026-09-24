@@ -14,7 +14,7 @@
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
         <FIELD NAME="intro" TYPE="text" NOTNULL="false"/>
         <FIELD NAME="introformat" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0"/>
-        <FIELD NAME="source" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="googledrive"/>
+        <FIELD NAME="source" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="bunnystream"/>
         <FIELD NAME="videourl" TYPE="char" LENGTH="1024" NOTNULL="true"/>
         <FIELD NAME="providerassetid" TYPE="char" LENGTH="64" NOTNULL="false"/>
         <FIELD NAME="provideruploadid" TYPE="char" LENGTH="64" NOTNULL="false"/>
