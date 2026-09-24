@@ -54,15 +54,17 @@ class mod_videoplayer_mod_form extends moodleform_mod {
         $currentsource = bunny_stream::SOURCE;
         if (!empty($this->current) && !empty($this->current->source)) {
             $candidate = clean_param((string)$this->current->source, PARAM_ALPHANUMEXT);
-            if (in_array(
-                $candidate,
-                [
-                    bunny_stream::SOURCE,
-                    drive::SOURCE_GOOGLEDRIVE,
-                    drive::SOURCE_LOCALPDF,
-                ],
-                true
-            )) {
+            if (
+                in_array(
+                    $candidate,
+                    [
+                        bunny_stream::SOURCE,
+                        drive::SOURCE_GOOGLEDRIVE,
+                        drive::SOURCE_LOCALPDF,
+                    ],
+                    true
+                )
+            ) {
                 $currentsource = $candidate;
             }
         }
