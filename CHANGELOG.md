@@ -2,6 +2,14 @@
 
 All notable changes to Drive Resource are documented here. The Moodle component remains `mod_videoplayer` for upgrade compatibility.
 
+## WHMCS companion 0.4.2 — 2026-09-23
+
+- Adds an official `ClientAreaProductDetailsOutput` fallback for WHMCS client themes that omit provisioning-module `ClientArea()` output.
+- Verifies the logged-in client owns the service and the product uses the `driveresource` provisioning module before rendering.
+- Adds a per-service DOM identity marker and removes the fallback automatically when the standard module dashboard is already present, preventing duplicate dashboards.
+- Keeps Moodle at `1.2.0-beta10-m45`; this is a WHMCS client-area compatibility fix.
+- WHMCS companion version: `0.4.2`.
+
 ## WHMCS companion 0.4.1 + Moodle 1.2.0-beta10-m45 — 2026-09-23
 
 - Adds centrally configured Elearning Stream public hostname aliases for pasted existing-video URLs.
