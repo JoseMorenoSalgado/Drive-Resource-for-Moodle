@@ -83,7 +83,7 @@ grep -q 'streamplayback' db/caches.php     || fail "Managed stream playback cach
 grep -q 'watched_range_set' classes/local/progress/progress_service.php     || fail "Server completion no longer validates watched ranges."
 grep -q 'watchedranges' db/install.xml     || fail "Watched-range persistence is missing from XMLDB."
 grep -q '2026092204' db/upgrade.php     || fail "Critical beta schema-repair savepoint is missing from upgrade.php."
-grep -q '2026092209' db/upgrade.php     || fail "Beta10 upgrade savepoint is missing from upgrade.php."
+grep -q '2026092401' db/upgrade.php     || fail "RC1 video-first upgrade savepoint is missing from upgrade.php."
 grep -q 'completionprogressenabled' db/upgrade.php     || fail "Completion schema recovery is missing from upgrade.php."
 grep -q "get_columns('videoplayer')" lib.php     || fail "Course cache is not resilient to partial beta schemas."
 if grep -A12 "new xmldb_field('watchedranges'" db/upgrade.php | grep -q "'duration'"; then
@@ -103,6 +103,6 @@ grep -q 'get_suffix()' mod_form.php     || fail "Custom completion controls no l
 
 echo "Checking release metadata..."
 grep -q "\$plugin->supported = \[405, 405\]" version.php     || fail "Moodle 4.5 support declaration changed unexpectedly."
-grep -q 'MATURITY_BETA' version.php     || fail "Beta hardening branch must remain beta maturity until release exit gates pass."
+grep -q 'MATURITY_RC' version.php     || fail "RC release must declare MATURITY_RC."
 
-echo "Drive Resource release invariants: PASS"
+echo "Elearning Stream release invariants: PASS"
