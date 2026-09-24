@@ -109,7 +109,7 @@ add_hook('ClientAreaProductDetailsOutput', 5, static function ($context): string
  */
 add_hook('AddonConfig', 5, static function (array $vars): array {
     try {
-        $root = dirname(__DIR__, 4);
+        $root = dirname(__DIR__, 3);
         $serverModule = $root . '/modules/servers/driveresource/driveresource.php';
         $products = (int) \WHMCS\Database\Capsule::table('tblproducts')
             ->where('servertype', 'driveresource')
