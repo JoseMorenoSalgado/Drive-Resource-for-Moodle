@@ -161,6 +161,7 @@ function driveresource_UpdateMoodleUrl(array $params): string
             $serviceId,
             $url,
             $now,
+            $params,
             &$previousUrl
         ): void {
             $service = Capsule::table('mod_driveresource_services')
