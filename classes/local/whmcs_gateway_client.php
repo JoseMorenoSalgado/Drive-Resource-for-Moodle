@@ -49,7 +49,8 @@ final class whmcs_gateway_client {
         if ((int)get_config('mod_videoplayer', 'whmcsserviceid') <= 0) {
             $missing[] = 'setting_whmcsserviceid';
         }
-        if (trim((string)get_config('mod_videoplayer', 'whmcsservicetoken')) === '') {
+        $token = strtolower(trim((string)get_config('mod_videoplayer', 'whmcsservicetoken')));
+        if (!preg_match('/^[a-f0-9]{64}$/', $token)) {
             $missing[] = 'setting_whmcsservicetoken';
         }
 
