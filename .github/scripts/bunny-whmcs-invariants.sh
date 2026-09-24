@@ -48,12 +48,24 @@ grep -q 'NAME="providerstatus"' db/install.xml || fail "providerstatus is missin
 grep -q 'NAME="providerasset_idx"' db/install.xml || fail "providerasset_idx is missing from install.xml."
 grep -q '2026092103' db/upgrade.php || fail "Bunny provider upgrade savepoint is missing."
 grep -q '2026092202' db/upgrade.php || fail "Progress schema repair savepoint is missing."
+grep -q '2026092401' db/upgrade.php || fail "Elearning Stream RC1 source-default upgrade savepoint is missing."
+grep -q 'DEFAULT="bunnystream"' db/install.xml || fail "Fresh installs must default to Elearning Stream video."
 
 echo "Checking Moodle/Elearning Stream secret boundary..."
 if grep -RniE 'AccessKey:|bunny_api_key|bunny_token_key' classes amd db lib.php mod_form.php settings.php view.php templates; then
     fail "A Bunny management credential identifier leaked into Moodle runtime code."
 fi
-grep -q "Elearning Stream provider credentials remain exclusively in WHMCS" lang/en/videoplayer.php     || fail "Moodle secret-boundary language invariant is missing."
+grep -q "Provider credentials remain protected in the gateway" lang/en/videoplayer.php     || fail "Moodle secret-boundary language invariant is missing."
+if grep -nE "= '[^']*WHMCS" lang/en/videoplayer.php lang/es/videoplayer.php; then
+    fail "Customer-facing Moodle language still exposes WHMCS implementation wording."
+fi
+if grep -RniE 'object_storage_access_key|object_storage_secret_key|bunny_api_key|bunny_token_key' classes amd db lib.php mod_form.php settings.php view.php templates; then
+    fail "Provider management credential identifiers leaked into Moodle runtime code."
+fi
+if grep -q "addElement('select', 'source'" mod_form.php; then
+    fail "New Moodle activities must not expose the legacy resource-source selector."
+fi
+grep -q "addElement('hidden', 'source', \$currentsource)" mod_form.php     || fail "Moodle form no longer pins the production source internally."
 grep -q "video\.bunnycdn\.com" classes/local/whmcs_gateway_client.php     || fail "Moodle no longer pins the TUS upload host."
 if grep -Rni '/library/' classes amd/src amd/build; then
     fail "Moodle runtime contains a Bunny management API path."
@@ -65,15 +77,21 @@ grep -q "'AccessKey: '" integrations/whmcs/modules/addons/driveresource_gateway/
 grep -q 'hash_hmac' integrations/whmcs/modules/addons/driveresource_gateway/lib/RequestAuthenticator.php     || fail "Moodle-to-WHMCS HMAC verification is missing."
 grep -q 'mod_driveresource_nonces' integrations/whmcs/modules/addons/driveresource_gateway/lib/RequestAuthenticator.php     || fail "Replay nonce protection is missing."
 
-echo "Checking multi-tenant backend architecture..."
-grep -q "'version' => '0.4.3'" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "WHMCS addon version 0.4.3 is missing."
+echo "Checking multi-tenant provider architecture..."
+grep -q "'version' => '0.5.0'" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "WHMCS addon version 0.5.0 is missing."
 grep -q "function driveresource_gateway_upgrade" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "WHMCS addon upgrade function is missing."
-grep -q "backend_key" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "Service backend key schema is missing."
-grep -q "backend_profile" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "Service backend profile schema is missing."
-grep -q "S3_COMPATIBLE" integrations/whmcs/modules/addons/driveresource_gateway/lib/BackendRegistry.php     || fail "Future S3 backend registry entry is missing."
-grep -q "'provisionable' => false" integrations/whmcs/modules/addons/driveresource_gateway/lib/BackendRegistry.php     || fail "Future S3 backend must remain non-provisionable until implemented."
-grep -q "Storage Backend" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "WHMCS product backend selector is missing."
-grep -q "Backend Profile" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "WHMCS backend profile selector is missing."
+grep -q "video_backend_key" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "Independent video-provider schema is missing."
+grep -q "object_backend_key" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "Independent object-storage schema is missing."
+grep -q "driveresource_gateway_ensure_provider_schema" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "0.5.0 provider schema migration is missing."
+grep -q "S3_COMPATIBLE" integrations/whmcs/modules/addons/driveresource_gateway/lib/BackendRegistry.php     || fail "S3-compatible provider registry entry is missing."
+grep -A8 "self::S3_COMPATIBLE" integrations/whmcs/modules/addons/driveresource_gateway/lib/BackendRegistry.php | grep -q "'operational' => false"     || fail "S3 data plane must remain gated until its adapter is implemented."
+grep -q "Video Provider" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "WHMCS video-provider selector is missing."
+grep -q "Protected PDF Storage" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "WHMCS protected-PDF storage selector is missing."
+grep -q "Object Storage Profile" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "WHMCS object-storage profile selector is missing."
+grep -q "'object_storage_provider'" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "S3 provider configuration is missing."
+grep -q "'object_storage_endpoint'" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "S3 endpoint configuration is missing."
+grep -q "'object_storage_secret_key'" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "S3 secret configuration is missing."
+grep -q "'public_gateway_url'" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "Branded public gateway URL setting is missing."
 grep -q "controlled backend migration is required" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Unsafe backend switching protection is missing."
 grep -q "requireServiceCapability" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "Gateway backend capability enforcement is missing."
 grep -q "AdminDashboard" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "Multi-client admin dashboard is not wired."
@@ -88,10 +106,17 @@ grep -q "function driveresource_provision_moodle_connection" integrations/whmcs/
 
 echo "Checking WHMCS client self-service portal..."
 grep -q "function driveresource_ClientAreaAllowedFunctions" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Client-area self-service allow-list is missing."
-grep -q "UpdateMoodleUrl" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Client Moodle URL update action is missing."
+grep -q "publicGatewayUrl" integrations/whmcs/modules/servers/driveresource/lib/ClientPortal.php     || fail "Client portal does not expose the branded gateway URL."
+grep -q "public_gateway_url" integrations/whmcs/modules/servers/driveresource/lib/ClientPortal.php     || fail "Client portal is not wired to the branded gateway setting."
+if grep -q 'name="moodleurl"' integrations/whmcs/modules/servers/driveresource/lib/ClientPortal.php; then
+    fail "Customer portal must not expose the internal Moodle site binding as an editable field."
+fi
+if grep -A12 "function driveresource_ClientAreaAllowedFunctions" integrations/whmcs/modules/servers/driveresource/driveresource.php | grep -q "UpdateMoodleUrl"; then
+    fail "Customer self-service must not be allowed to change the internal Moodle site binding."
+fi
 grep -q "ValidateMoodleConnection" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Client Moodle connection validation is missing."
 grep -q "DeleteVideo" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Client video deletion action is missing."
-grep -q "activeRefs" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Moodle URL reassignment protection is missing."
+grep -q "activeRefs" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Internal Moodle URL reassignment protection is missing."
 grep -q "where('active', true)" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Client video deletion must block active Moodle references."
 grep -q "generate_new_key" integrations/whmcs/modules/servers/driveresource/lang/english.php     || fail "English client token rotation string is missing."
 grep -q "generate_new_key" integrations/whmcs/modules/servers/driveresource/lang/spanish.php     || fail "Spanish client token rotation string is missing."
@@ -193,4 +218,4 @@ grep -q "AuthorizationSignature" amd/src/bunnyupload.js     || fail "Bunny presi
 grep -q "mod_videoplayer_refresh_bunny_upload" amd/src/bunnyupload.js     || fail "Long-running TUS authorization refresh is missing."
 grep -q "credentials: 'omit'" amd/src/bunnyupload.js     || fail "Direct Bunny upload must not send Moodle cookies cross-origin."
 
-echo "Elearning Stream/WHMCS integration invariants: PASS"
+echo "Elearning Stream Gateway integration invariants: PASS"
