@@ -934,9 +934,10 @@ function driveresource_normalize_site_url(string $raw): string
         throw new RuntimeException('Moodle Site URL must use the standard HTTPS port 443.');
     }
 
+    $port = isset($parts['port']) ? ':443' : '';
     $path = rtrim((string) ($parts['path'] ?? ''), '/');
 
-    return 'https://' . strtolower((string) $parts['host']) . $path;
+    return 'https://' . strtolower((string) $parts['host']) . $port . $path;
 }
 
 /**
