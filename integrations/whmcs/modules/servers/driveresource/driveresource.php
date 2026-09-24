@@ -150,8 +150,14 @@ function driveresource_UpdateMoodleUrl(array $params): string
         $serviceId = (int) ($params['serviceid'] ?? 0);
         $url = driveresource_normalize_site_url((string) ($_POST['moodleurl'] ?? ''));
         $now = time();
+        $previousUrl = '';
 
-        Capsule::connection()->transaction(function () use ($serviceId, $url, $now): void {
+        Capsule::connection()->transaction(function () use (
+            $serviceId,
+            $url,
+            $now,
+            &$previousUrl
+        ): void {
             $service = Capsule::table('mod_driveresource_services')
                 ->where('service_id', $serviceId)
                 ->lockForUpdate()
@@ -161,6 +167,7 @@ function driveresource_UpdateMoodleUrl(array $params): string
             }
 
             $currentUrl = rtrim((string) $service->site_url, '/');
+            $previousUrl = $currentUrl;
             if ($currentUrl !== rtrim($url, '/')) {
                 $activeRefs = (int) Capsule::table('mod_driveresource_asset_refs')
                     ->where('service_id', $serviceId)
@@ -180,7 +187,7 @@ function driveresource_UpdateMoodleUrl(array $params): string
                     'site_hash' => hash('sha256', $url),
                     'connection_status' => 'pending',
                     'connection_checked_at' => null,
-                    'connection_message' => 'URL actualizada. Valida la conexión después de configurar Moodle.',
+                    'connection_message' => 'connection_pending',
                     'updated_at' => $now,
                 ]);
         });
@@ -188,6 +195,13 @@ function driveresource_UpdateMoodleUrl(array $params): string
         if (isset($params['model'])) {
             $params['model']->serviceProperties->save([
                 'Moodle Site URL' => $url,
+            ]);
+        }
+
+        if ($previousUrl !== rtrim($url, '/')) {
+            driveresource_audit($serviceId, 'moodle_url_changed', [
+                'old_url' => $previousUrl,
+                'new_url' => rtrim($url, '/'),
             ]);
         }
 
@@ -233,6 +247,12 @@ function driveresource_ValidateMoodleConnection(array $params): string
                 'connection_message' => mb_substr((string) $result['message'], 0, 255),
                 'updated_at' => time(),
             ]);
+
+        driveresource_audit($serviceId, 'moodle_connection_validated', [
+            'connected' => (bool) $result['connected'],
+            'site_url' => (string) $service->site_url,
+            'plugin_version' => (int) ($result['pluginversion'] ?? 0),
+        ]);
 
         return $result['connected'] ? 'success' : (string) $result['message'];
     } catch (Throwable $exception) {
@@ -310,6 +330,13 @@ function driveresource_DeleteVideo(array $params): string
                     'updated_at' => time(),
                 ]);
         });
+
+        driveresource_audit($serviceId, 'video_deleted', [
+            'video_id' => (string) $upload->video_id,
+            'upload_id' => $uploadId,
+            'filename' => (string) $upload->filename,
+            'bytes' => (int) $upload->accounted_bytes,
+        ]);
 
         return 'success';
     } catch (Throwable $exception) {
@@ -398,7 +425,7 @@ function driveresource_provision_moodle_connection(array $params, bool $forcerot
             'backend_profile' => $backendProfile,
             'connection_status' => 'pending',
             'connection_checked_at' => null,
-            'connection_message' => 'Pendiente de validación desde WHMCS.',
+            'connection_message' => 'connection_pending',
             'quota_bytes' => $quotaBytes,
             'overage_allowed' => $overageAllowed,
             'retention_days' => $retentionDays,
@@ -444,6 +471,16 @@ function driveresource_provision_moodle_connection(array $params, bool $forcerot
             ],
             null,
             ['Password', 'password', 'token']
+        );
+
+        driveresource_audit(
+            $serviceId,
+            $forcerotation ? 'moodle_token_rotated' : 'moodle_connection_provisioned',
+            [
+                'site_url' => $siteUrl,
+                'backend' => $backendKey,
+                'token_rotated' => (bool) ($forcerotation || !$tokenisusable),
+            ]
         );
 
         return 'success';
@@ -797,6 +834,26 @@ function driveresource_service_token(array $params): string
     } catch (Throwable $exception) {
         return '';
     }
+}
+
+/**
+ * Write one redacted Drive Resource audit event.
+ *
+ * @param int $serviceId WHMCS service id.
+ * @param string $action Stable action key.
+ * @param array $metadata Non-secret metadata.
+ * @return void
+ */
+function driveresource_audit(int $serviceId, string $action, array $metadata = []): void
+{
+    $lib = dirname(__DIR__, 2) . '/addons/driveresource_gateway/lib';
+    require_once $lib . '/AuditLogger.php';
+
+    \WHMCS\Module\Addon\DriveresourceGateway\AuditLogger::log(
+        $serviceId,
+        $action,
+        $metadata
+    );
 }
 
 /**
