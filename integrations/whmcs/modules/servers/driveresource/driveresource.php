@@ -14,6 +14,7 @@ use WHMCS\Database\Capsule;
 use WHMCS\Module\Server\Driveresource\ClientPortal;
 use WHMCS\Module\Server\Driveresource\MetricsProvider;
 use WHMCS\Module\Server\Driveresource\MoodleConnectionProbe;
+use WHMCS\Module\Server\Driveresource\Translator;
 
 /**
  * Module metadata.
@@ -109,10 +110,12 @@ function driveresource_CreateAccount(array $params): string
  */
 function driveresource_AdminCustomButtonArray(): array
 {
+    $translator = Translator::fromParams([]);
+
     return [
-        'Generar/Reparar conexión Moodle' => 'ProvisionMoodleConnection',
-        'Rotar token Moodle' => 'RotateMoodleToken',
-        'Validar conexión Moodle' => 'ValidateMoodleConnection',
+        $translator->t('generate_token') => 'ProvisionMoodleConnection',
+        $translator->t('generate_new_key') => 'RotateMoodleToken',
+        $translator->t('validate_connection') => 'ValidateMoodleConnection',
     ];
 }
 
@@ -165,8 +168,7 @@ function driveresource_UpdateMoodleUrl(array $params): string
                     ->count();
                 if ($activeRefs > 0) {
                     throw new RuntimeException(
-                        'No puedes cambiar de aula mientras existen videos vinculados a actividades Moodle. '
-                        . 'Libera o migra esas referencias primero.'
+                        Translator::fromParams($params)->t('url_locked_by_refs')
                     );
                 }
             }
@@ -216,7 +218,8 @@ function driveresource_ValidateMoodleConnection(array $params): string
         }
 
         $token = driveresource_service_token($params);
-        $result = (new MoodleConnectionProbe())->probe(
+        $translator = Translator::fromParams($params);
+        $result = (new MoodleConnectionProbe($translator))->probe(
             $serviceId,
             (string) $service->site_url,
             $token
@@ -252,14 +255,14 @@ function driveresource_DeleteVideo(array $params): string
         $serviceId = (int) ($params['serviceid'] ?? 0);
         $uploadId = strtolower(trim((string) ($_POST['uploadid'] ?? '')));
         if (!preg_match('/^[a-f0-9]{32}$/', $uploadId)) {
-            throw new RuntimeException('Invalid video identifier.');
+            throw new RuntimeException(Translator::fromParams($params)->t('video_invalid'));
         }
 
         $service = Capsule::table('mod_driveresource_services')
             ->where('service_id', $serviceId)
             ->first();
         if (!$service || (string) ($service->backend_key ?? '') !== 'elearningstream') {
-            throw new RuntimeException('This service does not use Elearning Stream.');
+            throw new RuntimeException(Translator::fromParams($params)->t('backend_mismatch'));
         }
 
         $upload = Capsule::table('mod_driveresource_uploads')
@@ -268,7 +271,7 @@ function driveresource_DeleteVideo(array $params): string
             ->where('status', '<>', 'deleted')
             ->first();
         if (!$upload || empty($upload->video_id)) {
-            throw new RuntimeException('Video not found.');
+            throw new RuntimeException(Translator::fromParams($params)->t('video_not_found'));
         }
 
         $references = (int) Capsule::table('mod_driveresource_asset_refs')
@@ -278,7 +281,7 @@ function driveresource_DeleteVideo(array $params): string
             ->count();
         if ($references > 0) {
             throw new RuntimeException(
-                'Este video todavía está vinculado a una actividad Moodle y no puede eliminarse.'
+                Translator::fromParams($params)->t('video_still_referenced')
             );
         }
 
