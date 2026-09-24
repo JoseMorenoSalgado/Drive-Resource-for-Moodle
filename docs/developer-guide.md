@@ -305,3 +305,22 @@ Moodle stores short-lived aggregateable events in `videoplayer_transfer_events`.
 WHMCS stores the current UTC month in `transfer_period` and the accumulated bytes in `transfer_bytes`. Usage Billing exposes this as `video_transfer_gb` with `MetricInterface::TYPE_PERIOD_MONTH`; storage remains `TYPE_SNAPSHOT`.
 
 The signed connection probe endpoint must remain cookie-free, HTTPS-exact, HMAC-authenticated and replay-protected.
+
+
+## Public video hostname validation contract
+
+Do not add branded video domains directly to Moodle allow-lists. Moodle may validate only safe HTTPS URL shape and provider-GUID syntax. WHMCS is authoritative for public video hostnames through `Config::publicVideoHosts()`.
+
+`bunny_public_aliases` accepts exact DNS hostnames separated by commas/whitespace/semicolons. Never accept URL schemes, wildcards, IP literals or arbitrary ports in this setting.
+
+The pasted URL may cross the authenticated Moodle→WHMCS channel only long enough to validate hostname and extract the provider GUID. Do not persist it and do not fetch it. Provider ownership must always be verified with the configured Video Library API.
+
+## WHMCS localisation contract
+
+Customer-facing server-module strings belong in `modules/servers/driveresource/lang/english.php` and `spanish.php`. Use `Translator::fromParams()` from Client Area and service actions. Do not add new hardcoded Spanish/English UI labels inside `ClientPortal.php`.
+
+## WHMCS audit contract
+
+Use `driveresource_audit()` / `AuditLogger::log()` for successful sensitive control-plane mutations. Metadata must be operational and non-secret. Never pass service tokens, provider API keys, token-signing keys, request signatures or passwords.
+
+Audit failure should not corrupt the user operation; the logger records an appropriately redacted module-log failure when possible.
