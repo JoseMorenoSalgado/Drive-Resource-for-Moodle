@@ -279,12 +279,8 @@ final class GatewayService
     public function importAsset(object $service, array $payload): array
     {
         $this->requireBackendCapability($service, BackendRegistry::CAP_MANAGED_VIDEO);
-        $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
+        $videoId = $this->resolveImportedVideoId($payload);
         $courseId = max(0, (int) ($payload['courseid'] ?? 0));
-
-        if (!preg_match('/^[a-f0-9-]{32,64}$/i', $videoId)) {
-            throw new GatewayException('Invalid Elearning Stream video identifier.', 422);
-        }
 
         $otherOwner = Capsule::table('mod_driveresource_uploads')
             ->where('video_id', $videoId)
@@ -677,6 +673,89 @@ final class GatewayService
             'status' => 'recorded',
             'period' => $period,
         ];
+    }
+
+    /**
+     * Resolve an import payload to a provider video GUID.
+     *
+     * New clients send the pasted URL so WHMCS can enforce the centrally
+     * configured public hostname aliases. Legacy clients may still submit a
+     * bare GUID.
+     *
+     * @param array $payload Request payload.
+     * @return string
+     */
+    private function resolveImportedVideoId(array $payload): string
+    {
+        $url = trim((string) ($payload['url'] ?? ''));
+        if ($url !== '') {
+            return $this->extractVideoIdFromPublicUrl($url);
+        }
+
+        $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
+        if (!preg_match('/^[a-f0-9-]{32,64}$/i', $videoId)) {
+            throw new GatewayException('Invalid Elearning Stream video identifier.', 422);
+        }
+
+        return $videoId;
+    }
+
+    /**
+     * Validate a customer-facing Elearning Stream URL without fetching it.
+     *
+     * @param string $url Pasted video URL.
+     * @return string Provider video GUID.
+     */
+    private function extractVideoIdFromPublicUrl(string $url): string
+    {
+        if (strlen($url) > 2048) {
+            throw new GatewayException('Elearning Stream video URL is too long.', 422);
+        }
+
+        $parts = parse_url($url);
+        if (
+            !is_array($parts)
+            || strtolower((string) ($parts['scheme'] ?? '')) !== 'https'
+            || empty($parts['host'])
+            || isset($parts['user'])
+            || isset($parts['pass'])
+            || (isset($parts['port']) && (int) $parts['port'] !== 443)
+        ) {
+            throw new GatewayException('Invalid Elearning Stream video URL.', 422);
+        }
+
+        $host = strtolower(rtrim((string) $parts['host'], '.'));
+        if (!Config::isAllowedPublicVideoHost($host)) {
+            throw new GatewayException(
+                'This Elearning Stream public hostname is not authorised by WHMCS.',
+                422
+            );
+        }
+
+        $segments = array_values(array_filter(
+            explode('/', trim((string) ($parts['path'] ?? ''), '/')),
+            static fn(string $segment): bool => $segment !== ''
+        ));
+
+        foreach (array_reverse($segments) as $segment) {
+            $candidate = strtolower(rawurldecode($segment));
+            if (preg_match('/^[a-f0-9-]{32,64}$/i', $candidate)) {
+                return $candidate;
+            }
+        }
+
+        parse_str((string) ($parts['query'] ?? ''), $query);
+        foreach (['videoid', 'videoId', 'guid'] as $key) {
+            $candidate = strtolower(trim((string) ($query[$key] ?? '')));
+            if (preg_match('/^[a-f0-9-]{32,64}$/i', $candidate)) {
+                return $candidate;
+            }
+        }
+
+        throw new GatewayException(
+            'The Elearning Stream URL does not contain a valid video identifier.',
+            422
+        );
     }
 
     /**
