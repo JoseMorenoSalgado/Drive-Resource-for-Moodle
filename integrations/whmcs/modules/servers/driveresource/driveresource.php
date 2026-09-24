@@ -843,12 +843,17 @@ function driveresource_require_post(): void
 function driveresource_service_token(array $params): string
 {
     $token = trim((string) ($params['password'] ?? ''));
-    if ($token !== '' || !isset($params['model'])) {
+    if (preg_match('/^[a-f0-9]{64}$/', $token)) {
         return $token;
     }
 
+    if (!isset($params['model'])) {
+        return '';
+    }
+
     try {
-        return trim((string) $params['model']->serviceProperties->get('Password'));
+        $token = trim((string) $params['model']->serviceProperties->get('Password'));
+        return preg_match('/^[a-f0-9]{64}$/', $token) ? $token : '';
     } catch (Throwable $exception) {
         return '';
     }
