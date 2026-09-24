@@ -24,8 +24,8 @@ jobs:
           mkdir -p dist-whmcs/package/modules/addons
           mkdir -p dist-whmcs/package/modules/servers
 
-          cp -a integrations/whmcs/modules/addons/driveresource_gateway             dist-whmcs/package/modules/addons/
-          cp -a integrations/whmcs/modules/servers/driveresource             dist-whmcs/package/modules/servers/
+          cp -a integrations/whmcs/modules/addons/driveresource_gateway dist-whmcs/package/modules/addons/
+          cp -a integrations/whmcs/modules/servers/driveresource dist-whmcs/package/modules/servers/
           cp integrations/whmcs/README.md dist-whmcs/package/README-Drive-Resource-WHMCS.md
 
           printf '%s\n' \
@@ -36,10 +36,11 @@ jobs:
             '2. It will place files under:' \
             '   modules/addons/driveresource_gateway/' \
             '   modules/servers/driveresource/' \
-            '3. In WHMCS, open Addon Modules -> Drive Resource Media Gateway.' \
-            '4. Confirm "Loaded companion version: 0.4.3" in Installation Health.' \
-            '5. Confirm your Stream product uses module driveresource and Product Type "Other".' \
+            '3. In WHMCS, open Addons -> Drive Resource Media Gateway.' \
+            '4. Confirm Loaded companion 0.4.3 in Installation Health.' \
+            '5. Confirm your Stream product uses module driveresource and Product Type Other.' \
             > dist-whmcs/package/INSTALL-Drive-Resource-WHMCS.txt
+
           test -f dist-whmcs/package/modules/addons/driveresource_gateway/driveresource_gateway.php
           test -f dist-whmcs/package/modules/addons/driveresource_gateway/api/upload-authorize.php
           test -f dist-whmcs/package/modules/addons/driveresource_gateway/lib/BackendRegistry.php
@@ -57,28 +58,15 @@ jobs:
 
           (
             cd dist-whmcs/package
-            zip -qr ../elearning-stream-whmcs-0.4.3.zip modules README-Drive-Resource-WHMCS.md INSTALL-Drive-Resource-WHMCS.txt
+            zip -qr ../elearning-stream-whmcs-0.4.3.zip \
+              modules \
+              README-Drive-Resource-WHMCS.md \
+              INSTALL-Drive-Resource-WHMCS.txt
           )
 
           unzip -t dist-whmcs/elearning-stream-whmcs-0.4.3.zip
-          unzip -Z1 dist-whmcs/elearning-stream-whmcs-0.4.3.zip | grep -q '^modules/addons/driveresource_gateway/driveresource_gateway.php
-      - name: Upload WHMCS package
-        uses: actions/upload-artifact@v4
-        with:
-          name: elearning-stream-whmcs-0.4.3
-          path: dist-whmcs/elearning-stream-whmcs-0.4.3.zip
-          if-no-files-found: error
-          retention-days: 30
-
-          unzip -Z1 dist-whmcs/elearning-stream-whmcs-0.4.3.zip | grep -q '^modules/servers/driveresource/driveresource.php
-      - name: Upload WHMCS package
-        uses: actions/upload-artifact@v4
-        with:
-          name: elearning-stream-whmcs-0.4.3
-          path: dist-whmcs/elearning-stream-whmcs-0.4.3.zip
-          if-no-files-found: error
-          retention-days: 30
-
+          unzip -Z1 dist-whmcs/elearning-stream-whmcs-0.4.3.zip | grep -q '^modules/addons/driveresource_gateway/driveresource_gateway.php$'
+          unzip -Z1 dist-whmcs/elearning-stream-whmcs-0.4.3.zip | grep -q '^modules/servers/driveresource/driveresource.php$'
           if unzip -Z1 dist-whmcs/elearning-stream-whmcs-0.4.3.zip | grep -q '^whmcs-root/'; then
             echo "::error::WHMCS package must extract directly into the WHMCS root; whmcs-root wrapper detected."
             exit 1
