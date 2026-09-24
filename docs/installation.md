@@ -305,3 +305,20 @@ Enter hostnames only: no `https://`, paths or wildcards. Multiple aliases can be
 Upgrade the Moodle plugin to **Drive Resource 1.2.0-beta10-m45**. A teacher can then paste a video URL using the configured branded hostname. Moodle sends the URL transiently to WHMCS, and WHMCS verifies both the hostname and the underlying video against the configured Video Library.
 
 WHMCS 0.4.1 also installs/updates the redacted audit table automatically. The multi-client addon dashboard shows recent audit entries. The customer service portal selects English or Spanish from the active WHMCS language context.
+
+
+## WHMCS 0.4.2 client-area verification
+
+After replacing the WHMCS module files with companion 0.4.2:
+
+1. open **Products/Services → Stream Pro → Module Settings**;
+2. confirm the provisioning module is **Elearning Stream / driveresource**;
+3. save the product;
+4. open the customer's service in the WHMCS administrator area;
+5. run **Generate/Repair Moodle connection** if Username/Password were not provisioned by Drive Resource;
+6. the resulting Username should be `dr-{service_id}`;
+7. open the same service from the customer Client Area.
+
+The customer page should show Drive Resource cards for Moodle connection, storage, current-month transfer and videos. Companion 0.4.2 also supplies a product-details output fallback for compatible custom WHMCS themes that omit standard provisioning-module output.
+
+If the Client Area still shows only the generic WHMCS domain/username cards and the service Username is not `dr-{service_id}`, verify the product is actually assigned to the `driveresource` module and reprovision that service.
