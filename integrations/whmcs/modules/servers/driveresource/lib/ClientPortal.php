@@ -15,12 +15,16 @@ final class ClientPortal
     /** @var array Standard WHMCS module parameters. */
     private array $params;
 
+    /** @var Translator Module-local translator. */
+    private Translator $translator;
+
     /**
      * @param array $params WHMCS module parameters.
      */
     public function __construct(array $params)
     {
         $this->params = $params;
+        $this->translator = Translator::fromParams($params);
     }
 
     /**
@@ -37,7 +41,7 @@ final class ClientPortal
 
         if (!$service) {
             return '<div class="alert alert-warning">'
-                . 'El servicio todavía no está provisionado. Contacta a soporte o usa el comando de creación del servicio.'
+                . $this->e($this->translator->t('service_not_provisioned'))
                 . '</div>';
         }
 
@@ -88,102 +92,124 @@ final class ClientPortal
         }
 
         $connection = strtolower((string) ($service->connection_status ?? 'pending'));
-        $connectionLabel = 'Pendiente';
+        $connectionLabel = $this->translator->t('connection_pending');
         $connectionClass = 'warning';
         if ($connection === 'connected') {
-            $connectionLabel = 'Conectado';
+            $connectionLabel = $this->translator->t('connection_connected');
             $connectionClass = 'success';
         } else if ($connection === 'failed') {
-            $connectionLabel = 'No conectado';
+            $connectionLabel = $this->translator->t('connection_failed');
             $connectionClass = 'danger';
         }
 
         $checked = !empty($service->connection_checked_at)
             ? date('Y-m-d H:i', (int) $service->connection_checked_at)
-            : 'Sin validar';
+            : $this->translator->t('connection_unvalidated');
         $connectionMessage = trim((string) ($service->connection_message ?? ''));
+        if ($connectionMessage !== '' && $this->translator->has($connectionMessage)) {
+            $connectionMessage = $this->translator->t($connectionMessage);
+        }
 
         $html = $this->styles();
         $html .= '<div class="dr-portal">';
         $html .= '<div class="dr-grid">';
         $html .= $this->card(
-            'Conexión Moodle',
+            $this->translator->t('card_connection'),
             '<span class="label label-' . $connectionClass . '">' . $connectionLabel . '</span>',
             $checked . ($connectionMessage !== '' ? '<br>' . $this->e($connectionMessage) : '')
         );
         $html .= $this->card(
-            'Almacenamiento',
+            $this->translator->t('card_storage'),
             $this->formatBytes($usedBytes) . ' / ' . $this->formatBytes($quotaBytes),
-            $storagePercent . '% usado'
-                . ($reservedBytes > 0 ? ' · ' . $this->formatBytes($reservedBytes) . ' reservado' : '')
+            $this->translator->t('storage_used', ['percent' => $storagePercent])
+                . ($reservedBytes > 0
+                    ? ' · ' . $this->translator->t(
+                        'storage_reserved',
+                        ['size' => $this->formatBytes($reservedBytes)]
+                    )
+                    : '')
         );
         $html .= $this->card(
-            'Transferencia ' . $period,
+            $this->translator->t('card_transfer', ['period' => $period]),
             $this->formatBytes($transferBytes),
-            'Bytes entregados por el reproductor protegido'
+            $this->translator->t('transfer_meta')
         );
         $html .= $this->card(
-            'Videos',
+            $this->translator->t('card_videos'),
             (string) $videoTotal,
-            'Activos o en procesamiento'
+            $this->translator->t('videos_meta')
         );
         $html .= '</div>';
 
         $html .= '<div class="panel panel-default dr-panel">';
-        $html .= '<div class="panel-heading"><strong>Conectar aula virtual</strong></div>';
+        $html .= '<div class="panel-heading"><strong>'
+            . $this->e($this->translator->t('connect_moodle')) . '</strong></div>';
         $html .= '<div class="panel-body">';
 
         $html .= '<form method="post" action="' . $this->formAction() . '" class="dr-form">';
         $html .= $this->customActionFields('UpdateMoodleUrl');
         $html .= '<div class="form-group">';
-        $html .= '<label for="dr-moodle-url">URL del aula virtual</label>';
+        $html .= '<label for="dr-moodle-url">'
+            . $this->e($this->translator->t('moodle_url')) . '</label>';
         $html .= '<div class="input-group">';
         $html .= '<input id="dr-moodle-url" name="moodleurl" type="url" class="form-control" required '
             . 'placeholder="https://campus.ejemplo.com" value="' . $this->e((string) $service->site_url) . '">';
-        $html .= '<span class="input-group-btn"><button class="btn btn-primary" type="submit">Guardar URL</button></span>';
+        $html .= '<span class="input-group-btn"><button class="btn btn-primary" type="submit">'
+            . $this->e($this->translator->t('save_url')) . '</button></span>';
         $html .= '</div>';
-        $html .= '<p class="help-block">Debe coincidir exactamente con <code>$CFG-&gt;wwwroot</code> de Moodle.</p>';
+        $html .= '<p class="help-block">' . $this->e($this->translator->t('moodle_url_help')) . '</p>';
         $html .= '</div></form>';
 
         $html .= '<div class="form-group">';
-        $html .= '<label>Service ID</label>';
+        $html .= '<label>' . $this->e($this->translator->t('service_id')) . '</label>';
         $html .= '<input class="form-control" type="text" readonly value="' . $serviceId . '">';
         $html .= '</div>';
 
         $html .= '<div class="form-group">';
-        $html .= '<label>Token de conexión Moodle</label>';
+        $html .= '<label>' . $this->e($this->translator->t('service_token')) . '</label>';
         $html .= '<div class="input-group">';
         $html .= '<input id="dr-service-token" class="form-control" type="password" readonly value="'
-            . $this->e($token) . '" placeholder="Aún no generado">';
+            . $this->e($token) . '" placeholder="' . $this->e($this->translator->t('token_missing')) . '">';
         $html .= '<span class="input-group-btn">';
-        $html .= '<button type="button" class="btn btn-default" onclick="drToggleToken()">Mostrar</button>';
-        $html .= '<button type="button" class="btn btn-default" onclick="drCopyToken()">Copiar</button>';
+        $html .= '<button type="button" class="btn btn-default" onclick="drToggleToken()">'
+            . $this->e($this->translator->t('show')) . '</button>';
+        $html .= '<button type="button" class="btn btn-default" onclick="drCopyToken()">'
+            . $this->e($this->translator->t('copy')) . '</button>';
         $html .= '</span></div></div>';
 
         $html .= '<div class="dr-actions">';
         $html .= $this->actionForm(
             $token === '' ? 'ProvisionMoodleConnection' : 'RotateMoodleToken',
-            $token === '' ? 'Generar token' : 'Generar nueva key',
+            $token === ''
+                ? $this->translator->t('generate_token')
+                : $this->translator->t('generate_new_key'),
             $token === '' ? 'btn btn-primary' : 'btn btn-warning',
-            $token !== '' ? '¿Deseas invalidar la key actual y generar una nueva?' : ''
+            $token !== '' ? $this->translator->t('rotate_confirm') : ''
         );
         $html .= $this->actionForm(
             'ValidateMoodleConnection',
-            'Validar conexión',
+            $this->translator->t('validate_connection'),
             'btn btn-success'
         );
         $html .= '</div>';
         $html .= '</div></div>';
 
         $html .= '<div class="panel panel-default dr-panel">';
-        $html .= '<div class="panel-heading"><strong>Videos del servicio</strong>'
-            . '<span class="text-muted"> · ' . $videoTotal . ' registrados</span></div>';
+        $html .= '<div class="panel-heading"><strong>'
+            . $this->e($this->translator->t('videos_title')) . '</strong>'
+            . '<span class="text-muted"> · '
+            . $this->e($this->translator->t('videos_registered', ['count' => $videoTotal]))
+            . '</span></div>';
         $html .= '<div class="table-responsive"><table class="table table-striped table-hover dr-table">';
-        $html .= '<thead><tr><th>Video</th><th>Estado</th><th>Tamaño</th><th>Uso</th><th>Fecha</th><th></th></tr></thead><tbody>';
+        $html .= '<thead><tr><th>' . $this->e($this->translator->t('column_video')) . '</th><th>'
+            . $this->e($this->translator->t('column_status')) . '</th><th>'
+            . $this->e($this->translator->t('column_size')) . '</th><th>'
+            . $this->e($this->translator->t('column_usage')) . '</th><th>'
+            . $this->e($this->translator->t('column_date')) . '</th><th></th></tr></thead><tbody>';
 
         if (count($uploads) === 0) {
             $html .= '<tr><td colspan="6" class="text-center text-muted" style="padding:28px">'
-                . 'Todavía no hay videos registrados en este servicio.</td></tr>';
+                . $this->e($this->translator->t('no_videos')) . '</td></tr>';
         } else {
             foreach ($uploads as $upload) {
                 $videoId = (string) ($upload->video_id ?? '');
@@ -198,8 +224,10 @@ final class ClientPortal
                 $html .= '<td>' . $status . '</td>';
                 $html .= '<td>' . $this->e($this->formatBytes((int) $upload->accounted_bytes)) . '</td>';
                 $html .= '<td>' . ($refsCount > 0
-                    ? '<span class="label label-info">En uso · ' . $refsCount . '</span>'
-                    : '<span class="label label-default">Sin referencias</span>') . '</td>';
+                    ? '<span class="label label-info">'
+                        . $this->e($this->translator->t('in_use', ['count' => $refsCount])) . '</span>'
+                    : '<span class="label label-default">'
+                        . $this->e($this->translator->t('no_references')) . '</span>') . '</td>';
                 $html .= '<td>' . date('Y-m-d H:i', (int) $upload->created_at) . '</td>';
                 $html .= '<td class="text-right">';
                 if ($refsCount === 0 && $videoId !== '') {
@@ -207,10 +235,13 @@ final class ClientPortal
                     $html .= $this->customActionFields('DeleteVideo');
                     $html .= '<input type="hidden" name="uploadid" value="' . $this->e((string) $upload->upload_id) . '">';
                     $html .= '<button type="submit" class="btn btn-xs btn-danger" '
-                        . 'onclick="return confirm(&quot;¿Eliminar este video de forma permanente?&quot;)">Eliminar</button>';
+                        . 'onclick="return confirm(&quot;'
+                        . $this->e($this->translator->t('delete_confirm'))
+                        . '&quot;)">' . $this->e($this->translator->t('delete')) . '</button>';
                     $html .= '</form>';
                 } else {
-                    $html .= '<button class="btn btn-xs btn-default" type="button" disabled>Protegido</button>';
+                    $html .= '<button class="btn btn-xs btn-default" type="button" disabled>'
+                        . $this->e($this->translator->t('protected')) . '</button>';
                 }
                 $html .= '</td></tr>';
             }
@@ -349,15 +380,16 @@ final class ClientPortal
     private function statusLabel(string $status): string
     {
         $map = [
-            'bound' => ['success', 'Listo'],
-            'ready' => ['success', 'Listo'],
-            'processing' => ['info', 'Procesando'],
-            'authorized' => ['warning', 'Subiendo'],
-            'reserved' => ['warning', 'Reservado'],
-            'failed' => ['danger', 'Error'],
-            'expired' => ['default', 'Expirado'],
+            'bound' => ['success', 'status_ready'],
+            'ready' => ['success', 'status_ready'],
+            'processing' => ['info', 'status_processing'],
+            'authorized' => ['warning', 'status_uploading'],
+            'reserved' => ['warning', 'status_reserved'],
+            'failed' => ['danger', 'status_failed'],
+            'expired' => ['default', 'status_expired'],
         ];
-        [$class, $label] = $map[$status] ?? ['default', ucfirst($status)];
+        [$class, $labelkey] = $map[$status] ?? ['default', ''];
+        $label = $labelkey !== '' ? $this->translator->t($labelkey) : ucfirst($status);
 
         return '<span class="label label-' . $class . '">' . $this->e($label) . '</span>';
     }
