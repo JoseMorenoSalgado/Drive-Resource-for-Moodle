@@ -41,6 +41,7 @@ final class GatewayMaintenance
         $this->deleteExpiredOrphans();
         $this->purgeNonces();
         $this->purgeUsageReports();
+        $this->purgeAuditEvents();
     }
 
     /**
@@ -258,6 +259,22 @@ final class GatewayMaintenance
         $cutoff = gmdate('Y-m', strtotime('-18 months'));
         Capsule::table('mod_driveresource_usage_reports')
             ->where('period_key', '<', $cutoff)
+            ->delete();
+    }
+
+    /**
+     * Bound the redacted control-plane audit trail to 24 months.
+     *
+     * @return void
+     */
+    private function purgeAuditEvents(): void
+    {
+        if (!Capsule::schema()->hasTable('mod_driveresource_audit')) {
+            return;
+        }
+
+        Capsule::table('mod_driveresource_audit')
+            ->where('created_at', '<', time() - (730 * 86400))
             ->delete();
     }
 
