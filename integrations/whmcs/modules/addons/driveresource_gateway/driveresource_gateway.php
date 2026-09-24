@@ -47,6 +47,13 @@ function driveresource_gateway_config(): array
                 'Size' => '45',
                 'Description' => 'Provider CDN hostname used by Moodle protected playback. Example: vz-xxxxxxxx-xxx.b-cdn.net.',
             ],
+            'bunny_public_aliases' => [
+                'FriendlyName' => 'Elearning Stream Public Aliases',
+                'Type' => 'text',
+                'Size' => '70',
+                'Default' => '',
+                'Description' => 'Optional customer-facing hostnames accepted when pasting existing video URLs. Separate multiple hostnames with commas. Example: video.elearningcloud.io.',
+            ],
             'bunny_token_key' => [
                 'FriendlyName' => 'Elearning Stream Token Key',
                 'Type' => 'password',
