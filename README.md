@@ -8,7 +8,7 @@ The historical Moodle component name remains `mod_videoplayer` to preserve upgra
 
 - Product: Drive Resource
 - Moodle component: `mod_videoplayer`
-- Release: `1.2.0-beta9-m45`
+- Release: `1.2.0-beta10-m45`
 - Target: Moodle 4.5 LTS
 - PHP baseline: PHP 8.1+
 - Video runtime: native HTML5 Media API
@@ -50,6 +50,18 @@ The gateway URL must point to the deployed addon itself, for example `https://bi
 The WHMCS companion is a central control plane, installed once for many customers. Every provisioned service has an independent Moodle URL, token, quota, storage usage, status, backend and backend profile. Suspending one WHMCS service does not affect other customer sites.
 
 WHMCS gateway 0.4.0 provides a multi-client operations dashboard, a customer self-service portal and a backend registry. Elearning Stream is the active managed-video backend. An S3-compatible backend identity is reserved for a future object-storage adapter; it is not selectable until multipart upload, signed delivery, accounting and lifecycle behavior are complete.
+
+### Branded Elearning Stream URLs
+
+WHMCS companion 0.4.1 can authorise customer-facing video hostnames such as `video.elearningcloud.io`. Configure the hostname in **Elearning Stream Public Aliases** inside the WHMCS addon.
+
+Moodle performs only safe HTTPS/GUID syntax validation, sends the pasted URL transiently over the authenticated WHMCS channel, and never persists it. WHMCS checks the hostname against the configured aliases, extracts the provider GUID and verifies that GUID against the configured Video Library before the Moodle activity can be saved.
+
+### WHMCS localisation and audit
+
+The customer portal includes module-local **English** and **Spanish** dictionaries. Connection states, buttons, confirmations, video status labels and client-facing validation messages follow the WHMCS client/admin language context.
+
+WHMCS also stores a redacted control-plane audit trail for sensitive service actions. The audit records service id, actor type/id, stable action and bounded non-secret metadata; tokens, passwords, API keys, secrets and signatures are never persisted.
 
 ### WHMCS customer self-service
 
