@@ -224,4 +224,4 @@ Protected learner playback remains pinned to the configured `*.b-cdn.net` origin
 
 The audit trail intentionally excludes secrets. `AuditLogger` rejects metadata keys that resemble token, password, secret, signature, API key or credential fields and bounds string values before JSON persistence.
 
-Audit entries may contain service id, actor id/type, old/new Moodle URL, provider video GUID, filename, byte count, backend and connection result. These records are operational control-plane data and should follow the WHMCS database backup/retention policy.
+Audit entries may contain service id, actor id/type, old/new Moodle URL, provider video GUID, filename, byte count, backend and connection result. These records are operational control-plane data. The companion automatically purges audit events older than 24 months during maintenance.
