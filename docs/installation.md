@@ -1,6 +1,6 @@
 # Drive Resource installation and upgrade
 
-## Supported platform for 1.2.0-beta9-m45
+## Supported platform for 1.2.0-beta10-m45
 
 - Moodle 4.5 LTS
 - PHP 8.1+
@@ -270,7 +270,7 @@ Copy those values to the matching Moodle Drive Resource settings. Use **Rotar to
 
 Install the WHMCS 0.4.0 companion by replacing both module directories, then open **Drive Resource Media Gateway** in the WHMCS administrator area so the addon upgrade hook adds connection and transfer columns plus the idempotent usage-report table.
 
-Upgrade the matching Moodle site to **Drive Resource 1.2.0-beta9-m45** and run Moodle upgrade/cron. Beta9 creates `videoplayer_transfer_events`, adds the signed `gateway-status.php` endpoint and schedules transfer synchronization every five minutes.
+Upgrade the matching Moodle site to **Drive Resource 1.2.0-beta10-m45** and run Moodle upgrade/cron. Beta9 creates `videoplayer_transfer_events`, adds the signed `gateway-status.php` endpoint and schedules transfer synchronization every five minutes.
 
 After both sides are upgraded:
 
@@ -286,3 +286,22 @@ After both sides are upgraded:
 The client can edit the Moodle URL only when no active asset references remain. If a production Moodle with active content changes domain, use a controlled migration workflow rather than forcing a URL reassignment.
 
 The client video list permits permanent deletion only for videos with zero active Moodle references.
+
+
+## WHMCS 0.4.1 branded video hostname
+
+After upgrading the WHMCS companion to 0.4.1, open **System Settings → Addon Modules → Drive Resource Media Gateway** and set:
+
+```text
+Elearning Stream CDN Hostname:
+vz-xxxxxxxx-xxx.b-cdn.net
+
+Elearning Stream Public Aliases:
+video.elearningcloud.io
+```
+
+Enter hostnames only: no `https://`, paths or wildcards. Multiple aliases can be separated with commas.
+
+Upgrade the Moodle plugin to **Drive Resource 1.2.0-beta10-m45**. A teacher can then paste a video URL using the configured branded hostname. Moodle sends the URL transiently to WHMCS, and WHMCS verifies both the hostname and the underlying video against the configured Video Library.
+
+WHMCS 0.4.1 also installs/updates the redacted audit table automatically. The multi-client addon dashboard shows recent audit entries. The customer service portal selects English or Spanish from the active WHMCS language context.
