@@ -171,13 +171,13 @@ function videoplayer_normalise_instance_data(stdClass $data): stdClass {
 
         $streammode = clean_param((string)($data->streaminputmode ?? 'upload'), PARAM_ALPHA);
         if ($streammode === 'url') {
-            $assetid = bunny_stream::extract_asset_id_from_url((string)($data->streamurl ?? ''));
-            if ($assetid === null) {
+            $streamurl = trim((string)($data->streamurl ?? ''));
+            if (bunny_stream::extract_candidate_asset_id_from_url($streamurl) === null) {
                 throw new moodle_exception('invalidstreamurl', 'mod_videoplayer');
             }
 
-            $import = (new whmcs_gateway_client())->import_asset(
-                $assetid,
+            $import = (new whmcs_gateway_client())->import_asset_url(
+                $streamurl,
                 (int)($data->course ?? 0)
             );
             $data->providerassetid = (string)$import['videoid'];
