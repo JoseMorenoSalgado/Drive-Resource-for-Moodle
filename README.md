@@ -42,6 +42,11 @@ Configure:
 
 The internal configuration keys keep their historical names for upgrade compatibility.
 
+
+### Provider lanes
+
+The gateway now separates **video** from **protected object/PDF storage**. Video uses Elearning Stream today. S3-compatible storage is configured independently in the gateway and is intentionally gated until the protected-PDF data-plane adapter is production-ready. This separation allows additional video providers to be added later without changing Moodle Service IDs or tokens.
+
 ## Security model
 
 Every managed request is bound to the provisioned service. The gateway validates service status, site identity, HMAC signatures, timestamps and replay nonces before authorizing media operations.
