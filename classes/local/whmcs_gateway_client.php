@@ -252,6 +252,52 @@ final class whmcs_gateway_client {
     }
 
     /**
+     * Register an existing Elearning Stream video from a pasted public URL.
+     *
+     * WHMCS validates the hostname against the centrally configured public
+     * aliases and verifies the resulting GUID against the Video Library.
+     *
+     * @param string $url Pasted public video URL.
+     * @param int $courseid Moodle course id.
+     * @return array Sanitised provider/accounting state.
+     */
+    public function import_asset_url(string $url, int $courseid): array {
+        $url = trim($url);
+        if (
+            strlen($url) > 2048
+            || \mod_videoplayer\local\provider\bunny_stream::extract_candidate_asset_id_from_url($url) === null
+        ) {
+            throw new moodle_exception('invalidstreamurl', 'mod_videoplayer');
+        }
+
+        $response = $this->post('/api/asset-import.php', [
+            'url' => $url,
+            'courseid' => max(0, $courseid),
+        ]);
+
+        $uploadid = clean_param((string)($response['uploadid'] ?? ''), PARAM_ALPHANUMEXT);
+        $returnedvideoid = clean_param((string)($response['videoid'] ?? ''), PARAM_ALPHANUMEXT);
+        $status = clean_param((string)($response['status'] ?? ''), PARAM_ALPHANUMEXT);
+        $filesize = max(0, (int)($response['filesize'] ?? 0));
+
+        if (
+            !preg_match('/^[a-f0-9-]{20,64}$/i', $uploadid)
+            || !preg_match('/^[a-f0-9-]{32,64}$/i', $returnedvideoid)
+            || !in_array($status, ['processing', 'ready'], true)
+        ) {
+            throw new moodle_exception('whmcsgatewayinvalidresponse', 'mod_videoplayer');
+        }
+
+        return [
+            'uploadid' => $uploadid,
+            'videoid' => $returnedvideoid,
+            'filesize' => $filesize,
+            'status' => $status,
+            'quota' => is_array($response['quota'] ?? null) ? $response['quota'] : [],
+        ];
+    }
+
+    /**
      * Register an existing Elearning Stream video with this WHMCS service.
      *
      * @param string $videoid Provider video GUID.
