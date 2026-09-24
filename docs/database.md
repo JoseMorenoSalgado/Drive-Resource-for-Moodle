@@ -103,3 +103,19 @@ The future S3-compatible adapter will reuse the same service/tenant/accounting b
 Deduplication ledger for Moodle transfer batches. The unique `(service_id, report_id)` constraint makes WHMCS ingestion idempotent when Moodle retries after a network timeout. Old report ids are pruned after the operational retention window.
 
 Gateway 0.4.0 adds the connection-state and transfer-accounting fields plus this table.
+
+
+### `mod_driveresource_audit`
+
+WHMCS-only redacted control-plane audit table introduced in companion 0.4.1.
+
+| Field | Purpose |
+| --- | --- |
+| `service_id` | Tenant/service affected by the action |
+| `actor_type` | `admin`, `client` or `system` |
+| `actor_id` | WHMCS actor id when available |
+| `action` | Stable non-localised action key |
+| `metadata_json` | Bounded redacted operational metadata |
+| `created_at` | Audit timestamp |
+
+Tokens, passwords, API keys, secrets, signatures and credentials must never be written to `metadata_json`.
