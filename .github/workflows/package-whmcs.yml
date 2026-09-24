@@ -28,19 +28,18 @@ jobs:
           cp -a integrations/whmcs/modules/servers/driveresource             dist-whmcs/package/modules/servers/
           cp integrations/whmcs/README.md dist-whmcs/package/README-Drive-Resource-WHMCS.md
 
-          cat > dist-whmcs/package/INSTALL-Drive-Resource-WHMCS.txt <<'EOF'
-Drive Resource / Elearning Stream WHMCS Companion 0.4.3
-
-INSTALLATION:
-1. Extract this ZIP directly into the WHMCS document root.
-2. It will place files under:
-   modules/addons/driveresource_gateway/
-   modules/servers/driveresource/
-3. In WHMCS, open Addon Modules -> Drive Resource Media Gateway.
-4. Confirm "Loaded companion version: 0.4.3" in Installation Health.
-5. Confirm your Stream product uses module driveresource and Product Type "Other".
-EOF
-
+          printf '%s\n' \
+            'Drive Resource / Elearning Stream WHMCS Companion 0.4.3' \
+            '' \
+            'INSTALLATION:' \
+            '1. Extract this ZIP directly into the WHMCS document root.' \
+            '2. It will place files under:' \
+            '   modules/addons/driveresource_gateway/' \
+            '   modules/servers/driveresource/' \
+            '3. In WHMCS, open Addon Modules -> Drive Resource Media Gateway.' \
+            '4. Confirm "Loaded companion version: 0.4.3" in Installation Health.' \
+            '5. Confirm your Stream product uses module driveresource and Product Type "Other".' \
+            > dist-whmcs/package/INSTALL-Drive-Resource-WHMCS.txt
           test -f dist-whmcs/package/modules/addons/driveresource_gateway/driveresource_gateway.php
           test -f dist-whmcs/package/modules/addons/driveresource_gateway/api/upload-authorize.php
           test -f dist-whmcs/package/modules/addons/driveresource_gateway/lib/BackendRegistry.php
