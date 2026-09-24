@@ -26,7 +26,7 @@ function driveresource_gateway_config(): array
     return [
         'name' => 'Drive Resource Media Gateway',
         'description' => 'WHMCS authorization, quota and Elearning Stream credential boundary for Drive Resource.',
-        'version' => '0.4.0',
+        'version' => '0.4.1',
         'author' => 'Elearning Cloud',
         'fields' => [
             'bunny_library_id' => [
