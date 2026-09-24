@@ -210,3 +210,18 @@ Customer video deletion is limited to assets owned by the current service and is
 Transfer is counted from actual bytes emitted by Moodle's protected Elearning Stream proxy rather than from a shared provider-library traffic counter. Moodle batches events and WHMCS deduplicates each batch using a per-service report id. This avoids double billing after retries.
 
 Transfer events do not contain Moodle user ids, IP addresses or learner identifiers. They contain service id, provider video id, byte count, billing month and creation time, so they are operational/accounting data rather than per-learner progress data.
+
+
+### Branded Elearning Stream URL validation
+
+A branded URL such as `https://video.elearningcloud.io/.../<guid>` is not trusted by Moodle as an upstream download target. Moodle validates only HTTPS/port/credential/GUID syntax and sends the value transiently to the authenticated WHMCS gateway.
+
+WHMCS accepts the URL only when its exact hostname is present in the centrally configured public aliases or is an approved provider hostname. It extracts the GUID locally and verifies that GUID through the Video Library API. The pasted public URL is never fetched, preventing it from becoming an SSRF primitive.
+
+Protected learner playback remains pinned to the configured `*.b-cdn.net` origin signed by WHMCS; accepting a branded URL for import does not expand the protected proxy upstream allow-list.
+
+### WHMCS audit confidentiality
+
+The audit trail intentionally excludes secrets. `AuditLogger` rejects metadata keys that resemble token, password, secret, signature, API key or credential fields and bounds string values before JSON persistence.
+
+Audit entries may contain service id, actor id/type, old/new Moodle URL, provider video GUID, filename, byte count, backend and connection result. These records are operational control-plane data and should follow the WHMCS database backup/retention policy.
