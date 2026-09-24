@@ -74,4 +74,27 @@ final class whmcs_gateway_client_test extends \advanced_testcase {
         $this->assertSame([], whmcs_gateway_client::missing_configuration());
         $this->assertTrue(whmcs_gateway_client::is_configured());
     }
+
+    /**
+     * Generic WHMCS passwords must never be accepted as gateway tokens.
+     *
+     * @return void
+     */
+    public function test_generic_password_is_rejected_as_service_token(): void {
+        $this->resetAfterTest();
+
+        set_config(
+            'whmcsgatewayurl',
+            'https://billing.example.com/modules/addons/driveresource_gateway',
+            'mod_videoplayer'
+        );
+        set_config('whmcsserviceid', 123, 'mod_videoplayer');
+        set_config('whmcsservicetoken', 'ThisIsAGenericWHMCSPassword123456', 'mod_videoplayer');
+
+        $this->assertSame(
+            ['setting_whmcsservicetoken'],
+            whmcs_gateway_client::missing_configuration()
+        );
+        $this->assertFalse(whmcs_gateway_client::is_configured());
+    }
 }
