@@ -411,7 +411,7 @@ function driveresource_provision_moodle_connection(array $params, bool $forcerot
             }
         }
 
-        $tokenisusable = strlen($token) >= 32;
+        $tokenisusable = (bool) preg_match('/^[a-f0-9]{64}$/', $token);
         if ($forcerotation || !$tokenisusable) {
             $token = bin2hex(random_bytes(32));
         }
@@ -614,9 +614,11 @@ function driveresource_ChangePassword(array $params): string
 {
     try {
         driveresource_require_gateway();
-        $token = trim((string) ($params['password'] ?? ''));
-        if (strlen($token) < 32) {
-            throw new RuntimeException('Gateway token must contain at least 32 characters.');
+        $token = strtolower(trim((string) ($params['password'] ?? '')));
+        if (!preg_match('/^[a-f0-9]{64}$/', $token)) {
+            throw new RuntimeException(
+                'Gateway token must be a 64-character hexadecimal Drive Resource token.'
+            );
         }
 
         $serviceId = (int) $params['serviceid'];
@@ -811,13 +813,13 @@ function driveresource_require_gateway(): void
     foreach ($required as $column) {
         if (!$schema->hasColumn('mod_driveresource_services', $column)) {
             throw new RuntimeException(
-                'Drive Resource Media Gateway 0.4.0 schema upgrade is required before using this service.'
+                'Drive Resource Media Gateway 0.4.3 schema upgrade is required before using this service.'
             );
         }
     }
     if (!$schema->hasTable('mod_driveresource_usage_reports')) {
         throw new RuntimeException(
-            'Drive Resource Media Gateway 0.4.0 usage schema is missing.'
+            'Drive Resource Media Gateway 0.4.3 usage schema is missing.'
         );
     }
 }
@@ -928,10 +930,13 @@ function driveresource_normalize_site_url(string $raw): string
         );
     }
 
-    $port = isset($parts['port']) ? ':' . (int) $parts['port'] : '';
+    if (isset($parts['port']) && (int) $parts['port'] !== 443) {
+        throw new RuntimeException('Moodle Site URL must use the standard HTTPS port 443.');
+    }
+
     $path = rtrim((string) ($parts['path'] ?? ''), '/');
 
-    return 'https://' . strtolower((string) $parts['host']) . $port . $path;
+    return 'https://' . strtolower((string) $parts['host']) . $path;
 }
 
 /**
