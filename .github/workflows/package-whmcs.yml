@@ -42,6 +42,7 @@ jobs:
             > dist-whmcs/package/INSTALL-Elearning-Stream-WHMCS.txt
 
           test -f dist-whmcs/package/modules/addons/driveresource_gateway/driveresource_gateway.php
+          test -f dist-whmcs/package/modules/addons/driveresource_gateway/index.php
           test -f dist-whmcs/package/modules/addons/driveresource_gateway/api/upload-authorize.php
           test -f dist-whmcs/package/modules/addons/driveresource_gateway/lib/BackendRegistry.php
           test -f dist-whmcs/package/modules/addons/driveresource_gateway/lib/AdminDashboard.php
