@@ -126,6 +126,8 @@ grep -q "TYPE_PERIOD_MONTH" integrations/whmcs/modules/servers/driveresource/lib
 grep -q "serviceid <> :serviceid" classes/task/sync_transfer_usage.php     || fail "Stale service transfer events are not isolated."
 grep -q "gatewaynonces" db/caches.php     || fail "Moodle connection probe replay cache is missing."
 grep -q "hash_hmac" gateway-status.php     || fail "Moodle connection endpoint HMAC verification is missing."
+grep -Fq "!preg_match('/^[a-f0-9]{64}$/'" gateway-status.php     || fail "Moodle connection endpoint must require the exact service token format."
+grep -Fq "!preg_match('/^[a-f0-9]{64}$/'" classes/local/whmcs_gateway_client.php     || fail "Moodle gateway preflight must reject generic WHMCS passwords."
 grep -q "NO_MOODLE_COOKIES" gateway-status.php     || fail "Moodle connection probe endpoint must not create browser sessions."
 
 echo "Checking quota and overage controls..."
