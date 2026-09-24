@@ -96,6 +96,7 @@ grep -q "generate_new_key" integrations/whmcs/modules/servers/driveresource/lang
 grep -q "validate_connection" integrations/whmcs/modules/servers/driveresource/lang/english.php     || fail "English connection validation string is missing."
 grep -q "videos_title" integrations/whmcs/modules/servers/driveresource/lang/spanish.php     || fail "Spanish video library string is missing."
 grep -q "Translator::fromParams" integrations/whmcs/modules/servers/driveresource/lib/ClientPortal.php     || fail "Client portal is not using module localisation."
+grep -q "generate_token('plain')" integrations/whmcs/modules/servers/driveresource/lib/ClientPortal.php     || fail "Client self-service forms are missing the WHMCS CSRF token."
 grep -q "MoodleConnectionProbe" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Signed Moodle probe is not wired."
 
 echo "Checking per-service transfer metering..."
@@ -157,6 +158,7 @@ grep -q "moodle_token_rotated" integrations/whmcs/modules/servers/driveresource/
 grep -q "moodle_connection_validated" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Connection validation is not audited."
 grep -q "video_deleted" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Client video deletion is not audited."
 grep -q "renderAudit" integrations/whmcs/modules/addons/driveresource_gateway/lib/AdminDashboard.php     || fail "WHMCS admin audit panel is missing."
+grep -q "purgeAuditEvents" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayMaintenance.php     || fail "WHMCS audit retention cleanup is missing."
 
 echo "Checking protected Elearning Stream playback..."
 grep -q "function authorizePlayback" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "WHMCS playback authorization is missing."
