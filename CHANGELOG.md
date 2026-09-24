@@ -2,6 +2,16 @@
 
 All notable changes to Drive Resource are documented here. The Moodle component remains `mod_videoplayer` for upgrade compatibility.
 
+## WHMCS companion 0.4.3 — 2026-09-23
+
+- Changes the WHMCS installable ZIP to extract directly into the WHMCS document root with top-level `modules/`; removes the confusing `whmcs-root/` wrapper.
+- Adds detailed installation/provisioning health diagnostics to the Drive Resource Media Gateway admin dashboard.
+- Detects missing server module, products not assigned to `driveresource`, services assigned but not provisioned, generic WHMCS usernames and products using a hosting type instead of `Other`.
+- Rejects generic WHMCS-generated passwords as Moodle service tokens; only Drive Resource 64-character hexadecimal tokens are exposed as valid connection credentials.
+- Adds package-layout and provisioning-diagnostic CI invariants.
+- Keeps Moodle at `1.2.0-beta10-m45`; this is a WHMCS packaging/provisioning diagnostics release.
+- WHMCS companion version: `0.4.3`.
+
 ## WHMCS companion 0.4.2 — 2026-09-23
 
 - Adds an official `ClientAreaProductDetailsOutput` fallback for WHMCS client themes that omit provisioning-module `ClientArea()` output.
