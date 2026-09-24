@@ -66,7 +66,7 @@ grep -q 'hash_hmac' integrations/whmcs/modules/addons/driveresource_gateway/lib/
 grep -q 'mod_driveresource_nonces' integrations/whmcs/modules/addons/driveresource_gateway/lib/RequestAuthenticator.php     || fail "Replay nonce protection is missing."
 
 echo "Checking multi-tenant backend architecture..."
-grep -q "'version' => '0.4.2'" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "WHMCS addon version 0.4.2 is missing."
+grep -q "'version' => '0.4.3'" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "WHMCS addon version 0.4.3 is missing."
 grep -q "function driveresource_gateway_upgrade" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "WHMCS addon upgrade function is missing."
 grep -q "backend_key" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "Service backend key schema is missing."
 grep -q "backend_profile" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "Service backend profile schema is missing."
@@ -78,6 +78,8 @@ grep -q "controlled backend migration is required" integrations/whmcs/modules/se
 grep -q "requireServiceCapability" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "Gateway backend capability enforcement is missing."
 grep -q "AdminDashboard" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "Multi-client admin dashboard is not wired."
 grep -q "backend_key" integrations/whmcs/modules/addons/driveresource_gateway/lib/AdminDashboard.php     || fail "Multi-client dashboard does not expose/filter backend identity."
+grep -q "renderInstallationHealth" integrations/whmcs/modules/addons/driveresource_gateway/lib/AdminDashboard.php     || fail "WHMCS installation health diagnostics are missing."
+grep -q "Generic usernames" integrations/whmcs/modules/addons/driveresource_gateway/lib/AdminDashboard.php     || fail "WHMCS provisioning diagnostics do not detect generic usernames."
 grep -q "'RequiresServer' => false" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Elearning Stream must not require a fake WHMCS server assignment."
 grep -q "function driveresource_AdminServicesTabFields" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Admin Moodle connection details are missing."
 grep -q "service_token" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Translated admin service token handoff is missing."
@@ -97,6 +99,8 @@ grep -q "validate_connection" integrations/whmcs/modules/servers/driveresource/l
 grep -q "videos_title" integrations/whmcs/modules/servers/driveresource/lang/spanish.php     || fail "Spanish video library string is missing."
 grep -q "Translator::fromParams" integrations/whmcs/modules/servers/driveresource/lib/ClientPortal.php     || fail "Client portal is not using module localisation."
 grep -q "generate_token('plain')" integrations/whmcs/modules/servers/driveresource/lib/ClientPortal.php     || fail "Client self-service forms are missing the WHMCS CSRF token."
+grep -q "\^\[a-f0-9\]{64}\$" integrations/whmcs/modules/servers/driveresource/lib/ClientPortal.php     || fail "Client portal no longer validates Drive Resource token format."
+grep -q "\^\[a-f0-9\]{64}\$" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Admin service token handoff no longer validates Drive Resource token format."
 grep -q "MoodleConnectionProbe" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Signed Moodle probe is not wired."
 
 echo "Checking custom-theme WHMCS client-area fallback..."
