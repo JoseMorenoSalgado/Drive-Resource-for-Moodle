@@ -291,7 +291,12 @@ final class ClientPortal
      */
     private function customActionFields(string $action): string
     {
-        return '<input type="hidden" name="id" value="' . (int) ($this->params['serviceid'] ?? 0) . '">'
+        $csrf = function_exists('generate_token') ? (string) generate_token('plain') : '';
+
+        return ($csrf !== ''
+                ? '<input type="hidden" name="token" value="' . $this->e($csrf) . '">'
+                : '')
+            . '<input type="hidden" name="id" value="' . (int) ($this->params['serviceid'] ?? 0) . '">'
             . '<input type="hidden" name="modop" value="custom">'
             . '<input type="hidden" name="a" value="' . $this->e($action) . '">';
     }
