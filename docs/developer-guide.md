@@ -1,5 +1,20 @@
 # Drive Resource developer guide
 
+## Production provider extension model
+
+For new development, treat **Elearning Stream** as the product surface and `mod_videoplayer` as the immutable compatibility component name.
+
+Provider work is split by capability rather than by a single storage backend:
+
+- managed video adapters implement upload authorization, asset ownership, protected playback and usage accounting;
+- object-storage adapters implement protected document upload, object metadata, signed/server-side retrieval, range delivery, lifecycle and accounting;
+- provider credentials stay in the gateway/control plane and must never be copied into Moodle;
+- Moodle keeps only the public connection URL, Service ID and service-scoped token.
+
+To add another video provider, add it to the gateway provider registry and implement the same capability contract before marking it operational. Do not add provider API keys or provider-specific management URLs to Moodle settings.
+
+The S3-compatible object provider is currently assignable/configurable in the control plane but intentionally non-operational in the protected-PDF data plane. Do not expose it in Moodle until upload, retrieval, deletion, retention, quota and failure-recovery tests are complete.
+
 ## Component identity
 
 - Product: Drive Resource
