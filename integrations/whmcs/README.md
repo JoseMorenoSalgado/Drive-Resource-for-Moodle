@@ -14,7 +14,7 @@ The WHMCS companion is installed **once** and manages many customers. Each provi
 
 One customer with multiple independent Moodle installations can use multiple WHMCS services under the same WHMCS client account. This preserves per-site credentials, accounting and suspension boundaries.
 
-Addon version **0.4.1** adds a paginated administration dashboard with customer, Moodle URL, product, backend, quota, storage usage, video count, status and direct access to the WHMCS service.
+Addon version **0.4.2** adds a paginated administration dashboard with customer, Moodle URL, product, backend, quota, storage usage, video count, status and direct access to the WHMCS service.
 
 ## Backend model
 
@@ -93,7 +93,7 @@ Recommended **Elearning Stream Playback TTL**: 300 seconds. Moodle caches the au
 
 ## Upgrade from gateway 0.2.x
 
-1. Replace both WHMCS module directories with the 0.4.1 package.
+1. Replace both WHMCS module directories with the 0.4.2 package.
 2. Open the Drive Resource Media Gateway addon in WHMCS so the native addon upgrade hook runs.
 3. Confirm existing services appear in the multi-client dashboard.
 4. Existing rows are migrated to `backend_key=elearningstream` and `backend_profile=default`.
@@ -180,3 +180,14 @@ The server module ships module-local `english.php` and `spanish.php` dictionarie
 WHMCS 0.4.1 creates `mod_driveresource_audit` and records successful sensitive actions including Moodle URL changes, connection provisioning/token rotation, connection validation and client video deletion.
 
 Audit metadata is filtered before persistence. Token/password/secret/signature/API-key/credential keys are discarded and are never shown in the administrator audit panel.
+
+
+## Custom WHMCS client themes
+
+Some third-party WHMCS themes do not render the provisioning module's standard `ClientArea()` output on the product-details page. Companion 0.4.2 registers the official `ClientAreaProductDetailsOutput` hook as a compatibility fallback.
+
+The fallback renders only when:
+- the logged-in WHMCS client owns the service;
+- the product's provisioning module is exactly `driveresource`.
+
+If the standard module output is already present, the fallback detects the same service-specific dashboard marker and removes itself to prevent duplicate output.
