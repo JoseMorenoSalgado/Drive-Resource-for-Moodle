@@ -619,12 +619,20 @@ function driveresource_ChangePassword(array $params): string
             throw new RuntimeException('Gateway token must contain at least 32 characters.');
         }
 
+        $serviceId = (int) $params['serviceid'];
         Capsule::table('mod_driveresource_services')
-            ->where('service_id', (int) $params['serviceid'])
+            ->where('service_id', $serviceId)
             ->update([
                 'token_hash' => hash('sha256', $token),
+                'connection_status' => 'pending',
+                'connection_checked_at' => null,
+                'connection_message' => 'connection_pending',
                 'updated_at' => time(),
             ]);
+
+        driveresource_audit($serviceId, 'moodle_token_rotated', [
+            'source' => 'change_password',
+        ]);
 
         return 'success';
     } catch (Throwable $exception) {
@@ -672,6 +680,7 @@ function driveresource_MetricProvider(array $params): MetricsProvider
 function driveresource_AdminServicesTabFields(array $params): array
 {
     $serviceId = (int) ($params['serviceid'] ?? 0);
+    $translator = Translator::fromParams($params);
     $gatewayUrl = driveresource_gateway_url_hint($params);
     $token = driveresource_service_token($params);
     $service = Capsule::table('mod_driveresource_services')
@@ -680,10 +689,13 @@ function driveresource_AdminServicesTabFields(array $params): array
 
     $connection = $service ? strtolower((string) ($service->connection_status ?? 'pending')) : 'pending';
     $connectionLabel = $connection === 'connected'
-        ? '<span class="label label-success">Conectado</span>'
+        ? '<span class="label label-success">'
+            . htmlspecialchars($translator->t('connection_connected'), ENT_QUOTES, 'UTF-8') . '</span>'
         : ($connection === 'failed'
-            ? '<span class="label label-danger">No conectado</span>'
-            : '<span class="label label-warning">Pendiente</span>');
+            ? '<span class="label label-danger">'
+                . htmlspecialchars($translator->t('connection_failed'), ENT_QUOTES, 'UTF-8') . '</span>'
+            : '<span class="label label-warning">'
+                . htmlspecialchars($translator->t('connection_pending'), ENT_QUOTES, 'UTF-8') . '</span>');
 
     $storage = '—';
     $transfer = '—';
@@ -697,14 +709,14 @@ function driveresource_AdminServicesTabFields(array $params): array
     }
 
     return [
-        'Estado conexión Moodle' => $connectionLabel,
-        'Moodle Gateway URL' => htmlspecialchars($gatewayUrl, ENT_QUOTES, 'UTF-8'),
-        'Moodle Service ID' => (string) $serviceId,
-        'Moodle Service Token' => $token !== ''
+        $translator->t('card_connection') => $connectionLabel,
+        $translator->t('gateway_url') => htmlspecialchars($gatewayUrl, ENT_QUOTES, 'UTF-8'),
+        $translator->t('service_id') => (string) $serviceId,
+        $translator->t('service_token') => $token !== ''
             ? htmlspecialchars($token, ENT_QUOTES, 'UTF-8')
-            : 'Pendiente — use Generar/Reparar conexión Moodle.',
-        'Almacenamiento' => htmlspecialchars($storage, ENT_QUOTES, 'UTF-8'),
-        'Transferencia mensual' => htmlspecialchars($transfer, ENT_QUOTES, 'UTF-8'),
+            : htmlspecialchars($translator->t('token_missing'), ENT_QUOTES, 'UTF-8'),
+        $translator->t('card_storage') => htmlspecialchars($storage, ENT_QUOTES, 'UTF-8'),
+        $translator->t('monthly_transfer') => htmlspecialchars($transfer, ENT_QUOTES, 'UTF-8'),
     ];
 }
 
