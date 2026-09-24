@@ -21,36 +21,50 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf dist-whmcs
-          mkdir -p dist-whmcs/whmcs-root/modules/addons
-          mkdir -p dist-whmcs/whmcs-root/modules/servers
+          mkdir -p dist-whmcs/package/modules/addons
+          mkdir -p dist-whmcs/package/modules/servers
 
-          cp -a integrations/whmcs/modules/addons/driveresource_gateway             dist-whmcs/whmcs-root/modules/addons/
-          cp -a integrations/whmcs/modules/servers/driveresource             dist-whmcs/whmcs-root/modules/servers/
-          cp integrations/whmcs/README.md dist-whmcs/whmcs-root/README-Drive-Resource-WHMCS.md
+          cp -a integrations/whmcs/modules/addons/driveresource_gateway             dist-whmcs/package/modules/addons/
+          cp -a integrations/whmcs/modules/servers/driveresource             dist-whmcs/package/modules/servers/
+          cp integrations/whmcs/README.md dist-whmcs/package/README-Drive-Resource-WHMCS.md
 
-          test -f dist-whmcs/whmcs-root/modules/addons/driveresource_gateway/driveresource_gateway.php
-          test -f dist-whmcs/whmcs-root/modules/addons/driveresource_gateway/api/upload-authorize.php
-          test -f dist-whmcs/whmcs-root/modules/addons/driveresource_gateway/lib/BackendRegistry.php
-          test -f dist-whmcs/whmcs-root/modules/addons/driveresource_gateway/lib/AdminDashboard.php
-          test -f dist-whmcs/whmcs-root/modules/addons/driveresource_gateway/lib/AuditLogger.php
-          test -f dist-whmcs/whmcs-root/modules/addons/driveresource_gateway/api/usage-report.php
-          test -f dist-whmcs/whmcs-root/modules/servers/driveresource/lib/ClientPortal.php
-          test -f dist-whmcs/whmcs-root/modules/servers/driveresource/lib/Translator.php
-          test -f dist-whmcs/whmcs-root/modules/servers/driveresource/lang/english.php
-          test -f dist-whmcs/whmcs-root/modules/servers/driveresource/lang/spanish.php
-          test -f dist-whmcs/whmcs-root/modules/servers/driveresource/lib/MoodleConnectionProbe.php
-          test -f dist-whmcs/whmcs-root/modules/servers/driveresource/driveresource.php
-          grep -F "'version' => '0.4.2'" dist-whmcs/whmcs-root/modules/addons/driveresource_gateway/driveresource_gateway.php
+          cat > dist-whmcs/package/INSTALL-Drive-Resource-WHMCS.txt <<'EOF'
+Drive Resource / Elearning Stream WHMCS Companion 0.4.3
+
+INSTALLATION:
+1. Extract this ZIP directly into the WHMCS document root.
+2. It will place files under:
+   modules/addons/driveresource_gateway/
+   modules/servers/driveresource/
+3. In WHMCS, open Addon Modules -> Drive Resource Media Gateway.
+4. Confirm "Loaded companion version: 0.4.3" in Installation Health.
+5. Confirm your Stream product uses module driveresource and Product Type "Other".
+EOF
+
+          test -f dist-whmcs/package/modules/addons/driveresource_gateway/driveresource_gateway.php
+          test -f dist-whmcs/package/modules/addons/driveresource_gateway/api/upload-authorize.php
+          test -f dist-whmcs/package/modules/addons/driveresource_gateway/lib/BackendRegistry.php
+          test -f dist-whmcs/package/modules/addons/driveresource_gateway/lib/AdminDashboard.php
+          test -f dist-whmcs/package/modules/addons/driveresource_gateway/lib/AuditLogger.php
+          test -f dist-whmcs/package/modules/addons/driveresource_gateway/api/usage-report.php
+          test -f dist-whmcs/package/modules/servers/driveresource/lib/ClientPortal.php
+          test -f dist-whmcs/package/modules/servers/driveresource/lib/Translator.php
+          test -f dist-whmcs/package/modules/servers/driveresource/lang/english.php
+          test -f dist-whmcs/package/modules/servers/driveresource/lang/spanish.php
+          test -f dist-whmcs/package/modules/servers/driveresource/lib/MoodleConnectionProbe.php
+          test -f dist-whmcs/package/modules/servers/driveresource/driveresource.php
+          test -f dist-whmcs/package/INSTALL-Drive-Resource-WHMCS.txt
+          grep -F "'version' => '0.4.3'" dist-whmcs/package/modules/addons/driveresource_gateway/driveresource_gateway.php
 
           (
-            cd dist-whmcs
-            zip -qr elearning-stream-whmcs-0.4.2.zip whmcs-root
+            cd dist-whmcs/package
+            zip -qr ../elearning-stream-whmcs-0.4.3.zip modules README-Drive-Resource-WHMCS.md
           )
 
       - name: Upload WHMCS package
         uses: actions/upload-artifact@v4
         with:
-          name: elearning-stream-whmcs-0.4.2
-          path: dist-whmcs/elearning-stream-whmcs-0.4.2.zip
+          name: elearning-stream-whmcs-0.4.3
+          path: dist-whmcs/elearning-stream-whmcs-0.4.3.zip
           if-no-files-found: error
           retention-days: 30
