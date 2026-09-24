@@ -112,12 +112,128 @@ final class AdminDashboard
         }
 
         $summary = $this->summary();
+        $this->renderInstallationHealth();
         $this->renderSummary($summary);
         $this->renderFilters($query, $status, $backend);
         $this->renderTable($rows, $assetCounts);
         $this->renderPagination($page, $pages, $query, $status, $backend);
         $this->renderAudit();
         $this->renderRoadmap();
+    }
+
+    /**
+     * Render installation/provisioning diagnostics for commercial support.
+     *
+     * @return void
+     */
+    private function renderInstallationHealth(): void
+    {
+        $root = dirname(__DIR__, 4);
+        $serverModule = $root . '/modules/servers/driveresource/driveresource.php';
+        $serverOk = is_file($serverModule);
+
+        $products = Capsule::table('tblproducts')
+            ->select(['id', 'name', 'type', 'servertype'])
+            ->where('servertype', 'driveresource')
+            ->orderBy('id')
+            ->get();
+
+        $assigned = (int) Capsule::table('tblhosting as h')
+            ->join('tblproducts as p', 'p.id', '=', 'h.packageid')
+            ->where('p.servertype', 'driveresource')
+            ->count();
+
+        $provisioned = (int) Capsule::table('mod_driveresource_services')->count();
+        $pending = max(0, $assigned - $provisioned);
+
+        $genericUsernames = (int) Capsule::table('tblhosting as h')
+            ->join('tblproducts as p', 'p.id', '=', 'h.packageid')
+            ->where('p.servertype', 'driveresource')
+            ->where(static function ($query): void {
+                $query->whereNull('h.username')
+                    ->orWhere('h.username', '')
+                    ->orWhere('h.username', 'not like', 'dr-%');
+            })
+            ->count();
+
+        $wrongType = 0;
+        foreach ($products as $product) {
+            if ((string) $product->type !== 'other') {
+                $wrongType++;
+            }
+        }
+
+        $overall = $serverOk && count($products) > 0 && $pending === 0 && $wrongType === 0
+            ? 'success'
+            : 'warning';
+
+        echo '<div class="panel panel-' . $overall . '">';
+        echo '<div class="panel-heading"><strong>Drive Resource installation health</strong></div>';
+        echo '<div class="panel-body">';
+        echo '<div class="row">';
+        $this->healthMetric('Loaded companion', '0.4.3', true);
+        $this->healthMetric('Server module', $serverOk ? 'OK' : 'Missing', $serverOk);
+        $this->healthMetric('Products using driveresource', (string) count($products), count($products) > 0);
+        $this->healthMetric('Assigned services', (string) $assigned, true);
+        $this->healthMetric('Provisioned services', (string) $provisioned, $pending === 0);
+        $this->healthMetric('Pending provisioning', (string) $pending, $pending === 0);
+        $this->healthMetric('Generic usernames', (string) $genericUsernames, $genericUsernames === 0);
+        $this->healthMetric('Wrong product type', (string) $wrongType, $wrongType === 0);
+        echo '</div>';
+
+        if (count($products) === 0) {
+            echo '<div class="alert alert-danger" style="margin-bottom:0">'
+                . '<strong>No product is assigned to the driveresource module.</strong> '
+                . 'Open Products/Services → Stream Pro → Module Settings and select Elearning Stream.'
+                . '</div>';
+        } else {
+            echo '<div class="table-responsive"><table class="table table-condensed" style="margin-bottom:0">';
+            echo '<thead><tr><th>Product ID</th><th>Product</th><th>Type</th><th>Module</th><th>Assessment</th></tr></thead><tbody>';
+            foreach ($products as $product) {
+                $typeOk = (string) $product->type === 'other';
+                echo '<tr>';
+                echo '<td>#' . (int) $product->id . '</td>';
+                echo '<td>' . $this->e((string) $product->name) . '</td>';
+                echo '<td>' . $this->e((string) $product->type) . '</td>';
+                echo '<td><code>' . $this->e((string) $product->servertype) . '</code></td>';
+                echo '<td>' . ($typeOk
+                    ? '<span class="label label-success">Ready</span>'
+                    : '<span class="label label-warning">Set Product Type to Other</span>')
+                    . '</td>';
+                echo '</tr>';
+            }
+            echo '</tbody></table></div>';
+        }
+
+        if ($genericUsernames > 0) {
+            echo '<div class="alert alert-warning" style="margin:12px 0 0">'
+                . '<strong>' . $genericUsernames . ' service(s) still have a generic WHMCS username.</strong> '
+                . 'Run Generate/Repair Moodle connection on each affected service. '
+                . 'A provisioned Drive Resource service must use username <code>dr-{service_id}</code>.'
+                . '</div>';
+        }
+
+        echo '</div></div>';
+    }
+
+    /**
+     * Render one installation-health metric.
+     *
+     * @param string $label Metric label.
+     * @param string $value Metric value.
+     * @param bool $ok Whether the value is healthy.
+     * @return void
+     */
+    private function healthMetric(string $label, string $value, bool $ok): void
+    {
+        echo '<div class="col-md-3 col-sm-6" style="margin-bottom:10px">';
+        echo '<div style="border:1px solid #e5e7eb;border-radius:6px;padding:10px">';
+        echo '<div style="font-size:12px;color:#6b7280">' . $this->e($label) . '</div>';
+        echo '<div><strong>' . $this->e($value) . '</strong> '
+            . ($ok
+                ? '<span class="label label-success">OK</span>'
+                : '<span class="label label-warning">Review</span>')
+            . '</div></div></div>';
     }
 
     /**
