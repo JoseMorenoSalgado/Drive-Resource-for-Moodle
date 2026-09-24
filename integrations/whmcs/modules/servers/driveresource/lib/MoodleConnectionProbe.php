@@ -9,6 +9,17 @@ use RuntimeException;
  */
 final class MoodleConnectionProbe
 {
+    /** @var Translator Module-local translator. */
+    private Translator $translator;
+
+    /**
+     * @param Translator $translator Module translator.
+     */
+    public function __construct(Translator $translator)
+    {
+        $this->translator = $translator;
+    }
+
     /**
      * Validate the Moodle plugin/service binding.
      *
@@ -22,7 +33,7 @@ final class MoodleConnectionProbe
         if ($serviceId <= 0 || strlen($token) < 32) {
             return [
                 'connected' => false,
-                'message' => 'El servicio todavía no tiene una credencial Moodle válida.',
+                'message' => $this->translator->t('connection_credentials_missing'),
                 'pluginversion' => 0,
             ];
         }
@@ -39,7 +50,7 @@ final class MoodleConnectionProbe
         ) {
             return [
                 'connected' => false,
-                'message' => 'La URL de Moodle debe ser HTTPS pública en el puerto 443.',
+                'message' => $this->translator->t('connection_invalid_url'),
                 'pluginversion' => 0,
             ];
         }
@@ -102,7 +113,7 @@ final class MoodleConnectionProbe
         if ($raw === false || $error !== '') {
             return [
                 'connected' => false,
-                'message' => 'No se pudo contactar el aula virtual.',
+                'message' => $this->translator->t('connection_unreachable'),
                 'pluginversion' => 0,
             ];
         }
@@ -116,8 +127,8 @@ final class MoodleConnectionProbe
             || rtrim((string) ($decoded['siteurl'] ?? ''), '/') !== $siteUrl
         ) {
             $message = $status === 503
-                ? 'Drive Resource está instalado, pero la conexión WHMCS no está configurada en Moodle.'
-                : 'Moodle respondió, pero Service ID, URL o token no coinciden.';
+                ? $this->translator->t('connection_plugin_not_configured')
+                : $this->translator->t('connection_mismatch');
 
             return [
                 'connected' => false,
@@ -128,7 +139,7 @@ final class MoodleConnectionProbe
 
         return [
             'connected' => true,
-            'message' => 'Conexión con Moodle verificada correctamente.',
+            'message' => $this->translator->t('connection_verified'),
             'pluginversion' => max(0, (int) ($decoded['pluginversion'] ?? 0)),
         ];
     }
@@ -152,12 +163,12 @@ final class MoodleConnectionProbe
             || str_ends_with($host, '.internal')
             || filter_var($host, FILTER_VALIDATE_IP) !== false
         ) {
-            throw new RuntimeException('La URL de Moodle debe usar un nombre DNS público.');
+            throw new RuntimeException($this->translator->t('connection_invalid_url'));
         }
 
         $records = dns_get_record($host, DNS_A | DNS_AAAA);
         if (!is_array($records) || $records === []) {
-            throw new RuntimeException('No se pudo resolver el dominio público de Moodle.');
+            throw new RuntimeException($this->translator->t('connection_dns_invalid'));
         }
 
         $addresses = [];
@@ -174,14 +185,14 @@ final class MoodleConnectionProbe
             );
             if ($public === false) {
                 throw new RuntimeException(
-                    'El dominio de Moodle resuelve a una red privada o reservada y fue rechazado.'
+                    $this->translator->t('connection_private_network')
                 );
             }
             $addresses[] = $ip;
         }
 
         if ($addresses === []) {
-            throw new RuntimeException('El dominio de Moodle no tiene una dirección IP pública válida.');
+            throw new RuntimeException($this->translator->t('connection_dns_invalid'));
         }
 
         return $addresses[0];
