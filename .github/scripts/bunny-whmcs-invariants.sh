@@ -80,7 +80,7 @@ grep -q "AdminDashboard" integrations/whmcs/modules/addons/driveresource_gateway
 grep -q "backend_key" integrations/whmcs/modules/addons/driveresource_gateway/lib/AdminDashboard.php     || fail "Multi-client dashboard does not expose/filter backend identity."
 grep -q "'RequiresServer' => false" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Elearning Stream must not require a fake WHMCS server assignment."
 grep -q "function driveresource_AdminServicesTabFields" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Admin Moodle connection details are missing."
-grep -q "Moodle Service Token" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Admin service token handoff is missing."
+grep -q "service_token" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Translated admin service token handoff is missing."
 grep -q "function driveresource_AdminCustomButtonArray" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Admin provisioning repair action is missing."
 grep -q "function driveresource_provision_moodle_connection" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "Shared idempotent Moodle provisioning helper is missing."
 
