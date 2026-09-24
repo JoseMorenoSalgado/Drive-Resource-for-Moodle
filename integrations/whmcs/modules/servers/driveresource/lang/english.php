@@ -28,6 +28,8 @@ return [
     'moodle_url_help' => 'Must exactly match Moodle $CFG->wwwroot.',
     'service_id' => 'Service ID',
     'service_token' => 'Moodle connection token',
+    'gateway_url' => 'Moodle Gateway URL',
+    'monthly_transfer' => 'Monthly transfer',
     'token_missing' => 'Not generated yet',
     'show' => 'Show',
     'copy' => 'Copy',
