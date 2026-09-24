@@ -30,7 +30,7 @@ final class MoodleConnectionProbe
      */
     public function probe(int $serviceId, string $siteUrl, string $token): array
     {
-        if ($serviceId <= 0 || strlen($token) < 32) {
+        if ($serviceId <= 0 || !preg_match('/^[a-f0-9]{64}$/', $token)) {
             return [
                 'connected' => false,
                 'message' => $this->translator->t('connection_credentials_missing'),
