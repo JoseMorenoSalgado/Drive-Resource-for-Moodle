@@ -16,6 +16,7 @@ require_once __DIR__ . '/lib/MetricsProvider.php';
 require_once __DIR__ . '/lib/MoodleConnectionProbe.php';
 
 use WHMCS\Database\Capsule;
+use WHMCS\Module\Addon\Setting;
 use WHMCS\Module\Server\Driveresource\ClientPortal;
 use WHMCS\Module\Server\Driveresource\MetricsProvider;
 use WHMCS\Module\Server\Driveresource\MoodleConnectionProbe;
@@ -60,37 +61,76 @@ function driveresource_ConfigOptions(): array
             'Default' => '30',
             'Description' => 'Days to retain an unreferenced video before physical deletion.',
         ],
-        'Storage Backend' => [
+        'Video Provider' => [
             'Type' => 'text',
             'Size' => '30',
             'Default' => 'elearningstream',
-            'Loader' => 'driveresource_BackendLoader',
+            'Loader' => 'driveresource_VideoProviderLoader',
             'SimpleMode' => true,
-            'Description' => 'Backend assigned to every service created from this product.',
+            'Description' => 'Managed-video provider assigned to services created from this product.',
         ],
-        'Backend Profile' => [
+        'Video Provider Profile' => [
             'Type' => 'text',
             'Size' => '30',
             'Default' => 'default',
-            'Description' => 'Credential/profile selector reserved for multiple provider accounts or future S3 buckets.',
+            'Description' => 'Credential/profile selector for the video provider.',
+        ],
+        'Protected PDF Storage' => [
+            'Type' => 'text',
+            'Size' => '30',
+            'Default' => 'none',
+            'Loader' => 'driveresource_DocumentProviderLoader',
+            'SimpleMode' => true,
+            'Description' => 'Independent object-storage provider for protected PDFs. Video-only plans can keep this disabled.',
+        ],
+        'Object Storage Profile' => [
+            'Type' => 'text',
+            'Size' => '30',
+            'Default' => 'default',
+            'Description' => 'Credential/profile selector for S3-compatible protected document storage.',
         ],
     ];
 }
 
 /**
- * Populate the backend selector with backends safe to provision.
+ * Populate the managed-video provider selector.
  *
- * S3-compatible storage is intentionally omitted until its adapter is
- * production-ready. Adding it later will not change existing service schema.
+ * @param array $params WHMCS module parameters.
+ * @return array<string,string>
+ */
+function driveresource_VideoProviderLoader(array $params): array
+{
+    return [
+        'elearningstream' => 'Elearning Stream',
+    ];
+}
+
+/**
+ * Populate the protected-document provider selector.
+ *
+ * The S3 assignment is stored independently from video so the data-plane
+ * adapter can be enabled without migrating the Moodle service identity.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return array<string,string>
+ */
+function driveresource_DocumentProviderLoader(array $params): array
+{
+    return [
+        'none' => 'Disabled (video only)',
+        's3compatible' => 'S3-compatible Object Storage',
+    ];
+}
+
+/**
+ * Backward-compatible alias retained for existing WHMCS product metadata.
  *
  * @param array $params WHMCS module parameters.
  * @return array<string,string>
  */
 function driveresource_BackendLoader(array $params): array
 {
-    return [
-        'elearningstream' => 'Elearning Stream',
-    ];
+    return driveresource_VideoProviderLoader($params);
 }
 
 /**
@@ -134,7 +174,6 @@ function driveresource_ClientAreaAllowedFunctions(): array
     return [
         'ProvisionMoodleConnection',
         'RotateMoodleToken',
-        'UpdateMoodleUrl',
         'ValidateMoodleConnection',
         'DeleteVideo',
     ];
@@ -287,7 +326,8 @@ function driveresource_DeleteVideo(array $params): string
         $service = Capsule::table('mod_driveresource_services')
             ->where('service_id', $serviceId)
             ->first();
-        if (!$service || (string) ($service->backend_key ?? '') !== 'elearningstream') {
+        $videoBackend = (string) ($service->video_backend_key ?? $service->backend_key ?? '');
+        if (!$service || $videoBackend !== 'elearningstream') {
             throw new RuntimeException(Translator::fromParams($params)->t('backend_mismatch'));
         }
 
@@ -419,16 +459,23 @@ function driveresource_provision_moodle_connection(array $params, bool $forcerot
         $quotaBytes = driveresource_quota_bytes($params);
         $overageAllowed = driveresource_overage_allowed($params);
         $retentionDays = driveresource_retention_days($params);
-        $backendKey = driveresource_backend_key($params);
-        $backendProfile = driveresource_backend_profile($params);
+        $videoBackendKey = driveresource_video_backend_key($params);
+        $videoBackendProfile = driveresource_video_backend_profile($params);
+        $objectBackendKey = driveresource_object_backend_key($params);
+        $objectBackendProfile = driveresource_object_backend_profile($params);
 
         $values = [
             'site_url' => $siteUrl,
             'site_hash' => hash('sha256', $siteUrl),
             'token_hash' => hash('sha256', $token),
             'status' => 'active',
-            'backend_key' => $backendKey,
-            'backend_profile' => $backendProfile,
+            // Legacy backend fields mirror the video provider for API compatibility.
+            'backend_key' => $videoBackendKey,
+            'backend_profile' => $videoBackendProfile,
+            'video_backend_key' => $videoBackendKey,
+            'video_backend_profile' => $videoBackendProfile,
+            'object_backend_key' => $objectBackendKey,
+            'object_backend_profile' => $objectBackendProfile,
             'connection_status' => 'pending',
             'connection_checked_at' => null,
             'connection_message' => 'connection_pending',
@@ -468,7 +515,8 @@ function driveresource_provision_moodle_connection(array $params, bool $forcerot
             [
                 'serviceid' => $serviceId,
                 'siteurl' => $siteUrl,
-                'backend' => $backendKey,
+                'video_provider' => $videoBackendKey,
+                'object_provider' => $objectBackendKey,
             ],
             [
                 'status' => 'success',
@@ -484,7 +532,8 @@ function driveresource_provision_moodle_connection(array $params, bool $forcerot
             $forcerotation ? 'moodle_token_rotated' : 'moodle_connection_provisioned',
             [
                 'site_url' => $siteUrl,
-                'backend' => $backendKey,
+                'video_provider' => $videoBackendKey,
+                'object_provider' => $objectBackendKey,
                 'token_rotated' => (bool) ($forcerotation || !$tokenisusable),
             ]
         );
@@ -570,11 +619,17 @@ function driveresource_ChangePackage(array $params): string
             throw new RuntimeException('Drive Resource service is not provisioned.');
         }
 
-        $backendKey = driveresource_backend_key($params);
-        $backendProfile = driveresource_backend_profile($params);
-        $currentBackend = strtolower(trim((string) ($service->backend_key ?? 'elearningstream')));
+        $videoBackendKey = driveresource_video_backend_key($params);
+        $videoBackendProfile = driveresource_video_backend_profile($params);
+        $objectBackendKey = driveresource_object_backend_key($params);
+        $objectBackendProfile = driveresource_object_backend_profile($params);
+        $currentBackend = strtolower(trim((string) (
+            $service->video_backend_key
+            ?? $service->backend_key
+            ?? 'elearningstream'
+        )));
 
-        if ($currentBackend !== $backendKey) {
+        if ($currentBackend !== $videoBackendKey) {
             $assets = (int) Capsule::table('mod_driveresource_uploads')
                 ->where('service_id', $serviceId)
                 ->where('status', '<>', 'deleted')
@@ -590,8 +645,12 @@ function driveresource_ChangePackage(array $params): string
         Capsule::table('mod_driveresource_services')
             ->where('service_id', $serviceId)
             ->update([
-                'backend_key' => $backendKey,
-                'backend_profile' => $backendProfile,
+                'backend_key' => $videoBackendKey,
+                'backend_profile' => $videoBackendProfile,
+                'video_backend_key' => $videoBackendKey,
+                'video_backend_profile' => $videoBackendProfile,
+                'object_backend_key' => $objectBackendKey,
+                'object_backend_profile' => $objectBackendProfile,
                 'quota_bytes' => driveresource_quota_bytes($params),
                 'overage_allowed' => driveresource_overage_allowed($params),
                 'retention_days' => driveresource_retention_days($params),
@@ -733,6 +792,24 @@ function driveresource_AdminServicesTabFields(array $params): array
  */
 function driveresource_gateway_url_hint(array $params): string
 {
+    $configured = trim((string) Setting::getSettingValueForModule(
+        'driveresource_gateway',
+        'public_gateway_url'
+    ));
+
+    if ($configured !== '') {
+        $parts = parse_url($configured);
+        if (
+            is_array($parts)
+            && strtolower((string) ($parts['scheme'] ?? '')) === 'https'
+            && !empty($parts['host'])
+            && empty($parts['query'])
+            && empty($parts['fragment'])
+        ) {
+            return rtrim($configured, '/');
+        }
+    }
+
     $systemUrl = rtrim((string) ($params['systemurl'] ?? ''), '/');
     if ($systemUrl === '') {
         return '/modules/addons/driveresource_gateway';
@@ -799,12 +876,16 @@ function driveresource_require_gateway(): void
 {
     $schema = Capsule::schema();
     if (!$schema->hasTable('mod_driveresource_services')) {
-        throw new RuntimeException('Activate the Drive Resource Media Gateway addon before provisioning services.');
+        throw new RuntimeException('Activate the Elearning Stream Gateway addon before provisioning services.');
     }
 
     $required = [
         'backend_key',
         'backend_profile',
+        'video_backend_key',
+        'video_backend_profile',
+        'object_backend_key',
+        'object_backend_profile',
         'connection_status',
         'connection_checked_at',
         'transfer_period',
@@ -813,13 +894,13 @@ function driveresource_require_gateway(): void
     foreach ($required as $column) {
         if (!$schema->hasColumn('mod_driveresource_services', $column)) {
             throw new RuntimeException(
-                'Drive Resource Media Gateway 0.4.3 schema upgrade is required before using this service.'
+                'Elearning Stream Gateway 0.5.0 schema upgrade is required before using this service.'
             );
         }
     }
     if (!$schema->hasTable('mod_driveresource_usage_reports')) {
         throw new RuntimeException(
-            'Drive Resource Media Gateway 0.4.3 usage schema is missing.'
+            'Elearning Stream Gateway 0.5.0 usage schema is missing.'
         );
     }
 }
@@ -941,22 +1022,22 @@ function driveresource_normalize_site_url(string $raw): string
 }
 
 /**
- * Resolve the product backend while preserving legacy products.
+ * Resolve the product video provider while preserving legacy products.
  *
  * @param array $params Module parameters.
  * @return string
  */
-function driveresource_backend_key(array $params): string
+function driveresource_video_backend_key(array $params): string
 {
-    $key = strtolower(trim((string) ($params['configoption4'] ?? '')));
+    $key = strtolower(trim((string) ($params['configoption4'] ?? 'elearningstream')));
     if ($key === '') {
         $key = 'elearningstream';
     }
 
-    $supported = driveresource_BackendLoader($params);
+    $supported = driveresource_VideoProviderLoader($params);
     if (!array_key_exists($key, $supported)) {
         throw new RuntimeException(
-            'Storage backend "' . $key . '" is not provisionable by this module version.'
+            'Video provider "' . $key . '" is not provisionable by this module version.'
         );
     }
 
@@ -964,27 +1045,87 @@ function driveresource_backend_key(array $params): string
 }
 
 /**
- * Resolve a backend profile identifier.
+ * Resolve the video provider profile.
  *
- * The profile is generic by design. Today "default" maps to the global
- * Elearning Stream addon credentials. Future S3 releases can map profiles to
- * independently managed endpoint/bucket credentials without changing service
- * identity.
+ * @param array $params Module parameters.
+ * @return string
+ */
+function driveresource_video_backend_profile(array $params): string
+{
+    return driveresource_normalize_profile((string) ($params['configoption5'] ?? 'default'));
+}
+
+/**
+ * Resolve the protected-document object-storage provider.
  *
+ * @param array $params Module parameters.
+ * @return string
+ */
+function driveresource_object_backend_key(array $params): string
+{
+    $key = strtolower(trim((string) ($params['configoption6'] ?? 'none')));
+    if ($key === '') {
+        $key = 'none';
+    }
+
+    $supported = driveresource_DocumentProviderLoader($params);
+    if (!array_key_exists($key, $supported)) {
+        throw new RuntimeException(
+            'Object-storage provider "' . $key . '" is not assignable by this module version.'
+        );
+    }
+
+    return $key;
+}
+
+/**
+ * Resolve the object-storage profile.
+ *
+ * @param array $params Module parameters.
+ * @return string
+ */
+function driveresource_object_backend_profile(array $params): string
+{
+    return driveresource_normalize_profile((string) ($params['configoption7'] ?? 'default'));
+}
+
+/**
+ * Normalize one provider profile identifier.
+ *
+ * @param string $profile Profile.
+ * @return string
+ */
+function driveresource_normalize_profile(string $profile): string
+{
+    $profile = strtolower(trim($profile));
+    if ($profile === '') {
+        $profile = 'default';
+    }
+    if (!preg_match('/^[a-z0-9][a-z0-9._-]{0,63}$/', $profile)) {
+        throw new RuntimeException('Provider profile contains unsupported characters.');
+    }
+
+    return $profile;
+}
+
+/**
+ * Backward-compatible video-backend aliases.
+ *
+ * @param array $params Module parameters.
+ * @return string
+ */
+function driveresource_backend_key(array $params): string
+{
+    return driveresource_video_backend_key($params);
+}
+
+/**
  * @param array $params Module parameters.
  * @return string
  */
 function driveresource_backend_profile(array $params): string
 {
-    $profile = strtolower(trim((string) ($params['configoption5'] ?? 'default')));
-    if ($profile === '') {
-        $profile = 'default';
-    }
-    if (!preg_match('/^[a-z0-9][a-z0-9._-]{0,63}$/', $profile)) {
-        throw new RuntimeException('Backend profile contains unsupported characters.');
-    }
-
-    return $profile;
+    return driveresource_video_backend_profile($params);
 }
 
 /**
@@ -1017,7 +1158,12 @@ function driveresource_format_bytes(int $bytes): string
  */
 function driveresource_backend_label(string $key): string
 {
-    return $key === 'elearningstream' ? 'Elearning Stream' : $key;
+    return match ($key) {
+        'elearningstream' => 'Elearning Stream',
+        's3compatible' => 'S3-compatible Object Storage',
+        'none' => 'Disabled',
+        default => $key,
+    };
 }
 
 /**
