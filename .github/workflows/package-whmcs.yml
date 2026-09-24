@@ -61,6 +61,30 @@ EOF
             zip -qr ../elearning-stream-whmcs-0.4.3.zip modules README-Drive-Resource-WHMCS.md INSTALL-Drive-Resource-WHMCS.txt
           )
 
+          unzip -t dist-whmcs/elearning-stream-whmcs-0.4.3.zip
+          unzip -Z1 dist-whmcs/elearning-stream-whmcs-0.4.3.zip | grep -q '^modules/addons/driveresource_gateway/driveresource_gateway.php
+      - name: Upload WHMCS package
+        uses: actions/upload-artifact@v4
+        with:
+          name: elearning-stream-whmcs-0.4.3
+          path: dist-whmcs/elearning-stream-whmcs-0.4.3.zip
+          if-no-files-found: error
+          retention-days: 30
+
+          unzip -Z1 dist-whmcs/elearning-stream-whmcs-0.4.3.zip | grep -q '^modules/servers/driveresource/driveresource.php
+      - name: Upload WHMCS package
+        uses: actions/upload-artifact@v4
+        with:
+          name: elearning-stream-whmcs-0.4.3
+          path: dist-whmcs/elearning-stream-whmcs-0.4.3.zip
+          if-no-files-found: error
+          retention-days: 30
+
+          if unzip -Z1 dist-whmcs/elearning-stream-whmcs-0.4.3.zip | grep -q '^whmcs-root/'; then
+            echo "::error::WHMCS package must extract directly into the WHMCS root; whmcs-root wrapper detected."
+            exit 1
+          fi
+
       - name: Upload WHMCS package
         uses: actions/upload-artifact@v4
         with:
