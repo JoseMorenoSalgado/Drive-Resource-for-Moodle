@@ -1,9 +1,9 @@
 <?php
 /**
- * Drive Resource WHMCS provisioning module.
+ * Elearning Stream provisioning module.
  *
  * @copyright  2026 Elearning Cloud
- * @license    Proprietary companion module distributed with Drive Resource
+ * @license    Proprietary companion module distributed with Elearning Stream
  */
 
 if (!defined('WHMCS')) {
@@ -134,7 +134,7 @@ function driveresource_BackendLoader(array $params): array
 }
 
 /**
- * Provision a Drive Resource tenant.
+ * Provision an Elearning Stream tenant.
  *
  * @param array $params WHMCS module parameters.
  * @return string
@@ -208,7 +208,7 @@ function driveresource_UpdateMoodleUrl(array $params): string
                 ->lockForUpdate()
                 ->first();
             if (!$service) {
-                throw new RuntimeException('Drive Resource service is not provisioned.');
+                throw new RuntimeException('Elearning Stream service is not provisioned.');
             }
 
             $currentUrl = rtrim((string) $service->site_url, '/');
@@ -273,7 +273,7 @@ function driveresource_ValidateMoodleConnection(array $params): string
             ->where('service_id', $serviceId)
             ->first();
         if (!$service) {
-            throw new RuntimeException('Drive Resource service is not provisioned.');
+            throw new RuntimeException('Elearning Stream service is not provisioned.');
         }
 
         $token = driveresource_service_token($params);
@@ -326,8 +326,12 @@ function driveresource_DeleteVideo(array $params): string
         $service = Capsule::table('mod_driveresource_services')
             ->where('service_id', $serviceId)
             ->first();
+        if (!$service) {
+            throw new RuntimeException(Translator::fromParams($params)->t('video_not_found'));
+        }
+
         $videoBackend = (string) ($service->video_backend_key ?? $service->backend_key ?? '');
-        if (!$service || $videoBackend !== 'elearningstream') {
+        if ($videoBackend !== 'elearningstream') {
             throw new RuntimeException(Translator::fromParams($params)->t('backend_mismatch'));
         }
 
@@ -616,7 +620,7 @@ function driveresource_ChangePackage(array $params): string
             ->where('service_id', $serviceId)
             ->first();
         if (!$service) {
-            throw new RuntimeException('Drive Resource service is not provisioned.');
+            throw new RuntimeException('Elearning Stream service is not provisioned.');
         }
 
         $videoBackendKey = driveresource_video_backend_key($params);
@@ -830,7 +834,7 @@ function driveresource_ClientArea(array $params): string
         driveresource_require_gateway();
         return (new ClientPortal($params))->render();
     } catch (Throwable $exception) {
-        return '<div class="alert alert-danger">Drive Resource gateway is unavailable.</div>';
+        return '<div class="alert alert-danger">Elearning Stream Gateway is unavailable.</div>';
     }
 }
 
