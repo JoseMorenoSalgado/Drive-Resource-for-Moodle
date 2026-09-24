@@ -40,17 +40,17 @@ jobs:
           test -f dist-whmcs/whmcs-root/modules/servers/driveresource/lang/spanish.php
           test -f dist-whmcs/whmcs-root/modules/servers/driveresource/lib/MoodleConnectionProbe.php
           test -f dist-whmcs/whmcs-root/modules/servers/driveresource/driveresource.php
-          grep -F "'version' => '0.4.1'" dist-whmcs/whmcs-root/modules/addons/driveresource_gateway/driveresource_gateway.php
+          grep -F "'version' => '0.4.2'" dist-whmcs/whmcs-root/modules/addons/driveresource_gateway/driveresource_gateway.php
 
           (
             cd dist-whmcs
-            zip -qr elearning-stream-whmcs-0.4.1.zip whmcs-root
+            zip -qr elearning-stream-whmcs-0.4.2.zip whmcs-root
           )
 
       - name: Upload WHMCS package
         uses: actions/upload-artifact@v4
         with:
-          name: elearning-stream-whmcs-0.4.1
-          path: dist-whmcs/elearning-stream-whmcs-0.4.1.zip
+          name: elearning-stream-whmcs-0.4.2
+          path: dist-whmcs/elearning-stream-whmcs-0.4.2.zip
           if-no-files-found: error
           retention-days: 30
