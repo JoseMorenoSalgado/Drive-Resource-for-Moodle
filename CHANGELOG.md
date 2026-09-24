@@ -1,5 +1,19 @@
 # Changelog
 
+## Elearning Stream 1.2.0-rc1-m45 + Gateway 0.5.0 — 2026-09-24
+
+- Promotes the customer-facing product name to **Elearning Stream** while retaining the historical `mod_videoplayer` component for upgrade compatibility.
+- Removes visible WHMCS implementation wording from Moodle settings and errors; Moodle now asks only for the Elearning Stream connection URL, Service ID and service token.
+- Adds the branded **Public Gateway URL**, recommended as `https://stream.elearningcloud.io`, and shows that URL in the customer service portal instead of the internal Moodle site binding.
+- Makes new Moodle activities video-first and hides the legacy Google Drive/local-PDF source selector. Existing legacy activities remain supported and editable.
+- Changes the fresh-install/future-record source default to `bunnystream` without rewriting existing activity rows.
+- Splits service provider identity into independent video-provider and protected-object-storage lanes.
+- Adds a protected-PDF/object-storage control plane for Amazon S3, Cloudflare R2, Wasabi, Backblaze B2 S3, Hetzner Object Storage and custom S3-compatible endpoints.
+- Keeps the S3 protected-PDF data plane gated until upload, signed delivery, range handling, lifecycle and usage reconciliation are fully validated.
+- Adds a provider registry so future managed-video providers can be introduced without changing Moodle Service IDs or service tokens.
+- WHMCS package: `elearning-stream-whmcs-0.5.0.zip`.
+- Moodle package: `elearning-stream-1.2.0-rc1-m45.zip`.
+
 All notable changes to Drive Resource are documented here. The Moodle component remains `mod_videoplayer` for upgrade compatibility.
 
 ## WHMCS companion 0.4.3 — 2026-09-23
