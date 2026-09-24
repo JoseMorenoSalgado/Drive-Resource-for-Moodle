@@ -203,7 +203,11 @@ class mod_videoplayer_mod_form extends moodleform_mod {
      * @param array $defaultvalues
      */
     public function data_preprocessing(&$defaultvalues): void {
-        if ($this->current && !empty($this->current->id)) {
+        if (
+            $this->current
+            && !empty($this->current->id)
+            && ($this->current->source ?? '') === drive::SOURCE_LOCALPDF
+        ) {
             $draftitemid = file_get_submitted_draft_itemid('localpdffile');
             file_prepare_draft_area(
                 $draftitemid,
@@ -344,7 +348,7 @@ class mod_videoplayer_mod_form extends moodleform_mod {
         if ($source === bunny_stream::SOURCE) {
             $missingconfig = whmcs_gateway_client::missing_configuration();
             if ($missingconfig !== []) {
-                $errors['source'] = get_string(
+                $errors['streaminputmode'] = get_string(
                     'streamgatewayconfigurationrequired',
                     'mod_videoplayer',
                     whmcs_gateway_client::missing_configuration_labels()
