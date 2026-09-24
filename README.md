@@ -291,3 +291,8 @@ Beta5 adds a defensive recovery path for Moodle sites that previously installed 
 Elearning Stream is a logical WHMCS provisioning service and does not require a WHMCS server assignment. After assigning the module to a product, each customer service is provisioned through **Module Commands → Create**.
 
 Provisioning generates a service-scoped Moodle token and the username `dr-{service_id}`. The administrator service page exposes the Moodle Gateway URL, Service ID and Service Token for the Moodle connection. Empty username/password fields indicate that Create has not completed successfully.
+
+
+### WHMCS custom-theme compatibility
+
+WHMCS companion 0.4.2 includes a secure `ClientAreaProductDetailsOutput` fallback for third-party client themes that do not print the provisioning module's normal `ClientArea()` output. The fallback verifies service ownership and `driveresource` product assignment and automatically suppresses itself when the standard dashboard is already rendered.
