@@ -149,8 +149,8 @@ function videoplayer_queue_pdf_precache(int $instanceid): void {
  */
 function videoplayer_normalise_instance_data(stdClass $data): stdClass {
     $allowedsources = [drive::SOURCE_GOOGLEDRIVE, bunny_stream::SOURCE, drive::SOURCE_LOCALPDF];
-    $source = clean_param($data->source ?? drive::SOURCE_GOOGLEDRIVE, PARAM_ALPHANUMEXT);
-    $data->source = in_array($source, $allowedsources, true) ? $source : drive::SOURCE_GOOGLEDRIVE;
+    $source = clean_param($data->source ?? bunny_stream::SOURCE, PARAM_ALPHANUMEXT);
+    $data->source = in_array($source, $allowedsources, true) ? $source : bunny_stream::SOURCE;
 
     $allowedtypes = array_merge([drive::TYPE_AUTO], drive::RESOURCE_TYPES);
     $type = clean_param($data->type ?? drive::TYPE_AUTO, PARAM_ALPHANUMEXT);
