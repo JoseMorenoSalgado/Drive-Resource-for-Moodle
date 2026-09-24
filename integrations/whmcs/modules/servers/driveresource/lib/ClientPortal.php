@@ -269,15 +269,31 @@ final class ClientPortal
     private function serviceToken(): string
     {
         $token = trim((string) ($this->params['password'] ?? ''));
-        if ($token !== '' || !isset($this->params['model'])) {
+        if ($this->isServiceToken($token)) {
             return $token;
         }
 
+        if (!isset($this->params['model'])) {
+            return '';
+        }
+
         try {
-            return trim((string) $this->params['model']->serviceProperties->get('Password'));
+            $token = trim((string) $this->params['model']->serviceProperties->get('Password'));
+            return $this->isServiceToken($token) ? $token : '';
         } catch (\Throwable $exception) {
             return '';
         }
+    }
+
+    /**
+     * Whether one value matches the generated Drive Resource token format.
+     *
+     * @param string $token Candidate token.
+     * @return bool
+     */
+    private function isServiceToken(string $token): bool
+    {
+        return (bool) preg_match('/^[a-f0-9]{64}$/', $token);
     }
 
     /**
