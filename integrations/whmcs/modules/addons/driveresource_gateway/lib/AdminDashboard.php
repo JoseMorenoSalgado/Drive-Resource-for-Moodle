@@ -116,6 +116,7 @@ final class AdminDashboard
         $this->renderFilters($query, $status, $backend);
         $this->renderTable($rows, $assetCounts);
         $this->renderPagination($page, $pages, $query, $status, $backend);
+        $this->renderAudit();
         $this->renderRoadmap();
     }
 
@@ -332,6 +333,87 @@ final class AdminDashboard
                 . $this->e($params) . '">' . $current . '</a></li>';
         }
         echo '</ul></nav>';
+    }
+
+    /**
+     * Render the latest redacted control-plane audit events.
+     *
+     * @return void
+     */
+    private function renderAudit(): void
+    {
+        if (!Capsule::schema()->hasTable('mod_driveresource_audit')) {
+            return;
+        }
+
+        $rows = Capsule::table('mod_driveresource_audit as a')
+            ->leftJoin('tblhosting as h', 'h.id', '=', 'a.service_id')
+            ->leftJoin('tblclients as c', 'c.id', '=', 'h.userid')
+            ->select([
+                'a.service_id',
+                'a.actor_type',
+                'a.actor_id',
+                'a.action',
+                'a.metadata_json',
+                'a.created_at',
+                'c.firstname',
+                'c.lastname',
+                'c.companyname',
+            ])
+            ->orderBy('a.id', 'desc')
+            ->limit(50)
+            ->get();
+
+        echo '<div class="panel panel-default">';
+        echo '<div class="panel-heading"><strong>Recent control-plane audit</strong></div>';
+        echo '<div class="table-responsive"><table class="table table-striped table-hover" style="margin-bottom:0">';
+        echo '<thead><tr><th>Time</th><th>Service</th><th>Customer</th><th>Actor</th><th>Action</th><th>Details</th></tr></thead><tbody>';
+
+        if (count($rows) === 0) {
+            echo '<tr><td colspan="6" class="text-center text-muted" style="padding:24px">No audit events yet.</td></tr>';
+        } else {
+            foreach ($rows as $row) {
+                $customer = trim((string) $row->companyname);
+                if ($customer === '') {
+                    $customer = trim((string) $row->firstname . ' ' . (string) $row->lastname);
+                }
+                $actor = ucfirst((string) $row->actor_type);
+                if (!empty($row->actor_id)) {
+                    $actor .= ' #' . (int) $row->actor_id;
+                }
+
+                $metadata = '';
+                if (!empty($row->metadata_json)) {
+                    $decoded = json_decode((string) $row->metadata_json, true);
+                    if (is_array($decoded)) {
+                        $pairs = [];
+                        foreach ($decoded as $key => $value) {
+                            if (is_bool($value)) {
+                                $value = $value ? 'true' : 'false';
+                            } else if ($value === null) {
+                                $value = 'null';
+                            } else if (!is_scalar($value)) {
+                                continue;
+                            }
+                            $pairs[] = $key . '=' . (string) $value;
+                        }
+                        $metadata = implode(' · ', $pairs);
+                    }
+                }
+
+                echo '<tr>';
+                echo '<td>' . $this->e(date('Y-m-d H:i:s', (int) $row->created_at)) . '</td>';
+                echo '<td><a href="clientsservices.php?id=' . (int) $row->service_id . '">#'
+                    . (int) $row->service_id . '</a></td>';
+                echo '<td>' . $this->e($customer !== '' ? $customer : '—') . '</td>';
+                echo '<td>' . $this->e($actor) . '</td>';
+                echo '<td><code>' . $this->e((string) $row->action) . '</code></td>';
+                echo '<td><small>' . $this->e($this->truncate($metadata, 160)) . '</small></td>';
+                echo '</tr>';
+            }
+        }
+
+        echo '</tbody></table></div></div>';
     }
 
     /**
