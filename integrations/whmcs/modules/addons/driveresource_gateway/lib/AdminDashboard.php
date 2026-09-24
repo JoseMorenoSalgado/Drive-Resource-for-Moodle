@@ -42,7 +42,7 @@ final class AdminDashboard
             $baseQuery->where('s.status', $status);
         }
         if ($backend !== '') {
-            $baseQuery->where('s.backend_key', $backend);
+            $baseQuery->where('s.video_backend_key', $backend);
         }
         if ($query !== '') {
             $baseQuery->where(static function ($builder) use ($query): void {
@@ -71,6 +71,10 @@ final class AdminDashboard
                 's.status',
                 's.backend_key',
                 's.backend_profile',
+                's.video_backend_key',
+                's.video_backend_profile',
+                's.object_backend_key',
+                's.object_backend_profile',
                 's.connection_status',
                 's.connection_checked_at',
                 's.transfer_period',
@@ -168,10 +172,10 @@ final class AdminDashboard
             : 'warning';
 
         echo '<div class="panel panel-' . $overall . '">';
-        echo '<div class="panel-heading"><strong>Drive Resource installation health</strong></div>';
+        echo '<div class="panel-heading"><strong>Elearning Stream installation health</strong></div>';
         echo '<div class="panel-body">';
         echo '<div class="row">';
-        $this->healthMetric('Loaded companion', '0.4.3', true);
+        $this->healthMetric('Loaded companion', '0.5.0', true);
         $this->healthMetric('Server module', $serverOk ? 'OK' : 'Missing', $serverOk);
         $this->healthMetric('Products using driveresource', (string) count($products), count($products) > 0);
         $this->healthMetric('Assigned services', (string) $assigned, true);
@@ -321,7 +325,7 @@ final class AdminDashboard
         echo '<input type="hidden" name="module" value="driveresource_gateway">';
         echo '<div class="form-group" style="margin-right:8px">';
         echo '<input class="form-control" type="search" name="q" value="' . $this->e($query)
-            . '" placeholder="Client, email, Moodle URL or service ID">';
+            . '" placeholder="Client, email, site URL or service ID">';
         echo '</div>';
 
         echo '<div class="form-group" style="margin-right:8px"><select class="form-control" name="status">';
@@ -332,10 +336,10 @@ final class AdminDashboard
         echo '</select></div>';
 
         echo '<div class="form-group" style="margin-right:8px"><select class="form-control" name="backend">';
-        echo '<option value="">All backends</option>';
-        foreach (BackendRegistry::definitions() as $key => $definition) {
+        echo '<option value="">All video providers</option>';
+        foreach (BackendRegistry::videoOptions() as $key => $label) {
             echo '<option value="' . $this->e($key) . '"' . ($backend === $key ? ' selected' : '') . '>'
-                . $this->e($definition['label']) . '</option>';
+                . $this->e($label) . '</option>';
         }
         echo '</select></div>';
 
@@ -352,16 +356,17 @@ final class AdminDashboard
     private function renderTable(iterable $rows, array $assetCounts): void
     {
         echo '<div class="panel panel-default">';
-        echo '<div class="panel-heading"><strong>Drive Resource customers</strong></div>';
+        echo '<div class="panel-heading"><strong>Elearning Stream customers</strong></div>';
         echo '<div class="table-responsive"><table class="table table-striped table-hover" style="margin-bottom:0">';
         echo '<thead><tr>';
         foreach ([
             'Service',
             'Customer',
-            'Moodle site',
+            'Site',
             'Connection',
             'Product',
-            'Backend',
+            'Video provider',
+            'PDF storage',
             'Storage',
             'Transfer',
             'Assets',
@@ -396,8 +401,15 @@ final class AdminDashboard
                 . $this->e($this->truncate((string) $row->site_url, 44)) . '</span></td>';
             echo '<td>' . $this->connectionBadge((string) ($row->connection_status ?? 'pending')) . '</td>';
             echo '<td>' . $this->e((string) ($row->product_name ?: '—')) . '</td>';
-            echo '<td>' . $this->e(BackendRegistry::label((string) $row->backend_key))
-                . '<br><small>Profile: ' . $this->e((string) $row->backend_profile) . '</small></td>';
+            $videoProvider = (string) ($row->video_backend_key ?: $row->backend_key);
+            $videoProfile = (string) ($row->video_backend_profile ?: $row->backend_profile);
+            $objectProvider = (string) ($row->object_backend_key ?: BackendRegistry::NONE);
+            $objectProfile = (string) ($row->object_backend_profile ?: 'default');
+
+            echo '<td>' . $this->e(BackendRegistry::label($videoProvider))
+                . '<br><small>Profile: ' . $this->e($videoProfile) . '</small></td>';
+            echo '<td>' . $this->e(BackendRegistry::label($objectProvider))
+                . '<br><small>Profile: ' . $this->e($objectProfile) . '</small></td>';
             echo '<td>' . $this->e($this->gb($used)) . ' / ' . $this->e($this->gb($quota)) . ' GB'
                 . '<br><small>' . $percentage . '%';
             if ($reserved > 0) {
@@ -419,7 +431,7 @@ final class AdminDashboard
         }
 
         if (!$hasRows) {
-            echo '<tr><td colspan="11" class="text-center text-muted" style="padding:30px">No services match the current filters.</td></tr>';
+            echo '<tr><td colspan="12" class="text-center text-muted" style="padding:30px">No services match the current filters.</td></tr>';
         }
 
         echo '</tbody></table></div></div>';
@@ -533,18 +545,57 @@ final class AdminDashboard
     }
 
     /**
-     * Render planned backend extensibility without exposing an unusable product.
+     * Render provider configuration without exposing provider secrets.
      *
      * @return void
      */
     private function renderRoadmap(): void
     {
-        echo '<div class="panel panel-info"><div class="panel-heading"><strong>Storage backends</strong></div>';
+        $gatewayUrl = 'Not configured';
+        try {
+            $gatewayUrl = Config::publicGatewayUrl();
+        } catch (\Throwable $exception) {
+            // Health panel must remain available even when the public URL needs review.
+        }
+
+        $objectProvider = Config::objectStorageProvider();
+        $objectConfigured = Config::objectStorageConfigured();
+
+        echo '<div class="panel panel-info"><div class="panel-heading"><strong>Provider configuration</strong></div>';
         echo '<div class="panel-body">';
-        echo '<p><strong>Active:</strong> Elearning Stream — managed video, direct upload and protected playback.</p>';
-        echo '<p><strong>Architecture reserved:</strong> S3-compatible Object Storage — future PDFs, documents, images, audio and/or video objects using the same WHMCS tenant, quota and billing model.</p>';
-        echo '<p class="text-muted" style="margin-bottom:0">S3-compatible storage is intentionally not provisionable until its multipart upload, signed delivery, metering and lifecycle adapter passes the same security gates.</p>';
+        echo '<p><strong>Public gateway:</strong> <code>' . $this->e($gatewayUrl) . '</code></p>';
+        echo '<p><strong>Video:</strong> Elearning Stream — managed upload and protected playback.</p>';
+        echo '<p><strong>Protected PDF / objects:</strong> ' . $this->e($this->objectProviderLabel($objectProvider));
+        if ($objectProvider !== 'disabled') {
+            echo $objectConfigured
+                ? ' <span class="label label-success">Configured</span>'
+                : ' <span class="label label-warning">Incomplete configuration</span>';
+        }
+        echo '</p>';
+        echo '<p class="text-muted" style="margin-bottom:0">'
+            . 'Video and object storage are assigned independently per product. '
+            . 'Additional video providers can be added through the same provider registry without changing Moodle credentials.'
+            . '</p>';
         echo '</div></div>';
+    }
+
+    /**
+     * Human-readable object-storage provider configured in the addon.
+     *
+     * @param string $provider Provider key.
+     * @return string
+     */
+    private function objectProviderLabel(string $provider): string
+    {
+        return match ($provider) {
+            'aws_s3' => 'Amazon S3',
+            'cloudflare_r2' => 'Cloudflare R2',
+            'wasabi' => 'Wasabi',
+            'backblaze_b2' => 'Backblaze B2 (S3)',
+            'hetzner' => 'Hetzner Object Storage',
+            'custom_s3' => 'Custom S3-compatible',
+            default => 'Disabled',
+        };
     }
 
     /**
