@@ -111,7 +111,7 @@ final class ClientPortal
         }
 
         $html = $this->styles();
-        $html .= '<div class="dr-portal">';
+        $html .= '<div class="dr-portal" data-dr-service-id="' . $serviceId . '">';
         $html .= '<div class="dr-grid">';
         $html .= $this->card(
             $this->translator->t('card_connection'),
