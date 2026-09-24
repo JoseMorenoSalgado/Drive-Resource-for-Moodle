@@ -332,3 +332,34 @@ Elearning Stream signed MP4
 HEAD responses, rejected content, discarded range responses and bytes never emitted to the browser are not counted. A Service ID change cannot reattribute queued events from an old service to a new one.
 
 Client video deletion checks both tenant ownership and active Moodle references before invoking the provider delete operation. URL reassignment is blocked while active references exist; a content-bearing site/domain migration requires a dedicated migration workflow.
+
+
+## Branded public video URL authority
+
+Pasted video URLs use a two-stage validation model:
+
+```text
+Teacher pastes https://video.elearningcloud.io/.../<guid>
+        |
+Moodle: HTTPS + credentials/port + GUID syntax only
+        |
+authenticated Moodle -> WHMCS request (URL is transient)
+        |
+WHMCS Config::publicVideoHosts()
+        |
+exact configured alias / approved provider host
+        |
+GUID extraction
+        |
+Elearning Stream Video Library API ownership verification
+        |
+Moodle persists only provider GUID + WHMCS upload reference
+```
+
+This keeps public-brand hostname policy centralized in WHMCS and avoids hardcoding customer/vendor domains into the Moodle plugin. The pasted URL is never used as a proxy target and is never persisted in Moodle or WHMCS asset rows.
+
+## WHMCS audit boundary
+
+`mod_driveresource_audit` stores control-plane events independently of Moodle learner activity. It records service id, actor type/id, stable action, bounded redacted metadata and timestamp. AuditLogger strips keys matching token/password/secret/signature/API-key patterns before persistence.
+
+Current audited operations include Moodle URL changes, connection provisioning, token rotation, signed connection validation and client-requested video deletion. The WHMCS administrator dashboard exposes the most recent audit entries.
