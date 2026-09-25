@@ -6,7 +6,7 @@ Elearning Stream is a protected-video activity for Moodle. The historical Moodle
 
 - Product: **Elearning Stream**
 - Moodle component: `mod_videoplayer`
-- Release: **1.2.0-rc2-m45**
+- Release: **1.2.0-rc3-m45**
 - Target: Moodle **4.5 LTS**
 - PHP baseline: PHP 8.1+
 - Video runtime: native HTML5 Media API
