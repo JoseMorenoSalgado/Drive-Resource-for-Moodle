@@ -2,6 +2,7 @@
 
 ## Elearning Stream 1.2.0-rc1-m45 + Gateway 0.5.0 — 2026-09-24
 
+- Fixes direct video upload authorization passing course ID `0` because the activity form incorrectly treated Moodle's course id as an object. The uploader now uses `moodleform_mod::get_course()` and `get_coursemodule()`, preventing `invalidrecord` on the `course` table.
 - Promotes the customer-facing product name to **Elearning Stream** while retaining the historical `mod_videoplayer` component for upgrade compatibility.
 - Removes visible WHMCS implementation wording from Moodle settings and errors; Moodle now asks only for the Elearning Stream connection URL, Service ID and service token.
 - Adds the branded **Public Gateway URL**, recommended as `https://stream.elearningcloud.io`, and shows that URL in the customer service portal instead of the internal Moodle site binding.
