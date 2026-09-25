@@ -1,6 +1,6 @@
 # Elearning Stream installation and upgrade
 
-## Supported platform for 1.2.0-rc2-m45
+## Supported platform for 1.2.0-rc3-m45
 
 - Moodle 4.5 LTS
 - PHP 8.1+
@@ -15,7 +15,7 @@ This compatibility package declares Moodle 4.5 only. Do not install it on Moodle
 
 ## Production connection model
 
-Install the matching **Elearning Stream Gateway 0.5.0** companion in WHMCS. In the addon configure **Public Gateway URL** to the branded HTTPS endpoint that customers will paste into Moodle; the recommended production value is:
+Install the matching **Elearning Stream Gateway 0.5.1** companion in WHMCS. In the addon configure **Public Gateway URL** to the branded HTTPS endpoint that customers will paste into Moodle; the recommended production value is:
 
 ```text
 https://stream.elearningcloud.io
