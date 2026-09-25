@@ -184,9 +184,12 @@ class mod_videoplayer_mod_form extends moodleform_mod {
         $this->add_action_buttons();
 
         if ($currentsource === bunny_stream::SOURCE) {
+            $courseid = (int)$this->get_course();
+            $coursemodule = $this->get_coursemodule();
+
             $PAGE->requires->js_call_amd('mod_videoplayer/bunnyupload', 'init', [[
-                'courseid' => (int)$this->course->id,
-                'cmid' => (!empty($this->_cm) && !empty($this->_cm->id)) ? (int)$this->_cm->id : 0,
+                'courseid' => $courseid,
+                'cmid' => $coursemodule ? (int)$coursemodule->id : 0,
                 'strings' => [
                     'ready' => get_string('bunnyuploadready', 'mod_videoplayer'),
                     'authorizing' => get_string('bunnyuploadauthorizing', 'mod_videoplayer'),
@@ -423,9 +426,11 @@ class mod_videoplayer_mod_form extends moodleform_mod {
     private function get_localpdf_filemanager_options(): array {
         global $CFG;
 
+        $course = get_course($this->get_course());
+
         return [
             'subdirs' => 0,
-            'maxbytes' => get_max_upload_file_size($CFG->maxbytes, $this->course->maxbytes ?? 0),
+            'maxbytes' => get_max_upload_file_size($CFG->maxbytes, (int)($course->maxbytes ?? 0)),
             'maxfiles' => 1,
             'accepted_types' => ['.pdf'],
         ];
