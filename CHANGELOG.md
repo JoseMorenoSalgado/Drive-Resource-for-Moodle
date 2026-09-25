@@ -1,5 +1,14 @@
 # Changelog
 
+## Elearning Stream 1.2.0-rc3-m45 + Gateway 0.5.1 — 2026-09-25
+
+- Fixes Moodle-to-gateway HTTP 401 on Apache/FastCGI stacks that strip the standard `Authorization` header before PHP receives it.
+- Moodle now sends the exact 64-hex service token in `X-Drive-Resource-Token` in addition to the legacy Bearer header.
+- Gateway 0.5.1 prefers `X-Drive-Resource-Token` and keeps Bearer authentication as a backward-compatible fallback.
+- Tightens gateway token validation to the same exact 64-hex contract used during provisioning.
+- Fixes Moodle gateway exceptions so the translated message substitutes `{$a}` instead of displaying the placeholder literally.
+- Includes the RC2 XMLDB indexed-default repair and the direct-upload course-context fix.
+
 ## Elearning Stream 1.2.0-rc2-m45 — 2026-09-25
 
 - Fixes Moodle upgrade failure `ddl_dependency_exception` when changing the default of indexed field `videoplayer.source`.
