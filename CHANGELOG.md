@@ -1,5 +1,13 @@
 # Changelog
 
+## Elearning Stream 1.2.0-rc2-m45 — 2026-09-25
+
+- Fixes Moodle upgrade failure `ddl_dependency_exception` when changing the default of indexed field `videoplayer.source`.
+- Keeps historical savepoint `2026092401` schema-neutral and performs the default change in `2026092501`.
+- Drops `source_idx` before `change_field_default()` and recreates the index immediately afterwards, as required by Moodle XMLDB dependency checks.
+- Preserves all existing activity rows; only the default for future records changes to `bunnystream`.
+- Includes the direct-upload course-context fix that prevents `course.id = 0` during video upload authorization.
+
 ## Elearning Stream 1.2.0-rc1-m45 + Gateway 0.5.0 — 2026-09-24
 
 - Fixes direct video upload authorization passing course ID `0` because the activity form incorrectly treated Moodle's course id as an object. The uploader now uses `moodleform_mod::get_course()` and `get_coursemodule()`, preventing `invalidrecord` on the `course` table.
