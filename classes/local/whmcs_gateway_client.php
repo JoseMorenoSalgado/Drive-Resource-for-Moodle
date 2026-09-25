@@ -98,7 +98,7 @@ final class whmcs_gateway_client {
     public function __construct() {
         $this->baseurl = rtrim(trim((string)get_config('mod_videoplayer', 'whmcsgatewayurl')), '/');
         $this->serviceid = (int)get_config('mod_videoplayer', 'whmcsserviceid');
-        $this->servicetoken = trim((string)get_config('mod_videoplayer', 'whmcsservicetoken'));
+        $this->servicetoken = strtolower(trim((string)get_config('mod_videoplayer', 'whmcsservicetoken')));
         $this->timeout = max(5, min(60, (int)(get_config('mod_videoplayer', 'whmcstimeout') ?: 15)));
 
         if (!self::is_configured()) {
@@ -532,7 +532,11 @@ final class whmcs_gateway_client {
         $curl->setHeader([
             'Accept: application/json',
             'Content-Type: application/json',
+            // Keep Authorization for compatibility, but also send the
+            // service token in a dedicated header because some Apache/FastCGI
+            // stacks strip Authorization before PHP receives the request.
             'Authorization: Bearer ' . $this->servicetoken,
+            'X-Drive-Resource-Token: ' . $this->servicetoken,
             'X-Drive-Resource-Service: ' . $this->serviceid,
             'X-Drive-Resource-Site: ' . $CFG->wwwroot,
             'X-Drive-Resource-Timestamp: ' . $timestamp,
@@ -552,23 +556,29 @@ final class whmcs_gateway_client {
         $decoded = is_string($raw) && $raw !== '' ? json_decode($raw, true) : null;
         if ($status < 200 || $status >= 300 || !is_array($decoded)) {
             $message = is_array($decoded) ? clean_param((string)($decoded['message'] ?? ''), PARAM_TEXT) : '';
+            $message = $message !== ''
+                ? $message
+                : get_string('whmcsgatewayrequestfailed', 'mod_videoplayer');
+
             throw new moodle_exception(
                 'whmcsgatewayremoteerror',
                 'mod_videoplayer',
                 '',
-                null,
-                ($message !== '' ? $message : get_string('whmcsgatewayrequestfailed', 'mod_videoplayer'))
-                    . ' [HTTP ' . $status . ']'
+                $message . ' [HTTP ' . $status . ']'
             );
         }
 
         if (($decoded['ok'] ?? false) !== true) {
+            $message = clean_param((string)($decoded['message'] ?? ''), PARAM_TEXT);
+            if ($message === '') {
+                $message = get_string('whmcsgatewayrequestfailed', 'mod_videoplayer');
+            }
+
             throw new moodle_exception(
                 'whmcsgatewayremoteerror',
                 'mod_videoplayer',
                 '',
-                null,
-                clean_param((string)($decoded['message'] ?? ''), PARAM_TEXT)
+                $message
             );
         }
 
