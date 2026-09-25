@@ -43,6 +43,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: elearning-stream-moodle-1.2.0-rc2-m45
-          path: dist/elearning-stream-1.2.0-rc1-m45.zip
+          path: dist/elearning-stream-1.2.0-rc2-m45.zip
           if-no-files-found: error
           retention-days: 30
