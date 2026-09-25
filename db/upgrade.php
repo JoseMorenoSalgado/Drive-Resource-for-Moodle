@@ -619,9 +619,18 @@ function xmldb_videoplayer_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026092209, 'videoplayer');
     }
 
-    // New activities are video-first. Existing legacy source values are preserved;
-    // only the database default changes for future records.
+    // New activities are video-first. Fresh installs already use the new
+    // default from install.xml. Keep this historical savepoint schema-neutral:
+    // changing an indexed field default without first removing the index causes
+    // ddl_dependency_exception on Moodle's XMLDB manager.
     if ($oldversion < 2026092401) {
+        upgrade_mod_savepoint(true, 2026092401, 'videoplayer');
+    }
+
+    // Safely change the default for upgraded sites. Moodle treats indexes as
+    // field dependencies, so source_idx must be removed before changing the
+    // source default and recreated immediately afterwards.
+    if ($oldversion < 2026092501) {
         $table = new xmldb_table('videoplayer');
         if ($dbman->table_exists($table)) {
             $sourcefield = new xmldb_field(
@@ -634,12 +643,27 @@ function xmldb_videoplayer_upgrade($oldversion) {
                 'bunnystream',
                 'introformat'
             );
+
             if ($dbman->field_exists($table, $sourcefield)) {
+                $sourceindex = new xmldb_index(
+                    'source_idx',
+                    XMLDB_INDEX_NOTUNIQUE,
+                    ['source']
+                );
+
+                if ($dbman->index_exists($table, $sourceindex)) {
+                    $dbman->drop_index($table, $sourceindex);
+                }
+
                 $dbman->change_field_default($table, $sourcefield);
+
+                if (!$dbman->index_exists($table, $sourceindex)) {
+                    $dbman->add_index($table, $sourceindex);
+                }
             }
         }
 
-        upgrade_mod_savepoint(true, 2026092401, 'videoplayer');
+        upgrade_mod_savepoint(true, 2026092501, 'videoplayer');
     }
 
     return true;
