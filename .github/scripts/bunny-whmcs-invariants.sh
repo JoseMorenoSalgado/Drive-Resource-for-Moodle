@@ -67,6 +67,10 @@ if grep -q "addElement('select', 'source'" mod_form.php; then
     fail "New Moodle activities must not expose the legacy resource-source selector."
 fi
 grep -q "addElement('hidden', 'source', \$currentsource)" mod_form.php     || fail "Moodle form no longer pins the production source internally."
+grep -Fq "\$courseid = (int)\$this->get_course();" mod_form.php     || fail "Direct upload must use moodleform_mod::get_course() for the real course id."
+if grep -Fq "\$this->course->id" mod_form.php; then
+    fail "Direct upload still references the invalid moodleform_mod course object property."
+fi
 grep -q "video\.bunnycdn\.com" classes/local/whmcs_gateway_client.php     || fail "Moodle no longer pins the TUS upload host."
 if grep -Rni '/library/' classes amd/src amd/build; then
     fail "Moodle runtime contains a Bunny management API path."
