@@ -10,6 +10,7 @@ use WHMCS\Database\Capsule;
 final class AdminDashboard
 {
     private const PAGE_SIZE = 25;
+    private const GATEWAY_VERSION = '0.5.1';
 
     /**
      * Render the central customer/service dashboard.
@@ -167,7 +168,18 @@ final class AdminDashboard
             }
         }
 
-        $overall = $serverOk && count($products) > 0 && $pending === 0 && $wrongType === 0
+        $publicGatewayOk = true;
+        try {
+            Config::publicGatewayUrl();
+        } catch (\Throwable $exception) {
+            $publicGatewayOk = false;
+        }
+
+        $overall = $serverOk
+            && count($products) > 0
+            && $pending === 0
+            && $wrongType === 0
+            && $publicGatewayOk
             ? 'success'
             : 'warning';
 
@@ -175,8 +187,9 @@ final class AdminDashboard
         echo '<div class="panel-heading"><strong>Elearning Stream installation health</strong></div>';
         echo '<div class="panel-body">';
         echo '<div class="row">';
-        $this->healthMetric('Loaded companion', '0.5.0', true);
+        $this->healthMetric('Loaded companion', self::GATEWAY_VERSION, true);
         $this->healthMetric('Server module', $serverOk ? 'OK' : 'Missing', $serverOk);
+        $this->healthMetric('Public gateway', $publicGatewayOk ? 'Configured' : 'Missing', $publicGatewayOk);
         $this->healthMetric('Products using Elearning Stream', (string) count($products), count($products) > 0);
         $this->healthMetric('Assigned services', (string) $assigned, true);
         $this->healthMetric('Provisioned services', (string) $provisioned, $pending === 0);
@@ -214,6 +227,15 @@ final class AdminDashboard
                 . '<strong>' . $genericUsernames . ' service(s) still have a generic WHMCS username.</strong> '
                 . 'Run Generate/Repair Moodle connection on each affected service. '
                 . 'A provisioned Elearning Stream service must use username <code>dr-{service_id}</code>.'
+                . '</div>';
+        }
+
+        if (!$publicGatewayOk) {
+            echo '<div class="alert alert-danger" style="margin:12px 0 0">'
+                . '<strong>Public Gateway URL is not configured.</strong> '
+                . 'Open System Settings → Addon Modules → Elearning Stream Gateway and set an HTTPS URL, '
+                . 'for example <code>https://stream.elearningcloud.io</code>. '
+                . 'The hostname must already reverse-proxy the gateway API before customers copy it into Moodle.'
                 . '</div>';
         }
 
@@ -563,7 +585,11 @@ final class AdminDashboard
 
         echo '<div class="panel panel-info"><div class="panel-heading"><strong>Provider configuration</strong></div>';
         echo '<div class="panel-body">';
-        echo '<p><strong>Public gateway:</strong> <code>' . $this->e($gatewayUrl) . '</code></p>';
+        echo '<p><strong>Public gateway:</strong> <code>' . $this->e($gatewayUrl) . '</code>';
+        if ($gatewayUrl === 'Not configured') {
+            echo ' <span class="label label-danger">Required</span>';
+        }
+        echo '</p>';
         echo '<p><strong>Video:</strong> Elearning Stream — managed upload and protected playback.</p>';
         echo '<p><strong>Protected PDF / objects:</strong> ' . $this->e($this->objectProviderLabel($objectProvider));
         if ($objectProvider !== 'disabled') {
