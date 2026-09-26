@@ -96,6 +96,11 @@ jobs:
       - name: JavaScript lint and AMD build check
         run: moodle-plugin-ci grunt --max-lint-warnings 0
 
+      - name: Rebuild AMD bundle for capture
+        if: ${{ always() && matrix.php == '8.3' && matrix.database == 'pgsql' }}
+        working-directory: moodle
+        run: npx grunt amd --root=mod/videoplayer
+
       - name: Capture generated AMD build
         if: ${{ always() && matrix.php == '8.3' && matrix.database == 'pgsql' }}
         uses: actions/upload-artifact@v4
