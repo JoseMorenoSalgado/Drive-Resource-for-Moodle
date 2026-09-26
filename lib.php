@@ -302,6 +302,95 @@ function videoplayer_queue_bunny_release(stdClass $instance): void {
 }
 
 /**
+ * Release a Bunny asset immediately when possible, with an adhoc fallback.
+ *
+ * Moodle activity deletion must not depend on cron for the normal healthy
+ * path. If the gateway is temporarily unavailable, the queued task preserves
+ * eventual cleanup without blocking deletion.
+ *
+ * @param stdClass $instance Persisted activity instance.
+ * @return void
+ */
+function videoplayer_release_bunny_asset(stdClass $instance): void {
+    if (
+        ($instance->source ?? '') !== bunny_stream::SOURCE
+        || !bunny_stream::is_valid_asset_id((string)($instance->providerassetid ?? ''))
+    ) {
+        return;
+    }
+
+    try {
+        (new whmcs_gateway_client())->release_asset(
+            (string)$instance->providerassetid,
+            (int)$instance->id
+        );
+    } catch (Throwable $exception) {
+        debugging(
+            'Elearning Stream immediate asset release failed; queued for retry: '
+                . $exception->getMessage(),
+            DEBUG_DEVELOPER
+        );
+        videoplayer_queue_bunny_release($instance);
+    }
+}
+
+/**
+ * Queue metadata synchronisation for a Bunny-backed activity.
+ *
+ * @param stdClass $instance Persisted activity instance.
+ * @return void
+ */
+function videoplayer_queue_bunny_metadata_sync(stdClass $instance): void {
+    if (
+        ($instance->source ?? '') !== bunny_stream::SOURCE
+        || !bunny_stream::is_valid_asset_id((string)($instance->providerassetid ?? ''))
+        || empty($instance->id)
+    ) {
+        return;
+    }
+
+    $task = new \mod_videoplayer\task\sync_bunny_asset_metadata();
+    $task->set_component('mod_videoplayer');
+    $task->set_custom_data([
+        'instanceid' => (int)$instance->id,
+        'videoid' => (string)$instance->providerassetid,
+    ]);
+    \core\task\manager::queue_adhoc_task($task, true);
+}
+
+/**
+ * Synchronise the Moodle activity name to the provider title.
+ *
+ * @param stdClass $instance Persisted activity instance.
+ * @return void
+ */
+function videoplayer_sync_bunny_title(stdClass $instance): void {
+    if (
+        ($instance->source ?? '') !== bunny_stream::SOURCE
+        || !bunny_stream::is_valid_asset_id((string)($instance->providerassetid ?? ''))
+        || empty($instance->id)
+        || trim((string)($instance->name ?? '')) === ''
+    ) {
+        return;
+    }
+
+    try {
+        (new whmcs_gateway_client())->update_asset_title(
+            (string)$instance->providerassetid,
+            (int)$instance->id,
+            (string)$instance->name
+        );
+    } catch (Throwable $exception) {
+        debugging(
+            'Elearning Stream title synchronisation failed; queued for retry: '
+                . $exception->getMessage(),
+            DEBUG_DEVELOPER
+        );
+        videoplayer_queue_bunny_metadata_sync($instance);
+    }
+}
+
+/**
  * Add a module instance.
  *
  * @param stdClass $data Submitted instance data.
@@ -371,7 +460,7 @@ function videoplayer_update_instance($data, $mform = null) {
         $newisbunny = ($data->source ?? '') === bunny_stream::SOURCE;
 
         if ($oldisbunny && (!$newisbunny || $oldasset !== $newasset)) {
-            videoplayer_queue_bunny_release($oldinstance);
+            videoplayer_release_bunny_asset($oldinstance);
         }
         if (
             $newisbunny && (
@@ -381,6 +470,12 @@ function videoplayer_update_instance($data, $mform = null) {
             )
         ) {
             videoplayer_queue_bunny_bind($data);
+        } else if (
+            $newisbunny
+            && $oldasset === $newasset
+            && trim((string)($oldinstance->name ?? '')) !== trim((string)($data->name ?? ''))
+        ) {
+            videoplayer_sync_bunny_title($data);
         }
     }
 
@@ -408,7 +503,7 @@ function videoplayer_delete_instance($id) {
     }
 
     videoplayer_invalidate_instance_pdf_cache($instance);
-    videoplayer_queue_bunny_release($instance);
+    videoplayer_release_bunny_asset($instance);
 
     $transaction = $DB->start_delegated_transaction();
     $DB->delete_records('videoplayer_rewards', ['videoplayerid' => $instance->id]);
