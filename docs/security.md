@@ -246,3 +246,10 @@ Audit entries may contain service id, actor id/type, old/new Moodle URL, provide
 Deleting a Moodle activity does not grant Moodle provider credentials. Moodle sends only a signed service-scoped release request. The gateway verifies tenant ownership, removes only that activity reference, and deletes the provider asset only after the active-reference count reaches zero.
 
 Zero-day deletion uses a transient `deleting` state to prevent a concurrent rebind during the destructive provider request. Provider failures remain retryable and do not silently mark the asset as deleted.
+
+
+## Virtual classroom isolation
+
+Bunny collections are an organisational boundary, not the authorization boundary. Authorization continues to rely on the WHMCS Service ID, service-scoped HMAC token, service ownership records and active Moodle references.
+
+Collection IDs are stored only in the gateway control plane. Collection names use the service ID and Moodle hostname/path and intentionally exclude customer email addresses, tokens, API keys and other secrets.
