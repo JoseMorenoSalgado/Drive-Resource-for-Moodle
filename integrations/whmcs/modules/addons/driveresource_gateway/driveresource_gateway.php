@@ -26,7 +26,7 @@ function driveresource_gateway_config(): array
     return [
         'name' => 'Elearning Stream Gateway',
         'description' => 'Multi-tenant media gateway, quota control and provider credential boundary for Elearning Stream.',
-        'version' => '0.5.1',
+        'version' => '0.5.2',
         'author' => 'Elearning Cloud',
         'fields' => [
             'public_gateway_url' => [
@@ -196,7 +196,7 @@ function driveresource_gateway_activate(): array
                 $table->unsignedBigInteger('used_bytes')->default(0);
                 $table->unsignedBigInteger('reserved_bytes')->default(0);
                 $table->boolean('overage_allowed')->default(true);
-                $table->unsignedInteger('retention_days')->default(30);
+                $table->unsignedInteger('retention_days')->default(0);
                 $table->unsignedInteger('created_at');
                 $table->unsignedInteger('updated_at');
                 $table->unsignedInteger('suspended_at')->nullable();
