@@ -370,3 +370,10 @@ If the synchronous metadata update fails, Moodle queues `sync_bunny_asset_metada
 `videoplayer_delete_instance()` must commit local Moodle deletion before any destructive provider operation. After commit it calls `videoplayer_release_bunny_asset()`. That helper attempts the gateway release immediately and queues the adhoc release task only on failure.
 
 Do not move provider deletion before the Moodle transaction commit.
+
+
+## Binding execution contract
+
+`videoplayer_add_instance()` and provider-changing updates call `videoplayer_bind_bunny_asset()` after Moodle persistence succeeds. The helper registers the WHMCS reference immediately, synchronises the final activity title, and clears the temporary provider upload id. If the gateway call fails, it queues `bind_bunny_asset` for retry.
+
+Core ownership/reference state must not depend exclusively on Moodle cron. Cron is the recovery path, not the normal success path.
