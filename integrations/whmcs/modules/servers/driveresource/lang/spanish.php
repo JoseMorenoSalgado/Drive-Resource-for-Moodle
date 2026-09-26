@@ -37,6 +37,9 @@ return [
     'generate_new_key' => 'Generar nueva key',
     'rotate_confirm' => '¿Deseas invalidar la key actual y generar una nueva?',
     'validate_connection' => 'Validar conexión',
+    'virtual_classroom' => 'Aula virtual',
+    'virtual_classroom_pending' => 'Se creará automáticamente al subir el primer video.',
+    'organize_virtual_classroom' => 'Organizar aula virtual',
     'videos_title' => 'Videos del servicio',
     'videos_registered' => ':count registrados',
     'column_video' => 'Video',
@@ -69,4 +72,5 @@ return [
     'audit_token_rotated' => 'Token Moodle rotado',
     'audit_connection_validated' => 'Conexión Moodle validada',
     'audit_video_deleted' => 'Video eliminado',
+    'audit_virtual_classroom_organized' => 'Aula virtual organizada',
 ];
