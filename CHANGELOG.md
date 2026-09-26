@@ -1,5 +1,14 @@
 # Changelog
 
+## Elearning Stream 1.2.0-rc8-m45 — 2026-09-25
+
+- Makes provider binding part of the normal Moodle save path instead of relying exclusively on cron.
+- After a successful upload/import, Moodle now registers the WHMCS activity-to-video reference immediately and clears the temporary upload reservation id.
+- If the gateway is temporarily unavailable, the existing adhoc bind task remains the retry path.
+- This closes the lifecycle gap where playback could work but WHMCS had no active activity reference, which also prevented reliable rename/delete behavior on sites with delayed or misconfigured Moodle cron.
+- Includes the RC7 video-title, immediate-delete, seek and volume fixes.
+- Moodle build: `2026092507`.
+
 ## Elearning Stream 1.2.0-rc7-m45 + Gateway 0.5.4 — 2026-09-25
 
 - Fixes Moodle activity deletion not removing the provider video until cron/manual cleanup. Moodle now attempts the signed gateway release immediately **after** the local deletion transaction commits, with the adhoc release task retained as a safe retry fallback.
