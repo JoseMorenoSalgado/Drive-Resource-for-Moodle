@@ -26,7 +26,7 @@ function driveresource_gateway_config(): array
     return [
         'name' => 'Elearning Stream Gateway',
         'description' => 'Multi-tenant media gateway, quota control and provider credential boundary for Elearning Stream.',
-        'version' => '0.5.2',
+        'version' => '0.5.3',
         'author' => 'Elearning Cloud',
         'fields' => [
             'public_gateway_url' => [
@@ -184,6 +184,8 @@ function driveresource_gateway_activate(): array
                 $table->string('backend_profile', 64)->default('default');
                 $table->string('video_backend_key', 32)->default('elearningstream')->index();
                 $table->string('video_backend_profile', 64)->default('default');
+                $table->string('video_collection_id', 64)->nullable()->index();
+                $table->string('video_collection_name', 191)->nullable();
                 $table->string('object_backend_key', 32)->default('none')->index();
                 $table->string('object_backend_profile', 64)->default('default');
                 $table->string('connection_status', 16)->default('pending')->index();
@@ -275,6 +277,7 @@ function driveresource_gateway_activate(): array
 
         driveresource_gateway_ensure_multitenant_schema();
         driveresource_gateway_ensure_provider_schema();
+        driveresource_gateway_ensure_collection_schema();
         driveresource_gateway_ensure_portal_schema();
         driveresource_gateway_ensure_audit_schema();
 
@@ -306,6 +309,9 @@ function driveresource_gateway_upgrade(array $vars): void
     }
     if (version_compare($installed, '0.5.0', '<')) {
         driveresource_gateway_ensure_provider_schema();
+    }
+    if (version_compare($installed, '0.5.3', '<')) {
+        driveresource_gateway_ensure_collection_schema();
     }
 }
 
@@ -410,6 +416,35 @@ function driveresource_gateway_ensure_provider_schema(): void
                         : 'default',
                 ]);
         }
+    }
+}
+
+/**
+ * Ensure each service can persist its provider-side virtual classroom.
+ *
+ * One Bunny collection is allocated lazily per WHMCS service. Existing
+ * services are left unassigned until the next upload/import or an explicit
+ * organisation action creates the provider collection.
+ *
+ * @return void
+ */
+function driveresource_gateway_ensure_collection_schema(): void
+{
+    $schema = Capsule::schema();
+    if (!$schema->hasTable('mod_driveresource_services')) {
+        return;
+    }
+
+    if (!$schema->hasColumn('mod_driveresource_services', 'video_collection_id')) {
+        $schema->table('mod_driveresource_services', static function (Blueprint $table): void {
+            $table->string('video_collection_id', 64)->nullable()->index();
+        });
+    }
+
+    if (!$schema->hasColumn('mod_driveresource_services', 'video_collection_name')) {
+        $schema->table('mod_driveresource_services', static function (Blueprint $table): void {
+            $table->string('video_collection_name', 191)->nullable();
+        });
     }
 }
 
