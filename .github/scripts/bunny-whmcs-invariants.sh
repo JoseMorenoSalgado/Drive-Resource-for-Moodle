@@ -72,6 +72,8 @@ if grep -q "addElement('select', 'source'" mod_form.php; then
 fi
 grep -q "addElement('hidden', 'source', \$currentsource)" mod_form.php     || fail "Moodle form no longer pins the production source internally."
 grep -Fq "js_call_amd('mod_videoplayer/nativevideo', 'init')" view.php     || fail "Moodle native video player initialization is missing."
+grep -Fq "uploadMetadata(file, title)" amd/src/bunnyupload.js     || fail "TUS upload metadata must receive the Moodle activity title."
+grep -Fq "title: nameField && nameField.value ? nameField.value : selectedFile.name" amd/src/bunnyupload.js     || fail "Direct upload must prefer the Moodle activity name over the local filename."
 if grep -Fq "is_available() && !\$resource->is_bunny_stream()" view.php; then
     fail "Elearning Stream videos must not be excluded from native player initialization."
 fi
