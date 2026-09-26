@@ -58,17 +58,27 @@ final class bind_bunny_asset extends \core\task\adhoc_task {
             && hash_equals((string)$instance->providerassetid, (string)$data->videoid)
             && hash_equals((string)$instance->provideruploadid, (string)$data->uploadid)
         ) {
-            $DB->set_field('videoplayer', 'provideruploadid', null, ['id' => (int)$instance->id]);
-
             // Ensure imported videos and completed uploads use the final
             // Moodle activity name, not a stale provider/local filename.
             if (trim((string)$instance->name) !== '') {
-                $client->update_asset_title(
-                    (string)$data->videoid,
-                    (int)$data->instanceid,
-                    (string)$instance->name
-                );
+                try {
+                    $client->update_asset_title(
+                        (string)$data->videoid,
+                        (int)$data->instanceid,
+                        (string)$instance->name
+                    );
+                } catch (\Throwable $exception) {
+                    $retry = new sync_bunny_asset_metadata();
+                    $retry->set_component('mod_videoplayer');
+                    $retry->set_custom_data([
+                        'instanceid' => (int)$data->instanceid,
+                        'videoid' => (string)$data->videoid,
+                    ]);
+                    \core\task\manager::queue_adhoc_task($retry, true);
+                }
             }
+
+            $DB->set_field('videoplayer', 'provideruploadid', null, ['id' => (int)$instance->id]);
         }
     }
 }
