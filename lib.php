@@ -302,6 +302,84 @@ function videoplayer_queue_bunny_release(stdClass $instance): void {
 }
 
 /**
+ * Bind a completed Bunny asset immediately when possible, with an adhoc fallback.
+ *
+ * The durable WHMCS activity reference is core lifecycle state, so the normal
+ * path must not depend on Moodle cron. Cron remains the retry mechanism when
+ * the gateway is temporarily unavailable.
+ *
+ * @param stdClass $instance Persisted activity instance.
+ * @return void
+ */
+function videoplayer_bind_bunny_asset(stdClass $instance): void {
+    global $DB;
+
+    if (
+        ($instance->source ?? '') !== bunny_stream::SOURCE
+        || !bunny_stream::is_valid_asset_id((string)($instance->providerassetid ?? ''))
+        || !bunny_stream::is_valid_upload_id((string)($instance->provideruploadid ?? ''))
+        || empty($instance->id)
+        || empty($instance->course)
+    ) {
+        return;
+    }
+
+    try {
+        $client = new whmcs_gateway_client();
+        $client->bind_asset(
+            (string)$instance->provideruploadid,
+            (string)$instance->providerassetid,
+            (int)$instance->id,
+            (int)$instance->course
+        );
+
+        if (trim((string)($instance->name ?? '')) !== '') {
+            try {
+                $client->update_asset_title(
+                    (string)$instance->providerassetid,
+                    (int)$instance->id,
+                    (string)$instance->name
+                );
+            } catch (Throwable $exception) {
+                videoplayer_queue_bunny_metadata_sync($instance);
+            }
+        }
+
+        $current = $DB->get_record(
+            'videoplayer',
+            ['id' => (int)$instance->id],
+            'id, providerassetid, provideruploadid',
+            IGNORE_MISSING
+        );
+        if (
+            $current
+            && hash_equals(
+                (string)$current->providerassetid,
+                (string)$instance->providerassetid
+            )
+            && hash_equals(
+                (string)$current->provideruploadid,
+                (string)$instance->provideruploadid
+            )
+        ) {
+            $DB->set_field(
+                'videoplayer',
+                'provideruploadid',
+                null,
+                ['id' => (int)$instance->id]
+            );
+        }
+    } catch (Throwable $exception) {
+        debugging(
+            'Elearning Stream immediate asset bind failed; queued for retry: '
+                . $exception->getMessage(),
+            DEBUG_DEVELOPER
+        );
+        videoplayer_queue_bunny_bind($instance);
+    }
+}
+
+/**
  * Release a Bunny asset immediately when possible, with an adhoc fallback.
  *
  * Moodle activity deletion must not depend on cron for the normal healthy
@@ -408,7 +486,7 @@ function videoplayer_add_instance($data, $mform = null) {
     $data->id = $id;
     videoplayer_save_localpdf_file($data);
     videoplayer_queue_pdf_precache($id);
-    videoplayer_queue_bunny_bind($data);
+    videoplayer_bind_bunny_asset($data);
 
     return $id;
 }
@@ -469,7 +547,7 @@ function videoplayer_update_instance($data, $mform = null) {
                 || (string)($oldinstance->provideruploadid ?? '') !== (string)($data->provideruploadid ?? '')
             )
         ) {
-            videoplayer_queue_bunny_bind($data);
+            videoplayer_bind_bunny_asset($data);
         } else if (
             $newisbunny
             && $oldasset === $newasset
