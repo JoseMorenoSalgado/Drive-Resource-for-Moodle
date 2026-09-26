@@ -1,5 +1,15 @@
 # Changelog
 
+## Elearning Stream Gateway 0.5.2 — 2026-09-25
+
+- Fixes provider videos remaining in Bunny after the final Moodle activity reference is deleted when the product is configured for immediate deletion.
+- `Retention Days = 0` now performs physical provider deletion as soon as the signed Moodle release task reaches the gateway.
+- Reference counting protects videos still used by another Moodle activity.
+- Uses a transient `deleting` state to prevent concurrent rebinding while deletion is in flight.
+- Failed provider deletion is queued for WHMCS maintenance retry instead of being silently marked deleted.
+- New Elearning Stream products now default to `Retention Days = 0`; positive values keep the recovery grace-period behavior.
+- Gateway package version: `0.5.2`.
+
 ## Elearning Stream 1.2.0-rc5-m45 — 2026-09-25
 
 - Fixes Bunny Stream assets being renamed to the teacher's local filename during TUS creation.
