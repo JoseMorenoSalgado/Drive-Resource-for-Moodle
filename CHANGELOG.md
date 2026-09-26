@@ -1,5 +1,17 @@
 # Changelog
 
+## Elearning Stream Gateway 0.5.3 — 2026-09-25
+
+- Adds one Bunny collection per WHMCS service/virtual classroom, named for example `S288 - campus.aspeten.org`.
+- New uploads are created directly inside the service collection.
+- Imported existing videos are moved into the same service collection after ownership validation.
+- Stores `video_collection_id` and `video_collection_name` per service.
+- Adds a concurrency-safe lazy collection allocator so provisioning does not depend on Bunny availability.
+- Adds **Organize virtual classroom** as an admin module command to migrate already-owned videos without re-uploading or renaming them.
+- Shows the virtual classroom collection in the customer service portal.
+- Adds non-secret provider tags for Service ID, Moodle host and course ID.
+- Gateway package version: `0.5.3`.
+
 ## Elearning Stream Gateway 0.5.2 — 2026-09-25
 
 - Fixes provider videos remaining in Bunny after the final Moodle activity reference is deleted when the product is configured for immediate deletion.
