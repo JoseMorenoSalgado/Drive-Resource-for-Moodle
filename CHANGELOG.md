@@ -7,6 +7,7 @@
 - Reference counting protects videos still used by another Moodle activity.
 - Uses a transient `deleting` state to prevent concurrent rebinding while deletion is in flight.
 - Failed provider deletion is queued for WHMCS maintenance retry instead of being silently marked deleted.
+- Provider DELETE is idempotent (an already-absent asset is treated as deleted), and maintenance also recovers interrupted transient `deleting` records.
 - New Elearning Stream products now default to `Retention Days = 0`; positive values keep the recovery grace-period behavior.
 - Gateway package version: `0.5.2`.
 
