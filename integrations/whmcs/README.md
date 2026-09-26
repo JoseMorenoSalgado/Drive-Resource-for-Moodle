@@ -1,6 +1,6 @@
 # Elearning Stream Gateway for WHMCS
 
-Version **0.5.0** is the multi-tenant control plane for Elearning Stream Moodle services.
+Version **0.5.2** is the multi-tenant control plane for Elearning Stream Moodle services.
 
 It is installed once in WHMCS and manages many customer services. Provider management credentials remain server-side and are never copied into Moodle.
 
@@ -59,7 +59,7 @@ Generic WHMCS passwords are rejected as gateway tokens.
 
 ## Independent provider lanes
 
-0.5.0 separates video and protected-object storage.
+0.5.x separates video and protected-object storage.
 
 Per service:
 
@@ -95,7 +95,7 @@ Addon configuration includes S3-compatible credentials for:
 
 Credentials include endpoint, region, bucket, access key, secret key and optional path-style addressing.
 
-The product configuration has an independent **Protected PDF Storage** lane and **Object Storage Profile**. In 0.5.0 the S3 provider can be configured and assigned in the control plane, but its protected-PDF upload/delivery adapter remains intentionally non-operational until the data-plane implementation is complete. This prevents a partially implemented storage path from being sold as production-ready.
+The product configuration has an independent **Protected PDF Storage** lane and **Object Storage Profile**. In 0.5.x the S3 provider can be configured and assigned in the control plane, but its protected-PDF upload/delivery adapter remains intentionally non-operational until the data-plane implementation is complete. This prevents a partially implemented storage path from being sold as production-ready.
 
 ## Product configuration
 
@@ -112,6 +112,13 @@ Available module options:
 - Object Storage Profile
 
 No WHMCS Server or Server Group is required.
+
+
+### Deletion policy
+
+For the standard Elearning Stream product, set **Retention Days = 0**. When Moodle removes the final activity reference, the gateway deletes the provider video and recalculates storage usage. If another Moodle activity still references the same asset, the video is preserved.
+
+Use a value from 1 to 365 only when the plan intentionally provides a recovery grace period. Moodle sends release requests asynchronously through its adhoc-task queue, so Moodle cron must run normally.
 
 ## Client portal
 
@@ -153,7 +160,7 @@ Storage, reservations and protected transfer are tracked per WHMCS service. Tran
 
 ## Upgrade from 0.4.3
 
-1. Replace both module directories with the 0.5.0 package.
+1. Replace both module directories with the 0.5.2 package.
 2. Open/activate **Elearning Stream Gateway** so the addon upgrade hook runs.
 3. Configure **Public Gateway URL**.
 4. Existing `backend_key/backend_profile` values are copied into the new video-provider fields.
