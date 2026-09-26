@@ -1,5 +1,16 @@
 # Changelog
 
+## Elearning Stream 1.2.0-rc7-m45 + Gateway 0.5.4 — 2026-09-25
+
+- Fixes Moodle activity deletion not removing the provider video until cron/manual cleanup. Moodle now attempts the signed gateway release immediately **after** the local deletion transaction commits, with the adhoc release task retained as a safe retry fallback.
+- Keeps last-reference protection: a Bunny video is deleted only when the gateway confirms no other active Moodle reference remains and the product retention policy allows immediate deletion.
+- Adds authenticated asset metadata synchronisation. Renaming a Moodle activity now updates the Bunny video title through the gateway without exposing provider credentials.
+- The post-bind flow also reapplies the final Moodle activity name so imported videos and completed uploads cannot remain with a stale local filename.
+- Adds a retryable metadata task for temporary gateway/provider failures.
+- Enlarges seek and volume touch targets, adds explicit mobile volume controls, and improves seek/volume event handling for desktop and mobile browsers.
+- Adds keyboard volume controls with Arrow Up/Down.
+- Gateway package version: `0.5.4`; Moodle build: `2026092506`.
+
 ## Elearning Stream 1.2.0-rc6-m45 — 2026-09-25
 
 - Refactors the direct-upload click handler below Moodle's JavaScript cyclomatic-complexity limit.
