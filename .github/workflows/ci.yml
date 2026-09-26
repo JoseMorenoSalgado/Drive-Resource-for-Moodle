@@ -7,7 +7,7 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: elearning-stream-${{ github.workflow }}-${{ github.ref }}
@@ -109,6 +109,27 @@ jobs:
           path: |
             moodle/mod/videoplayer/amd/build/bunnyupload.min.js
             moodle/mod/videoplayer/amd/build/bunnyupload.min.js.map
+
+      - name: Commit regenerated AMD bundle
+        if: ${{ always() && matrix.php == '8.3' && matrix.database == 'pgsql' && github.event_name == 'pull_request' }}
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          cp moodle/mod/videoplayer/amd/build/bunnyupload.min.js /tmp/bunnyupload.min.js
+          cp moodle/mod/videoplayer/amd/build/bunnyupload.min.js.map /tmp/bunnyupload.min.js.map
+          cd plugin
+          git fetch origin "$HEAD_BRANCH"
+          git checkout -B "$HEAD_BRANCH" "origin/$HEAD_BRANCH"
+          cp /tmp/bunnyupload.min.js amd/build/bunnyupload.min.js
+          cp /tmp/bunnyupload.min.js.map amd/build/bunnyupload.min.js.map
+          git add amd/build/bunnyupload.min.js amd/build/bunnyupload.min.js.map
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Rebuild Bunny upload AMD bundle"
+          git push origin "HEAD:$HEAD_BRANCH"
 
       - name: PHPUnit
         run: moodle-plugin-ci phpunit --fail-on-warning
