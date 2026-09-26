@@ -253,3 +253,18 @@ Zero-day deletion uses a transient `deleting` state to prevent a concurrent rebi
 Bunny collections are an organisational boundary, not the authorization boundary. Authorization continues to rely on the WHMCS Service ID, service-scoped HMAC token, service ownership records and active Moodle references.
 
 Collection IDs are stored only in the gateway control plane. Collection names use the service ID and Moodle hostname/path and intentionally exclude customer email addresses, tokens, API keys and other secrets.
+
+
+## Metadata mutation authorization
+
+Provider title changes use the signed service-scoped gateway channel. The gateway requires all of the following before changing Bunny metadata:
+
+- authenticated WHMCS service;
+- exact bound video ownership for that service;
+- active Moodle site hash;
+- matching Moodle activity instance id;
+- matching provider video GUID.
+
+The title endpoint never accepts arbitrary provider credentials, library IDs or management URLs from Moodle.
+
+Provider deletion is attempted only after Moodle commits the local activity deletion. If the external call fails, cleanup is deferred to the signed adhoc task rather than rolling back or exposing provider credentials.
