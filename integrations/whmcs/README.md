@@ -1,6 +1,6 @@
 # Elearning Stream Gateway for WHMCS
 
-Version **0.5.3** is the multi-tenant control plane for Elearning Stream Moodle services.
+Version **0.5.4** is the multi-tenant control plane for Elearning Stream Moodle services.
 
 It is installed once in WHMCS and manages many customer services. Provider management credentials remain server-side and are never copied into Moodle.
 
@@ -109,6 +109,10 @@ The collection is created lazily on the first upload/import. New videos are crea
 
 The gateway stores the provider collection GUID and display name on the service. Moodle never receives Bunny collection credentials or management URLs.
 
+### Moodle title synchronization
+
+Gateway 0.5.4 exposes an authenticated `asset-update.php` endpoint used only by connected Moodle sites. Renaming an activity updates the Bunny video title after the gateway verifies the active service/site/activity reference. Provider credentials remain inside WHMCS.
+
 ## Product configuration
 
 Use WHMCS Product Type **Other** and Module **Elearning Stream**.
@@ -130,7 +134,7 @@ No WHMCS Server or Server Group is required.
 
 For the standard Elearning Stream product, set **Retention Days = 0**. When Moodle removes the final activity reference, the gateway deletes the provider video and recalculates storage usage. If another Moodle activity still references the same asset, the video is preserved.
 
-Use a value from 1 to 365 only when the plan intentionally provides a recovery grace period. Moodle sends release requests asynchronously through its adhoc-task queue, so Moodle cron must run normally.
+Use a value from 1 to 365 only when the plan intentionally provides a recovery grace period. Gateway 0.5.4 receives the normal deletion request synchronously after Moodle commits the activity deletion; Moodle cron remains the retry path if the gateway/provider is temporarily unavailable.
 
 ## Client portal
 
@@ -172,7 +176,7 @@ Storage, reservations and protected transfer are tracked per WHMCS service. Tran
 
 ## Upgrade from 0.4.3
 
-1. Replace both module directories with the 0.5.3 package.
+1. Replace both module directories with the 0.5.4 package.
 2. Open/activate **Elearning Stream Gateway** so the addon upgrade hook runs.
 3. Configure **Public Gateway URL**.
 4. Existing `backend_key/backend_profile` values are copied into the new video-provider fields.
