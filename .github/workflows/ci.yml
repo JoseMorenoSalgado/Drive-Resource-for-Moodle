@@ -7,7 +7,7 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: elearning-stream-${{ github.workflow }}-${{ github.ref }}
@@ -95,28 +95,6 @@ jobs:
 
       - name: JavaScript lint and AMD build check
         run: moodle-plugin-ci grunt --max-lint-warnings 0
-
-      - name: Rebuild and commit AMD bundle
-        if: ${{ always() && matrix.php == '8.3' && matrix.database == 'pgsql' && github.event_name == 'pull_request' }}
-        env:
-          HEAD_BRANCH: ${{ github.head_ref }}
-        working-directory: moodle
-        run: |
-          npx grunt amd --root=mod/videoplayer
-          cp -R mod/videoplayer/amd/build /tmp/videoplayer-amd-build
-          cd ../plugin
-          git fetch origin "$HEAD_BRANCH"
-          git checkout -B "$HEAD_BRANCH" "origin/$HEAD_BRANCH"
-          rm -rf amd/build
-          cp -R /tmp/videoplayer-amd-build amd/build
-          git add amd/build
-          if git diff --cached --quiet; then
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Rebuild Elearning Stream AMD bundles"
-          git push origin "HEAD:$HEAD_BRANCH"
 
       - name: PHPUnit
         run: moodle-plugin-ci phpunit --fail-on-warning
