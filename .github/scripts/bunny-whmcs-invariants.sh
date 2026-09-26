@@ -71,6 +71,10 @@ if grep -q "addElement('select', 'source'" mod_form.php; then
     fail "New Moodle activities must not expose the legacy resource-source selector."
 fi
 grep -q "addElement('hidden', 'source', \$currentsource)" mod_form.php     || fail "Moodle form no longer pins the production source internally."
+grep -Fq "js_call_amd('mod_videoplayer/nativevideo', 'init')" view.php     || fail "Moodle native video player initialization is missing."
+if grep -Fq "is_available() && !\$resource->is_bunny_stream()" view.php; then
+    fail "Elearning Stream videos must not be excluded from native player initialization."
+fi
 grep -Fq "\$courseid = (int)\$this->get_course();" mod_form.php     || fail "Direct upload must use moodleform_mod::get_course() for the real course id."
 if grep -Fq "\$this->course->id" mod_form.php; then
     fail "Direct upload still references the invalid moodleform_mod course object property."
