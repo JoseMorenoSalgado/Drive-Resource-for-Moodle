@@ -58,8 +58,8 @@ function driveresource_ConfigOptions(): array
         'Retention Days' => [
             'Type' => 'text',
             'Size' => '10',
-            'Default' => '30',
-            'Description' => 'Days to retain an unreferenced video before physical deletion.',
+            'Default' => '0',
+            'Description' => '0 deletes the provider video after its final Moodle reference is removed. Use 1-365 only when a recovery grace period is required.',
         ],
         'Video Provider' => [
             'Type' => 'text',
@@ -1227,5 +1227,5 @@ function driveresource_overage_allowed(array $params): bool
  */
 function driveresource_retention_days(array $params): int
 {
-    return max(0, min(365, (int) ($params['configoption3'] ?? 30)));
+    return max(0, min(365, (int) ($params['configoption3'] ?? 0)));
 }
