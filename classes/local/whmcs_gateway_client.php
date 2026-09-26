@@ -495,7 +495,7 @@ final class whmcs_gateway_client {
         return $this->post('/api/asset-update.php', [
             'videoid' => $videoid,
             'instanceid' => $instanceid,
-            'title' => core_text::substr($title, 0, 255),
+            'title' => \core_text::substr($title, 0, 255),
         ]);
     }
 
