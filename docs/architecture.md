@@ -406,3 +406,18 @@ Moodle never receives provider management credentials and therefore never calls 
 - a failed immediate provider deletion is left eligible for the WHMCS maintenance retry instead of silently losing accounting state.
 
 The Moodle release is asynchronous through an adhoc task, so a correctly configured Moodle cron is required. This avoids blocking course deletion on an external provider request while still making zero-day deletion occur on the next task execution.
+
+
+## Virtual classroom collections
+
+The WHMCS Service ID is the tenant identity. Each service is mapped to one provider-side Bunny collection. The default collection name is deterministic and support-friendly:
+
+```text
+S{service_id} - {moodle-host[/optional-path]}
+```
+
+Example: `S288 - campus.aspeten.org`.
+
+The mapping is persisted as `video_collection_id` and `video_collection_name` on the gateway service row. Collection creation is lazy: provisioning remains independent from provider availability, while the first upload/import creates the collection. Concurrent first uploads use an optimistic create + database-lock winner strategy; any losing empty collection is deleted best-effort.
+
+New provider videos are created directly inside the service collection. Imported and legacy service-owned videos can be moved into the same collection through the WHMCS **Organize virtual classroom** action. Provider meta tags carry only non-secret support identifiers (service ID, Moodle host and course ID).
