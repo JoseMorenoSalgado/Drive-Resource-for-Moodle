@@ -577,7 +577,7 @@ define(['core/ajax'], function(Ajax) {
             var ratio = Math.max(0, Math.min(1, Number(seekControl.value) / 1000));
             var target = ratio * video.duration;
             try {
-                // fastSeek is optimized for media scrubbing where supported.
+                // FastSeek is optimized for media scrubbing where supported.
                 if (typeof video.fastSeek === 'function') {
                     video.fastSeek(target);
                 } else {
