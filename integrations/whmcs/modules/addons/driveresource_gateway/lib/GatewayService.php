@@ -103,6 +103,19 @@ final class GatewayService
                 $title !== '' ? $title : $filename,
                 $collection['id']
             );
+
+            // Collection assignment is already part of video creation. Tags
+            // are supplementary support metadata and must not invalidate a
+            // successful provider allocation if the update endpoint is
+            // temporarily unavailable.
+            try {
+                $this->streamClient($service)->setVideoCollection(
+                    $videoId,
+                    $collection['id'],
+                    $this->videoMetaTags($service, $courseId)
+                );
+            } catch (Throwable $ignored) {
+            }
         } catch (Throwable $exception) {
             $this->cancelReservation($uploadId);
             throw new GatewayException(
