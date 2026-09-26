@@ -1,5 +1,11 @@
 # Changelog
 
+## Elearning Stream 1.2.0-rc6-m45 — 2026-09-25
+
+- Refactors the direct-upload click handler below Moodle's JavaScript cyclomatic-complexity limit.
+- Keeps the RC5 activity-title behavior unchanged while restoring a zero-warning Moodle Grunt gate.
+- Intended as the final Moodle 4.5 production-candidate build paired with Elearning Stream Gateway 0.5.3.
+
 ## Elearning Stream Gateway 0.5.3 — 2026-09-25
 
 - Adds one Bunny collection per WHMCS service/virtual classroom, named for example `S288 - campus.aspeten.org`.
