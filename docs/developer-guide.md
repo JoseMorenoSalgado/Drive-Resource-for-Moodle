@@ -377,3 +377,6 @@ Do not move provider deletion before the Moodle transaction commit.
 `videoplayer_add_instance()` and provider-changing updates call `videoplayer_bind_bunny_asset()` after Moodle persistence succeeds. The helper registers the WHMCS reference immediately, synchronises the final activity title, and clears the temporary provider upload id. If the gateway call fails, it queues `bind_bunny_asset` for retry.
 
 Core ownership/reference state must not depend exclusively on Moodle cron. Cron is the recovery path, not the normal success path.
+
+
+Legacy pre-RC8 activities can exist without a durable gateway reference when an installation accepted an upload but never ran Moodle adhoc tasks. Title synchronisation detects this state: it first attempts the reference-authorized metadata update, then uses the existing ownership-checked reconcile endpoint and retries the metadata update. This repair path never trusts the Moodle GUID alone; the gateway verifies that the provider asset belongs to the same WHMCS service before creating the reference.
