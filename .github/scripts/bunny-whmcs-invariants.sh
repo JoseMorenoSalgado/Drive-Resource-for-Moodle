@@ -73,7 +73,9 @@ fi
 grep -q "addElement('hidden', 'source', \$currentsource)" mod_form.php     || fail "Moodle form no longer pins the production source internally."
 grep -Fq "js_call_amd('mod_videoplayer/nativevideo', 'init')" view.php     || fail "Moodle native video player initialization is missing."
 grep -Fq "uploadMetadata(file, title)" amd/src/bunnyupload.js     || fail "TUS upload metadata must receive the Moodle activity title."
-grep -Fq "title: nameField && nameField.value ? nameField.value : selectedFile.name" amd/src/bunnyupload.js     || fail "Direct upload must prefer the Moodle activity name over the local filename."
+grep -Fq "title: activityTitle(selectedFile)" amd/src/bunnyupload.js     || fail "Direct upload must pass the Moodle activity title to TUS metadata."
+grep -Fq "return nameField.value;" amd/src/bunnyupload.js     || fail "Activity-title helper must prefer the Moodle activity name over the local filename."
+grep -Fq "return file.name;" amd/src/bunnyupload.js     || fail "Activity-title helper must retain the local filename as a fallback."
 if grep -Fq "is_available() && !\$resource->is_bunny_stream()" view.php; then
     fail "Elearning Stream videos must not be excluded from native player initialization."
 fi
