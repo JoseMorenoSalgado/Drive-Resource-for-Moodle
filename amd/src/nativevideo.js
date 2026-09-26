@@ -569,16 +569,37 @@ define(['core/ajax'], function(Ajax) {
         video.addEventListener('durationchange', updateTime);
         video.addEventListener('error', tryFallback);
 
+        var applySeekControl = function(seekControl) {
+            if (!Number.isFinite(video.duration) || video.duration <= 0) {
+                return;
+            }
+
+            var ratio = Math.max(0, Math.min(1, Number(seekControl.value) / 1000));
+            var target = ratio * video.duration;
+            try {
+                // fastSeek is optimized for media scrubbing where supported.
+                if (typeof video.fastSeek === 'function') {
+                    video.fastSeek(target);
+                } else {
+                    video.currentTime = target;
+                }
+            } catch (error) {
+                // Keep the UI responsive; the browser can retry after the
+                // next seekable range arrives from protected.php.
+                video.currentTime = target;
+            }
+            updateTime();
+        };
+
         [seek].filter(Boolean).forEach(function(seekControl) {
             seekControl.addEventListener('input', function() {
-                if (!Number.isFinite(video.duration) || video.duration <= 0) {
-                    return;
-                }
-                video.currentTime = (Number(seekControl.value) / 1000) * video.duration;
-                updateTime();
+                applySeekControl(seekControl);
+                showControls();
             });
             seekControl.addEventListener('change', function() {
+                applySeekControl(seekControl);
                 sendProgress(true);
+                showControls();
             });
         });
 
@@ -601,12 +622,31 @@ define(['core/ajax'], function(Ajax) {
                 syncVolumeState();
             });
         }
+        var applyVolumeControl = function() {
+            if (!volume) {
+                return;
+            }
+
+            var nextVolume = Math.max(0, Math.min(1, Number(volume.value)));
+            try {
+                video.volume = nextVolume;
+            } catch (error) {
+                // Some mobile browsers expose system-only volume. Keep mute
+                // state coherent even when per-element volume is restricted.
+            }
+
+            if (nextVolume > 0) {
+                video.muted = false;
+            } else {
+                video.muted = true;
+            }
+            syncVolumeState();
+            showControls();
+        };
+
         if (volume) {
-            volume.addEventListener('input', function() {
-                video.volume = Number(volume.value);
-                video.muted = video.volume === 0;
-                syncVolumeState();
-            });
+            volume.addEventListener('input', applyVolumeControl);
+            volume.addEventListener('change', applyVolumeControl);
         }
         video.addEventListener('volumechange', syncVolumeState);
 
@@ -663,6 +703,22 @@ define(['core/ajax'], function(Ajax) {
             } else if (key === 'arrowright') {
                 event.preventDefault();
                 video.currentTime = Math.min(video.duration || video.currentTime + 5, video.currentTime + 5);
+            } else if (key === 'arrowup') {
+                event.preventDefault();
+                try {
+                    video.volume = Math.min(1, video.volume + 0.1);
+                    video.muted = false;
+                } catch (error) {
+                    video.muted = false;
+                }
+            } else if (key === 'arrowdown') {
+                event.preventDefault();
+                try {
+                    video.volume = Math.max(0, video.volume - 0.1);
+                    video.muted = video.volume === 0;
+                } catch (error) {
+                    // System-only volume browsers cannot be changed here.
+                }
             } else if (key === 'm') {
                 event.preventDefault();
                 video.muted = !video.muted;
