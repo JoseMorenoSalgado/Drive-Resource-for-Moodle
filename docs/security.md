@@ -239,3 +239,10 @@ Protected learner playback remains pinned to the configured `*.b-cdn.net` origin
 The audit trail intentionally excludes secrets. `AuditLogger` rejects metadata keys that resemble token, password, secret, signature, API key or credential fields and bounds string values before JSON persistence.
 
 Audit entries may contain service id, actor id/type, old/new Moodle URL, provider video GUID, filename, byte count, backend and connection result. These records are operational control-plane data. The companion automatically purges audit events older than 24 months during maintenance.
+
+
+## Destructive media operations
+
+Deleting a Moodle activity does not grant Moodle provider credentials. Moodle sends only a signed service-scoped release request. The gateway verifies tenant ownership, removes only that activity reference, and deletes the provider asset only after the active-reference count reaches zero.
+
+Zero-day deletion uses a transient `deleting` state to prevent a concurrent rebind during the destructive provider request. Provider failures remain retryable and do not silently mark the asset as deleted.
