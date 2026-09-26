@@ -118,6 +118,7 @@ grep -q "videoplayer_bind_bunny_asset(\$data)" lib.php     || fail "Moodle add/u
 grep -q "function videoplayer_release_bunny_asset" lib.php     || fail "Moodle immediate provider release helper is missing."
 grep -q "videoplayer_release_bunny_asset(\$instance)" lib.php     || fail "Moodle delete callback must attempt immediate provider release."
 grep -q "function videoplayer_sync_bunny_title" lib.php     || fail "Moodle activity-title synchronization helper is missing."
+grep -q "reconcile_asset(" lib.php     || fail "Legacy Moodle activities must self-heal a missing provider reference before title sync."
 grep -q "update_asset_title" classes/local/whmcs_gateway_client.php     || fail "Moodle gateway title update client is missing."
 grep -q "sync_bunny_asset_metadata" classes/task/sync_bunny_asset_metadata.php     || fail "Moodle metadata retry task is missing."
 grep -q "applySeekControl" amd/src/nativevideo.js     || fail "Touch-friendly video seeking helper is missing."
