@@ -339,3 +339,12 @@ Customer-facing server-module strings belong in `modules/servers/driveresource/l
 Use `driveresource_audit()` / `AuditLogger::log()` for successful sensitive control-plane mutations. Metadata must be operational and non-secret. Never pass service tokens, provider API keys, token-signing keys, request signatures or passwords.
 
 Audit failure should not corrupt the user operation; the logger records an appropriately redacted module-log failure when possible.
+
+
+## Provider asset deletion contract
+
+Provider deletion is reference-counted and gateway-owned. Moodle's `videoplayer_delete_instance()` queues `release_bunny_asset`; the gateway is authoritative for whether physical deletion is safe.
+
+For `Retention Days = 0`, the final reference release moves the upload to transient status `deleting` before the provider API call. This prevents a concurrent bind from reviving an asset while deletion is in flight. On success the upload becomes `deleted`, accounted bytes are zeroed, and service usage is recomputed. On provider failure the prior status is restored and `delete_after` is set to the current time so daily maintenance can retry.
+
+Do not bypass this contract by adding direct Bunny deletion code to Moodle.
