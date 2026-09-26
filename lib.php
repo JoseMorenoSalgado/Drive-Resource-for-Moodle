@@ -503,13 +503,17 @@ function videoplayer_delete_instance($id) {
     }
 
     videoplayer_invalidate_instance_pdf_cache($instance);
-    videoplayer_release_bunny_asset($instance);
 
     $transaction = $DB->start_delegated_transaction();
     $DB->delete_records('videoplayer_rewards', ['videoplayerid' => $instance->id]);
     $DB->delete_records('videoplayer_views', ['videoplayerid' => $instance->id]);
     $DB->delete_records('videoplayer', ['id' => $instance->id]);
     $transaction->allow_commit();
+
+    // Only release the external provider asset after Moodle committed the
+    // activity deletion. This prevents an external destructive side effect if
+    // the local database transaction fails.
+    videoplayer_release_bunny_asset($instance);
 
     return true;
 }
