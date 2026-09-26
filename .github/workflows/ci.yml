@@ -102,8 +102,8 @@ jobs:
         with:
           name: generated-amd-build
           path: |
-            plugin/amd/build/bunnyupload.min.js
-            plugin/amd/build/bunnyupload.min.js.map
+            moodle/mod/videoplayer/amd/build/bunnyupload.min.js
+            moodle/mod/videoplayer/amd/build/bunnyupload.min.js.map
 
       - name: PHPUnit
         run: moodle-plugin-ci phpunit --fail-on-warning
