@@ -161,6 +161,7 @@ function driveresource_AdminCustomButtonArray(): array
         $translator->t('generate_token') => 'ProvisionMoodleConnection',
         $translator->t('generate_new_key') => 'RotateMoodleToken',
         $translator->t('validate_connection') => 'ValidateMoodleConnection',
+        $translator->t('organize_virtual_classroom') => 'OrganizeVideoCollection',
     ];
 }
 
@@ -300,6 +301,47 @@ function driveresource_ValidateMoodleConnection(array $params): string
         ]);
 
         return $result['connected'] ? 'success' : (string) $result['message'];
+    } catch (Throwable $exception) {
+        return $exception->getMessage();
+    }
+}
+
+/**
+ * Create/repair the provider collection for this virtual classroom and move
+ * existing service-owned videos into it.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return string
+ */
+function driveresource_OrganizeVideoCollection(array $params): string
+{
+    try {
+        driveresource_require_gateway();
+
+        $serviceId = (int) ($params['serviceid'] ?? 0);
+        $service = Capsule::table('mod_driveresource_services')
+            ->where('service_id', $serviceId)
+            ->first();
+        if (!$service) {
+            throw new RuntimeException('Elearning Stream service is not provisioned.');
+        }
+
+        $result = driveresource_gateway_service()->organizeServiceAssets($service, 1000);
+        if ((int) ($result['failed'] ?? 0) > 0) {
+            throw new RuntimeException(
+                'Virtual classroom was created, but '
+                . (int) $result['failed']
+                . ' video(s) could not be organised.'
+            );
+        }
+
+        driveresource_audit($serviceId, 'virtual_classroom_organized', [
+            'collection_id' => (string) ($result['collectionid'] ?? ''),
+            'collection_name' => (string) ($result['collectionname'] ?? ''),
+            'videos_organised' => (int) ($result['organised'] ?? 0),
+        ]);
+
+        return 'success';
     } catch (Throwable $exception) {
         return $exception->getMessage();
     }
@@ -888,6 +930,8 @@ function driveresource_require_gateway(): void
         'backend_profile',
         'video_backend_key',
         'video_backend_profile',
+        'video_collection_id',
+        'video_collection_name',
         'object_backend_key',
         'object_backend_profile',
         'connection_status',
@@ -898,13 +942,13 @@ function driveresource_require_gateway(): void
     foreach ($required as $column) {
         if (!$schema->hasColumn('mod_driveresource_services', $column)) {
             throw new RuntimeException(
-                'Elearning Stream Gateway 0.5.0 schema upgrade is required before using this service.'
+                'Elearning Stream Gateway 0.5.3 schema upgrade is required before using this service.'
             );
         }
     }
     if (!$schema->hasTable('mod_driveresource_usage_reports')) {
         throw new RuntimeException(
-            'Elearning Stream Gateway 0.5.0 usage schema is missing.'
+            'Elearning Stream Gateway 0.5.3 usage schema is missing.'
         );
     }
 }
@@ -964,6 +1008,23 @@ function driveresource_audit(int $serviceId, string $action, array $metadata = [
         $action,
         $metadata
     );
+}
+
+/**
+ * Resolve the gateway orchestration service from the companion addon.
+ *
+ * @return \WHMCS\Module\Addon\DriveresourceGateway\GatewayService
+ */
+function driveresource_gateway_service()
+{
+    $lib = dirname(__DIR__, 2) . '/addons/driveresource_gateway/lib';
+    require_once $lib . '/Config.php';
+    require_once $lib . '/BackendRegistry.php';
+    require_once $lib . '/GatewayException.php';
+    require_once $lib . '/BunnyClient.php';
+    require_once $lib . '/GatewayService.php';
+
+    return new \WHMCS\Module\Addon\DriveresourceGateway\GatewayService();
 }
 
 /**
