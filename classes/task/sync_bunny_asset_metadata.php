@@ -43,7 +43,7 @@ final class sync_bunny_asset_metadata extends \core\task\adhoc_task {
         $instance = $DB->get_record(
             'videoplayer',
             ['id' => $instanceid],
-            'id, source, name, providerassetid',
+            'id, course, source, name, providerassetid',
             IGNORE_MISSING
         );
         if (
@@ -58,10 +58,24 @@ final class sync_bunny_asset_metadata extends \core\task\adhoc_task {
             return;
         }
 
-        (new whmcs_gateway_client())->update_asset_title(
-            $videoid,
-            $instanceid,
-            (string)$instance->name
-        );
+        $client = new whmcs_gateway_client();
+        try {
+            $client->update_asset_title(
+                $videoid,
+                $instanceid,
+                (string)$instance->name
+            );
+        } catch (\Throwable $exception) {
+            $client->reconcile_asset(
+                $videoid,
+                $instanceid,
+                (int)$instance->course
+            );
+            $client->update_asset_title(
+                $videoid,
+                $instanceid,
+                (string)$instance->name
+            );
+        }
     }
 }
