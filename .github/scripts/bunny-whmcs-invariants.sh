@@ -96,7 +96,7 @@ grep -Fq "preg_match('/^[a-f0-9]{64}$/', \$token)" integrations/whmcs/modules/ad
 grep -q 'mod_driveresource_nonces' integrations/whmcs/modules/addons/driveresource_gateway/lib/RequestAuthenticator.php     || fail "Replay nonce protection is missing."
 
 echo "Checking multi-tenant provider architecture..."
-grep -q "'version' => '0.5.1'" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "WHMCS addon version 0.5.1 is missing."
+grep -q "'version' => '0.5.2'" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "WHMCS addon version 0.5.2 is missing."
 grep -q "function driveresource_gateway_upgrade" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "WHMCS addon upgrade function is missing."
 grep -q "video_backend_key" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "Independent video-provider schema is missing."
 grep -q "object_backend_key" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "Independent object-storage schema is missing."
@@ -177,6 +177,11 @@ grep -q "NO_MOODLE_COOKIES" gateway-status.php     || fail "Moodle connection pr
 echo "Checking quota and overage controls..."
 grep -q 'reserved_bytes' integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "Concurrent upload reservation accounting is missing."
 grep -q 'overage_allowed' integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "WHMCS plan overage policy is missing."
+grep -Fq "'Default' => '0'" integrations/whmcs/modules/servers/driveresource/driveresource.php     || fail "New products must default to immediate orphan deletion."
+grep -Fq "if (\$retentionDays > 0)" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "Retention policy branch is missing."
+grep -Fq "'status' => 'deleting'" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "Immediate provider deletion must lock the asset against concurrent rebinding."
+grep -Fq "deleteVideo(\$videoId)" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "Final Moodle reference release must support provider deletion."
+grep -Fq "'status' => 'deleted'" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "Provider deletion must zero and close the upload record."
 grep -q "'video_storage_gb'" integrations/whmcs/modules/servers/driveresource/lib/MetricsProvider.php     || fail "WHMCS storage usage metric is missing."
 grep -q 'TYPE_SNAPSHOT' integrations/whmcs/modules/servers/driveresource/lib/MetricsProvider.php     || fail "Storage usage must remain a snapshot metric."
 
