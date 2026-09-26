@@ -98,10 +98,17 @@ final class GatewayService
         });
 
         try {
-            $videoId = $this->streamClient($service)->createVideo($title !== '' ? $title : $filename);
+            $collection = $this->ensureVirtualClassroom($service);
+            $videoId = $this->streamClient($service)->createVideo(
+                $title !== '' ? $title : $filename,
+                $collection['id']
+            );
         } catch (Throwable $exception) {
             $this->cancelReservation($uploadId);
-            throw new GatewayException('Elearning Stream could not create the video resource.', 502);
+            throw new GatewayException(
+                'Elearning Stream could not prepare the virtual classroom or create the video resource.',
+                502
+            );
         }
 
         try {
@@ -295,6 +302,20 @@ final class GatewayService
             $video = $this->streamClient($service)->getVideo($videoId);
         } catch (Throwable $exception) {
             throw new GatewayException('Elearning Stream could not verify this video in the configured library.', 404);
+        }
+
+        try {
+            $collection = $this->ensureVirtualClassroom($service);
+            $this->streamClient($service)->setVideoCollection(
+                $videoId,
+                $collection['id'],
+                $this->videoMetaTags($service, $courseId)
+            );
+        } catch (Throwable $exception) {
+            throw new GatewayException(
+                'Elearning Stream could not organise this video inside the virtual classroom.',
+                502
+            );
         }
 
         $providerBytes = max(0, (int) ($video['storageSize'] ?? 0));
@@ -777,6 +798,196 @@ final class GatewayService
         return [
             'status' => 'recorded',
             'period' => $period,
+        ];
+    }
+
+    /**
+     * Ensure this WHMCS service owns one provider collection.
+     *
+     * The collection is created lazily so provisioning does not depend on the
+     * external provider being available. Concurrent first uploads can both
+     * create a collection, but only one wins the database lock; the losing
+     * provider collection is removed best-effort.
+     *
+     * @param object $service Provisioned service row.
+     * @return array{id:string,name:string}
+     */
+    public function ensureVirtualClassroom(object $service): array
+    {
+        $this->requireBackendCapability($service, BackendRegistry::CAP_MANAGED_VIDEO);
+        $serviceId = (int) ($service->service_id ?? 0);
+        if ($serviceId <= 0) {
+            throw new GatewayException('Invalid Elearning Stream service.', 422);
+        }
+
+        $current = Capsule::table('mod_driveresource_services')
+            ->where('service_id', $serviceId)
+            ->first();
+        if (!$current) {
+            throw new GatewayException('Elearning Stream service is not provisioned.', 404);
+        }
+
+        $existingId = strtolower(trim((string) ($current->video_collection_id ?? '')));
+        $existingName = trim((string) ($current->video_collection_name ?? ''));
+        if (preg_match('/^[a-f0-9-]{32,64}$/i', $existingId)) {
+            return [
+                'id' => $existingId,
+                'name' => $existingName !== '' ? $existingName : $this->virtualClassroomName($current),
+            ];
+        }
+
+        $desiredName = $this->virtualClassroomName($current);
+        $created = $this->streamClient($current)->createCollection($desiredName);
+
+        $winner = Capsule::connection()->transaction(function () use (
+            $serviceId,
+            $created,
+            $desiredName
+        ): array {
+            $locked = Capsule::table('mod_driveresource_services')
+                ->where('service_id', $serviceId)
+                ->lockForUpdate()
+                ->first();
+            if (!$locked) {
+                throw new GatewayException('Elearning Stream service is not provisioned.', 404);
+            }
+
+            $lockedId = strtolower(trim((string) ($locked->video_collection_id ?? '')));
+            if (preg_match('/^[a-f0-9-]{32,64}$/i', $lockedId)) {
+                return [
+                    'id' => $lockedId,
+                    'name' => trim((string) ($locked->video_collection_name ?? '')),
+                    'created' => false,
+                ];
+            }
+
+            Capsule::table('mod_driveresource_services')
+                ->where('service_id', $serviceId)
+                ->update([
+                    'video_collection_id' => $created['id'],
+                    'video_collection_name' => $desiredName,
+                    'updated_at' => time(),
+                ]);
+
+            return [
+                'id' => $created['id'],
+                'name' => $desiredName,
+                'created' => true,
+            ];
+        });
+
+        if (!$winner['created'] && $winner['id'] !== $created['id']) {
+            try {
+                $this->streamClient($current)->deleteCollection($created['id']);
+            } catch (Throwable $ignored) {
+            }
+        }
+
+        return [
+            'id' => (string) $winner['id'],
+            'name' => (string) ($winner['name'] !== '' ? $winner['name'] : $desiredName),
+        ];
+    }
+
+    /**
+     * Move existing service-owned videos into the service collection.
+     *
+     * This is used for upgrades from pre-0.5.3 installations. It does not
+     * change titles or ownership records.
+     *
+     * @param object $service Provisioned service row.
+     * @param int $limit Maximum provider assets to organise in one request.
+     * @return array{collectionid:string,collectionname:string,organised:int,failed:int}
+     */
+    public function organizeServiceAssets(object $service, int $limit = 500): array
+    {
+        $collection = $this->ensureVirtualClassroom($service);
+        $limit = max(1, min(1000, $limit));
+        $uploads = Capsule::table('mod_driveresource_uploads')
+            ->where('service_id', (int) $service->service_id)
+            ->whereNotNull('video_id')
+            ->whereIn('status', ['processing', 'ready', 'bound', 'authorized'])
+            ->orderBy('created_at', 'asc')
+            ->limit($limit)
+            ->get();
+
+        $organised = 0;
+        $failed = 0;
+        foreach ($uploads as $upload) {
+            $videoId = strtolower(trim((string) ($upload->video_id ?? '')));
+            if (!preg_match('/^[a-f0-9-]{32,64}$/i', $videoId)) {
+                $failed++;
+                continue;
+            }
+
+            try {
+                $this->streamClient($service)->setVideoCollection(
+                    $videoId,
+                    $collection['id'],
+                    $this->videoMetaTags($service, (int) ($upload->course_id ?? 0))
+                );
+                $organised++;
+            } catch (Throwable $exception) {
+                $failed++;
+            }
+        }
+
+        return [
+            'collectionid' => $collection['id'],
+            'collectionname' => $collection['name'],
+            'organised' => $organised,
+            'failed' => $failed,
+        ];
+    }
+
+    /**
+     * Stable provider collection name for one virtual classroom/service.
+     *
+     * @param object $service Service row.
+     * @return string
+     */
+    private function virtualClassroomName(object $service): string
+    {
+        $serviceId = max(0, (int) ($service->service_id ?? 0));
+        $parts = parse_url(trim((string) ($service->site_url ?? '')));
+        $host = is_array($parts) ? strtolower(trim((string) ($parts['host'] ?? ''))) : '';
+        $path = is_array($parts) ? trim((string) ($parts['path'] ?? ''), '/') : '';
+        $site = $host;
+        if ($path !== '') {
+            $site .= '/' . $path;
+        }
+        if ($site === '') {
+            $site = 'moodle';
+        }
+
+        return mb_substr('S' . $serviceId . ' - ' . $site, 0, 191);
+    }
+
+    /**
+     * Non-secret provider metadata used for support and organisation.
+     *
+     * @param object $service Service row.
+     * @param int $courseId Moodle course id.
+     * @return array<int,array{property:string,value:string}>
+     */
+    private function videoMetaTags(object $service, int $courseId): array
+    {
+        $parts = parse_url(trim((string) ($service->site_url ?? '')));
+        $host = is_array($parts) ? strtolower(trim((string) ($parts['host'] ?? ''))) : '';
+
+        return [
+            [
+                'property' => 'elearning_service_id',
+                'value' => (string) max(0, (int) ($service->service_id ?? 0)),
+            ],
+            [
+                'property' => 'moodle_host',
+                'value' => mb_substr($host !== '' ? $host : 'unknown', 0, 128),
+            ],
+            [
+                'property' => 'moodle_course_id',
+                'value' => (string) max(0, $courseId),
+            ],
         ];
     }
 
