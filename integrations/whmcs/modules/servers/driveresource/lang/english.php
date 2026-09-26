@@ -37,6 +37,9 @@ return [
     'generate_new_key' => 'Generate new key',
     'rotate_confirm' => 'Invalidate the current key and generate a new one?',
     'validate_connection' => 'Validate connection',
+    'virtual_classroom' => 'Virtual classroom',
+    'virtual_classroom_pending' => 'It will be created automatically when the first video is uploaded.',
+    'organize_virtual_classroom' => 'Organize virtual classroom',
     'videos_title' => 'Service videos',
     'videos_registered' => ':count registered',
     'column_video' => 'Video',
@@ -69,4 +72,5 @@ return [
     'audit_token_rotated' => 'Moodle token rotated',
     'audit_connection_validated' => 'Moodle connection validated',
     'audit_video_deleted' => 'Video deleted',
+    'audit_virtual_classroom_organized' => 'Virtual classroom organized',
 ];
