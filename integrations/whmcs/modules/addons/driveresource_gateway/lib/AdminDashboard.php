@@ -10,7 +10,7 @@ use WHMCS\Database\Capsule;
 final class AdminDashboard
 {
     private const PAGE_SIZE = 25;
-    private const GATEWAY_VERSION = '0.5.3';
+    private const GATEWAY_VERSION = '0.5.4';
 
     /**
      * Render the central customer/service dashboard.
