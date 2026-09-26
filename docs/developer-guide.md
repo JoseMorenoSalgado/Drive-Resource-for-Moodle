@@ -348,3 +348,12 @@ Provider deletion is reference-counted and gateway-owned. Moodle's `videoplayer_
 For `Retention Days = 0`, the final reference release moves the upload to transient status `deleting` before the provider API call. This prevents a concurrent bind from reviving an asset while deletion is in flight. On success the upload becomes `deleted`, accounted bytes are zeroed, and service usage is recomputed. On provider failure the prior status is restored and `delete_after` is set to the current time so daily maintenance can retry.
 
 Do not bypass this contract by adding direct Bunny deletion code to Moodle.
+
+
+## Virtual classroom provider contract
+
+Managed-video providers must support a tenant-level organisational primitive equivalent to a collection/folder. For Elearning Stream, one Bunny collection is persisted per WHMCS service.
+
+The gateway owns collection creation and assignment. Moodle only sends the existing Service ID, course ID and activity metadata; it must never create provider collections directly.
+
+For upgrades from Gateway < 0.5.3, use the WHMCS admin module command **Organize virtual classroom**. It calls `GatewayService::organizeServiceAssets()`, creates the service collection if needed, and moves up to 1000 currently owned videos without renaming them.
