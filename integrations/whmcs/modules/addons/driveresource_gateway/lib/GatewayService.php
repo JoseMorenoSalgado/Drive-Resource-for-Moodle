@@ -540,6 +540,77 @@ final class GatewayService
     }
 
     /**
+     * Synchronise teacher-visible metadata for one bound Moodle asset.
+     *
+     * The active reference check is mandatory: a Moodle site may rename only
+     * a video it currently references through the authenticated service.
+     *
+     * @param object $service Service row.
+     * @param string $siteUrl Authenticated Moodle site.
+     * @param array $payload Request body.
+     * @return array
+     */
+    public function updateAssetMetadata(object $service, string $siteUrl, array $payload): array
+    {
+        $this->requireBackendCapability($service, BackendRegistry::CAP_MANAGED_VIDEO);
+        $serviceId = (int) $service->service_id;
+        $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
+        $instanceId = (int) ($payload['instanceid'] ?? 0);
+        $title = mb_substr(trim((string) ($payload['title'] ?? '')), 0, 255);
+
+        if (
+            $instanceId <= 0
+            || $title === ''
+            || !preg_match('/^[a-f0-9-]{32,64}$/i', $videoId)
+        ) {
+            throw new GatewayException('Invalid asset metadata request.', 422);
+        }
+
+        $siteHash = hash('sha256', $siteUrl);
+        $reference = Capsule::table('mod_driveresource_asset_refs')
+            ->where('service_id', $serviceId)
+            ->where('site_hash', $siteHash)
+            ->where('instance_id', $instanceId)
+            ->where('video_id', $videoId)
+            ->where('active', true)
+            ->first();
+        if (!$reference) {
+            throw new GatewayException(
+                'This Moodle activity is not authorised to update the requested video.',
+                403
+            );
+        }
+
+        $owned = Capsule::table('mod_driveresource_uploads')
+            ->where('service_id', $serviceId)
+            ->where('video_id', $videoId)
+            ->whereIn('status', ['processing', 'ready', 'bound'])
+            ->first();
+        if (!$owned) {
+            throw new GatewayException(
+                'This Elearning Stream video does not belong to the requesting service.',
+                403
+            );
+        }
+
+        try {
+            $this->streamClient($service)->updateVideoTitle($videoId, $title);
+        } catch (Throwable $exception) {
+            throw new GatewayException('Elearning Stream could not update the video title.', 502);
+        }
+
+        Capsule::table('mod_driveresource_uploads')
+            ->where('service_id', $serviceId)
+            ->where('video_id', $videoId)
+            ->update([
+                'filename' => $title,
+                'updated_at' => time(),
+            ]);
+
+        return ['status' => 'updated', 'videoid' => $videoId, 'title' => $title];
+    }
+
+    /**
      * Reconcile a restored Moodle reference without trusting the backup alone.
      *
      * @param object $service Service row.
