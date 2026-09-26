@@ -1,6 +1,6 @@
 # Elearning Stream installation and upgrade
 
-## Supported platform for 1.2.0-rc6-m45
+## Supported platform for 1.2.0-rc7-m45
 
 - Moodle 4.5 LTS
 - PHP 8.1+
@@ -389,11 +389,11 @@ If an existing service shows a username such as one derived from the domain inst
 
 ### Organize existing videos by virtual classroom
 
-Gateway 0.5.3 creates one Bunny collection per WHMCS service automatically when a new video is uploaded or imported. The collection name is similar to `S288 - campus.aspeten.org`.
+Gateway 0.5.4 creates one Bunny collection per WHMCS service automatically when a new video is uploaded or imported. The collection name is similar to `S288 - campus.aspeten.org`.
 
 For services that already owned videos before 0.5.3:
 
-1. update the WHMCS companion to Gateway 0.5.3 and open the addon once so the schema upgrade runs;
+1. update the WHMCS companion to Gateway 0.5.4 and open the addon once so the schema upgrade runs;
 2. open the customer's WHMCS service;
 3. run **Module Commands → Organize virtual classroom**;
 4. verify the service now shows its virtual classroom name and the existing videos appear in that Bunny collection.
