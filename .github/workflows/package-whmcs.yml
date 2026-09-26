@@ -29,7 +29,7 @@ jobs:
           cp integrations/whmcs/README.md dist-whmcs/package/README-Elearning-Stream-WHMCS.md
 
           printf '%s\n' \
-            'Elearning Stream Gateway WHMCS Companion 0.5.1' \
+            'Elearning Stream Gateway WHMCS Companion 0.5.2' \
             '' \
             'INSTALLATION:' \
             '1. Extract this ZIP directly into the WHMCS document root.' \
@@ -37,7 +37,7 @@ jobs:
             '   modules/addons/driveresource_gateway/' \
             '   modules/servers/driveresource/' \
             '3. In WHMCS, open Addons -> Elearning Stream Gateway.' \
-            '4. Confirm Loaded companion 0.5.1 in Installation Health.' \
+            '4. Confirm Loaded companion 0.5.2 in Installation Health.' \
             '5. Set Public Gateway URL (recommended: https://stream.elearningcloud.io), configure the video provider, and confirm your Stream product uses Product Type Other.' \
             > dist-whmcs/package/INSTALL-Elearning-Stream-WHMCS.txt
 
@@ -55,20 +55,20 @@ jobs:
           test -f dist-whmcs/package/modules/servers/driveresource/lib/MoodleConnectionProbe.php
           test -f dist-whmcs/package/modules/servers/driveresource/driveresource.php
           test -f dist-whmcs/package/INSTALL-Elearning-Stream-WHMCS.txt
-          grep -F "'version' => '0.5.1'" dist-whmcs/package/modules/addons/driveresource_gateway/driveresource_gateway.php
+          grep -F "'version' => '0.5.2'" dist-whmcs/package/modules/addons/driveresource_gateway/driveresource_gateway.php
 
           (
             cd dist-whmcs/package
-            zip -qr ../elearning-stream-whmcs-0.5.1.zip \
+            zip -qr ../elearning-stream-whmcs-0.5.2.zip \
               modules \
               README-Elearning-Stream-WHMCS.md \
               INSTALL-Elearning-Stream-WHMCS.txt
           )
 
-          unzip -t dist-whmcs/elearning-stream-whmcs-0.5.1.zip
-          unzip -Z1 dist-whmcs/elearning-stream-whmcs-0.5.1.zip | grep -q '^modules/addons/driveresource_gateway/driveresource_gateway.php$'
-          unzip -Z1 dist-whmcs/elearning-stream-whmcs-0.5.1.zip | grep -q '^modules/servers/driveresource/driveresource.php$'
-          if unzip -Z1 dist-whmcs/elearning-stream-whmcs-0.5.1.zip | grep -q '^whmcs-root/'; then
+          unzip -t dist-whmcs/elearning-stream-whmcs-0.5.2.zip
+          unzip -Z1 dist-whmcs/elearning-stream-whmcs-0.5.2.zip | grep -q '^modules/addons/driveresource_gateway/driveresource_gateway.php$'
+          unzip -Z1 dist-whmcs/elearning-stream-whmcs-0.5.2.zip | grep -q '^modules/servers/driveresource/driveresource.php$'
+          if unzip -Z1 dist-whmcs/elearning-stream-whmcs-0.5.2.zip | grep -q '^whmcs-root/'; then
             echo "::error::WHMCS package must extract directly into the WHMCS root; whmcs-root wrapper detected."
             exit 1
           fi
@@ -76,7 +76,7 @@ jobs:
       - name: Upload WHMCS package
         uses: actions/upload-artifact@v4
         with:
-          name: elearning-stream-whmcs-0.5.1
-          path: dist-whmcs/elearning-stream-whmcs-0.5.1.zip
+          name: elearning-stream-whmcs-0.5.2
+          path: dist-whmcs/elearning-stream-whmcs-0.5.2.zip
           if-no-files-found: error
           retention-days: 30
