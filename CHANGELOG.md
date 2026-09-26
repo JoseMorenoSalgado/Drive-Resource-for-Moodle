@@ -1,5 +1,13 @@
 # Changelog
 
+## Elearning Stream 1.2.0-rc9-m45 — 2026-09-25
+
+- Repairs legacy activities created while Moodle cron did not execute the historical provider-bind task.
+- If a title update finds no active gateway reference, Moodle reconciles the already-owned provider asset to the current service/site/activity and retries the title update.
+- The metadata retry task performs the same safe ownership reconciliation before retrying.
+- Keeps RC8 immediate bind/delete behavior and RC7 seek/volume controls.
+- Moodle build: `2026092508`.
+
 ## Elearning Stream 1.2.0-rc8-m45 — 2026-09-25
 
 - Makes provider binding part of the normal Moodle save path instead of relying exclusively on cron.
