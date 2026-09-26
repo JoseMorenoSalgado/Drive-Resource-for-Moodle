@@ -425,7 +425,7 @@ New provider videos are created directly inside the service collection. Imported
 
 ## Moodle-triggered provider lifecycle
 
-Deletion is initiated by Moodle only after its local activity deletion transaction commits. The normal healthy path calls the signed gateway release synchronously so administrators do not depend on cron to see the provider asset disappear. If the gateway is unavailable, Moodle queues the existing `release_bunny_asset` adhoc task and completes the local deletion; the task retries the same reference-counted gateway contract later.
+Binding and deletion both have synchronous healthy paths with asynchronous retry fallbacks. After Moodle persists an uploaded/imported activity, it immediately registers the service/site/activity reference with the gateway; if that call fails, the existing bind adhoc task retries later. Deletion is initiated only after the local activity deletion transaction commits. The normal healthy path calls the signed gateway release synchronously so administrators do not depend on cron to see the provider asset disappear. If the gateway is unavailable, Moodle queues the existing `release_bunny_asset` adhoc task and completes the local deletion; the task retries the same reference-counted gateway contract later.
 
 Renaming uses a separate authenticated metadata endpoint. Moodle can update only the provider asset referenced by the same active service/site/activity tuple. Bunny credentials and management URLs remain gateway-only.
 
