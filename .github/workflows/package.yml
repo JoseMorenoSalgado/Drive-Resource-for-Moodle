@@ -22,8 +22,8 @@ jobs:
           mkdir -p dist/videoplayer
           rsync -a             --exclude='.git'             --exclude='.github'             --exclude='.moodle-plugin-ci.yml'             --exclude='dist'             --exclude='integrations'             --exclude='tests'             ./ dist/videoplayer/
 
-          grep -F "\$plugin->version = 2026092504;" dist/videoplayer/version.php
-          grep -F "\$plugin->release = '1.2.0-rc5-m45';" dist/videoplayer/version.php
+          grep -F "\$plugin->version = 2026092505;" dist/videoplayer/version.php
+          grep -F "\$plugin->release = '1.2.0-rc6-m45';" dist/videoplayer/version.php
           test -f dist/videoplayer/db/install.xml
           test -f dist/videoplayer/db/upgrade.php
           test -f dist/videoplayer/protected.php
@@ -36,13 +36,13 @@ jobs:
 
           (
             cd dist
-            zip -qr elearning-stream-1.2.0-rc5-m45.zip videoplayer
+            zip -qr elearning-stream-1.2.0-rc6-m45.zip videoplayer
           )
 
       - name: Upload Moodle package
         uses: actions/upload-artifact@v4
         with:
-          name: elearning-stream-moodle-1.2.0-rc5-m45
-          path: dist/elearning-stream-1.2.0-rc5-m45.zip
+          name: elearning-stream-moodle-1.2.0-rc6-m45
+          path: dist/elearning-stream-1.2.0-rc6-m45.zip
           if-no-files-found: error
           retention-days: 30
