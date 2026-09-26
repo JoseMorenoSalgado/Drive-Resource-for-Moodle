@@ -231,7 +231,7 @@ A reservation is created under a database lock before Bunny authorization is emi
 
 ### Provider asset lifecycle
 
-A Bunny asset can have multiple Moodle references. Deleting or replacing an activity releases only that reference. Physical provider deletion is deferred until no active references remain and the WHMCS retention period expires. Course restore never trusts a copied provider GUID by itself: the restored reference is reconciled through WHMCS and is accepted only when the asset belongs to the same WHMCS service tenant.
+A Bunny asset can have multiple Moodle references. Deleting or replacing an activity releases only that reference. When the final active reference disappears, `Retention Days = 0` deletes the provider asset immediately at the gateway; positive retention values defer deletion until the grace period expires. Course restore never trusts a copied provider GUID by itself: the restored reference is reconciled through WHMCS and is accepted only when the asset belongs to the same WHMCS service tenant.
 
 ## Resilient progress-schema evolution
 
@@ -394,3 +394,15 @@ This keeps public-brand hostname policy centralized in WHMCS and avoids hardcodi
 `mod_driveresource_audit` stores control-plane events independently of Moodle learner activity. It records service id, actor type/id, stable action, bounded redacted metadata and timestamp. AuditLogger strips keys matching token/password/secret/signature/API-key patterns before persistence.
 
 Current audited operations include Moodle URL changes, connection provisioning, token rotation, signed connection validation and client-requested video deletion. The WHMCS administrator dashboard exposes the most recent audit entries.
+
+
+## Video deletion lifecycle
+
+Moodle never receives provider management credentials and therefore never calls the video provider directly. When an Elearning Stream activity is deleted, Moodle queues a signed release request to the gateway. The gateway deactivates that activity reference and counts remaining active references for the same provider asset.
+
+- if one or more active references remain, the provider video is preserved;
+- if no references remain and `Retention Days = 0`, the gateway deletes the provider video immediately and recalculates service storage usage;
+- if `Retention Days > 0`, physical deletion is deferred until the grace period expires;
+- a failed immediate provider deletion is left eligible for the WHMCS maintenance retry instead of silently losing accounting state.
+
+The Moodle release is asynchronous through an adhoc task, so a correctly configured Moodle cron is required. This avoids blocking course deletion on an external provider request while still making zero-day deletion occur on the next task execution.
