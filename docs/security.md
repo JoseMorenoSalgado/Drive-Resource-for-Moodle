@@ -1,5 +1,19 @@
 # Drive Resource security model
 
+## Elearning Stream gateway boundary
+
+Production Moodle installations do not store Bunny, S3 or other provider management credentials. Moodle stores only:
+
+- the branded HTTPS gateway URL;
+- a numeric Service ID;
+- a 64-character service-scoped token.
+
+The gateway retains provider secrets and performs provider-specific authorization. Requests are signed with HMAC and protected by timestamp/nonce replay controls. The customer-facing gateway URL may be a branded reverse proxy such as `https://stream.elearningcloud.io`; it must preserve POST bodies and headers rather than redirecting signed requests.
+
+The Moodle site URL remains an internal server-side binding used to validate the exact `$CFG->wwwroot`. It is not a replacement for the customer-facing gateway URL.
+
+S3 credentials are subject to the same boundary: endpoint, bucket, access key and secret key belong only in the gateway. The current S3 control plane is configuration-only; protected-document delivery must not be enabled until the data-plane adapter has SSRF restrictions, range-safe streaming, authorization, lifecycle and usage-accounting coverage.
+
 ## Security boundary
 
 Drive Resource does not rely on a hidden button or obfuscated JavaScript for authorization. The enforceable boundary is the Moodle server.
@@ -158,3 +172,99 @@ The browser requests Moodle `protected.php`; normal login, course, context and c
 Missing Moodle-to-WHMCS configuration is treated as a preflight validation failure, not as a reason to bypass WHMCS. Drive Resource must never fall back to directly trusting a pasted provider URL or place provider management credentials in Moodle.
 
 Only the presence of the gateway URL, service ID and service token is reported to teachers; secret values are never included in validation messages or debug output.
+
+
+## WHMCS multi-tenant isolation
+
+Each WHMCS service is authenticated independently with its service id, exact Moodle site URL and service-scoped token. Quota reservations, assets, references and replay nonces are keyed by service id. The central WHMCS addon may serve many customers, but a request authenticated for one service cannot bind or import an asset owned by another service.
+
+Backend identity is also stored per service. Managed-video endpoints verify backend capabilities before invoking Elearning Stream. Provider clients are lazy-loaded, preventing unrelated tenants/backends from requiring or touching another provider's credentials.
+
+A future S3-compatible backend must preserve the same tenant boundary. Object keys must be tenant-scoped, presigned operations must be short-lived and service-scoped, bucket/endpoint credentials must remain in WHMCS, and arbitrary client-supplied S3 URLs must never become proxy targets.
+
+Backend changes are blocked for services that still own media or accounted/reserved bytes. This avoids an unsafe state where accounting says one backend while assets remain on another.
+
+
+### WHMCS service token handoff
+
+The Moodle service token is generated with `random_bytes()` during WHMCS provisioning. The gateway stores only a SHA-256 hash; WHMCS stores the plaintext token in its protected service-property mechanism so an authorised administrator can copy it to the matching Moodle site.
+
+The token is never derived from the customer password, Bunny/Elearning Stream API key, server credentials or service id. Removing the fake WHMCS server dependency reduces accidental credential reuse between infrastructure and Moodle authentication.
+
+
+### Moodle token repair and rotation
+
+Unprovisioned or partially provisioned WHMCS services are repaired through an administrator-only module action. Repair reuses an existing valid WHMCS-protected token when available. If no recoverable plaintext token exists, a new token is generated with `random_bytes()` and the gateway hash is replaced.
+
+Intentional rotation is separate from repair. Rotating a token immediately invalidates the token configured in Moodle until the administrator copies the new token to that Moodle site.
+
+
+## WHMCS customer self-service security
+
+The WHMCS Client Area may expose the service-scoped Moodle token to the authenticated owner of that WHMCS service because the token is the customer's connection credential. Provider API keys, CDN token keys and Bunny/Elearning Stream management credentials remain server-side in the WHMCS addon and are never shown to the customer or Moodle.
+
+Token rotation and repair are separate operations. Rotation invalidates the token currently configured in Moodle and marks the connection pending until the new value is copied and validated.
+
+The signed Moodle connection probe uses:
+- exact WHMCS service id;
+- exact Moodle `$CFG->wwwroot`;
+- current timestamp with bounded skew;
+- a 128-bit random request id/nonce;
+- SHA-256 body digest;
+- HMAC-SHA256 with the service token;
+- constant-time signature comparison;
+- a short-lived Moodle replay cache.
+
+The endpoint creates no Moodle browser session and returns no secret.
+
+Customer video deletion is limited to assets owned by the current service and is blocked while active Moodle references exist. URL reassignment is blocked while active references exist to prevent cross-site instance-id collisions and accidental orphaning.
+
+### Transfer-accounting integrity
+
+Transfer is counted from actual bytes emitted by Moodle's protected Elearning Stream proxy rather than from a shared provider-library traffic counter. Moodle batches events and WHMCS deduplicates each batch using a per-service report id. This avoids double billing after retries.
+
+Transfer events do not contain Moodle user ids, IP addresses or learner identifiers. They contain service id, provider video id, byte count, billing month and creation time, so they are operational/accounting data rather than per-learner progress data.
+
+
+### Branded Elearning Stream URL validation
+
+A branded URL such as `https://video.elearningcloud.io/.../<guid>` is not trusted by Moodle as an upstream download target. Moodle validates only HTTPS/port/credential/GUID syntax and sends the value transiently to the authenticated WHMCS gateway.
+
+WHMCS accepts the URL only when its exact hostname is present in the centrally configured public aliases or is an approved provider hostname. It extracts the GUID locally and verifies that GUID through the Video Library API. The pasted public URL is never fetched, preventing it from becoming an SSRF primitive.
+
+Protected learner playback remains pinned to the configured `*.b-cdn.net` origin signed by WHMCS; accepting a branded URL for import does not expand the protected proxy upstream allow-list.
+
+### WHMCS audit confidentiality
+
+The audit trail intentionally excludes secrets. `AuditLogger` rejects metadata keys that resemble token, password, secret, signature, API key or credential fields and bounds string values before JSON persistence.
+
+Audit entries may contain service id, actor id/type, old/new Moodle URL, provider video GUID, filename, byte count, backend and connection result. These records are operational control-plane data. The companion automatically purges audit events older than 24 months during maintenance.
+
+
+## Destructive media operations
+
+Deleting a Moodle activity does not grant Moodle provider credentials. Moodle sends only a signed service-scoped release request. The gateway verifies tenant ownership, removes only that activity reference, and deletes the provider asset only after the active-reference count reaches zero.
+
+Zero-day deletion uses a transient `deleting` state to prevent a concurrent rebind during the destructive provider request. Provider failures remain retryable and do not silently mark the asset as deleted.
+
+
+## Virtual classroom isolation
+
+Bunny collections are an organisational boundary, not the authorization boundary. Authorization continues to rely on the WHMCS Service ID, service-scoped HMAC token, service ownership records and active Moodle references.
+
+Collection IDs are stored only in the gateway control plane. Collection names use the service ID and Moodle hostname/path and intentionally exclude customer email addresses, tokens, API keys and other secrets.
+
+
+## Metadata mutation authorization
+
+Provider title changes use the signed service-scoped gateway channel. The gateway requires all of the following before changing Bunny metadata:
+
+- authenticated WHMCS service;
+- exact bound video ownership for that service;
+- active Moodle site hash;
+- matching Moodle activity instance id;
+- matching provider video GUID.
+
+The title endpoint never accepts arbitrary provider credentials, library IDs or management URLs from Moodle.
+
+Provider deletion is attempted only after Moodle commits the local activity deletion. If the external call fails, cleanup is deferred to the signed adhoc task rather than rolling back or exposing provider credentials.

@@ -1,9 +1,9 @@
 <?php
 /**
- * Drive Resource WHMCS media gateway addon.
+ * Elearning Stream media gateway addon.
  *
  * @copyright  2026 Elearning Cloud
- * @license    Proprietary companion module distributed with Drive Resource
+ * @license    Proprietary companion module distributed with Elearning Stream
  */
 
 if (!defined('WHMCS')) {
@@ -24,16 +24,32 @@ use WHMCS\Database\Capsule;
 function driveresource_gateway_config(): array
 {
     return [
-        'name' => 'Drive Resource Media Gateway',
-        'description' => 'WHMCS authorization, quota and Elearning Stream credential boundary for Drive Resource.',
-        'version' => '0.2.0',
+        'name' => 'Elearning Stream Gateway',
+        'description' => 'Multi-tenant media gateway, quota control and provider credential boundary for Elearning Stream.',
+        'version' => '0.5.4',
         'author' => 'Elearning Cloud',
         'fields' => [
+            'public_gateway_url' => [
+                'FriendlyName' => 'Public Gateway URL',
+                'Type' => 'text',
+                'Size' => '60',
+                'Default' => 'https://stream.elearningcloud.io',
+                'Description' => 'Customer-facing HTTPS URL copied into Moodle. Configure this hostname as a reverse proxy to the addon.',
+            ],
+            'video_provider' => [
+                'FriendlyName' => 'Video Provider',
+                'Type' => 'dropdown',
+                'Options' => [
+                    'elearningstream' => 'Elearning Stream',
+                ],
+                'Default' => 'elearningstream',
+                'Description' => 'Default managed-video provider. More providers can be added without changing Moodle credentials.',
+            ],
             'bunny_library_id' => [
                 'FriendlyName' => 'Elearning Stream Library ID',
                 'Type' => 'text',
                 'Size' => '30',
-                'Description' => 'Video Library used by Drive Resource.',
+                'Description' => 'Video Library used by Elearning Stream.',
             ],
             'bunny_api_key' => [
                 'FriendlyName' => 'Elearning Stream API Key',
@@ -46,6 +62,13 @@ function driveresource_gateway_config(): array
                 'Type' => 'text',
                 'Size' => '45',
                 'Description' => 'Provider CDN hostname used by Moodle protected playback. Example: vz-xxxxxxxx-xxx.b-cdn.net.',
+            ],
+            'bunny_public_aliases' => [
+                'FriendlyName' => 'Elearning Stream Public Aliases',
+                'Type' => 'text',
+                'Size' => '70',
+                'Default' => '',
+                'Description' => 'Optional customer-facing hostnames accepted when pasting existing video URLs. Separate multiple hostnames with commas. Example: video.elearningcloud.io.',
             ],
             'bunny_token_key' => [
                 'FriendlyName' => 'Elearning Stream Token Key',
@@ -81,6 +104,60 @@ function driveresource_gateway_config(): array
                 'Default' => '24',
                 'Description' => 'Hours to retain a completed upload that was never saved into a Moodle activity.',
             ],
+            'object_storage_provider' => [
+                'FriendlyName' => 'Protected PDF / Object Storage Provider',
+                'Type' => 'dropdown',
+                'Options' => [
+                    'disabled' => 'Disabled',
+                    'aws_s3' => 'Amazon S3',
+                    'cloudflare_r2' => 'Cloudflare R2',
+                    'wasabi' => 'Wasabi',
+                    'backblaze_b2' => 'Backblaze B2 (S3)',
+                    'hetzner' => 'Hetzner Object Storage',
+                    'custom_s3' => 'Custom S3-compatible',
+                ],
+                'Default' => 'disabled',
+                'Description' => 'Provider profile reserved for protected PDF/object storage. Credentials stay only in this gateway.',
+            ],
+            'object_storage_endpoint' => [
+                'FriendlyName' => 'S3 Endpoint',
+                'Type' => 'text',
+                'Size' => '60',
+                'Default' => '',
+                'Description' => 'HTTPS S3-compatible endpoint, for example https://s3.eu-central-1.amazonaws.com or your R2/Wasabi endpoint.',
+            ],
+            'object_storage_region' => [
+                'FriendlyName' => 'S3 Region',
+                'Type' => 'text',
+                'Size' => '25',
+                'Default' => 'auto',
+                'Description' => 'Provider region. Cloudflare R2 commonly uses auto.',
+            ],
+            'object_storage_bucket' => [
+                'FriendlyName' => 'S3 Bucket',
+                'Type' => 'text',
+                'Size' => '40',
+                'Default' => '',
+                'Description' => 'Bucket dedicated to protected documents.',
+            ],
+            'object_storage_access_key' => [
+                'FriendlyName' => 'S3 Access Key',
+                'Type' => 'password',
+                'Size' => '45',
+                'Description' => 'Server-side only. Never copied to Moodle.',
+            ],
+            'object_storage_secret_key' => [
+                'FriendlyName' => 'S3 Secret Key',
+                'Type' => 'password',
+                'Size' => '45',
+                'Description' => 'Server-side only. Never copied to Moodle.',
+            ],
+            'object_storage_path_style' => [
+                'FriendlyName' => 'S3 Path Style',
+                'Type' => 'yesno',
+                'Description' => 'Enable for S3-compatible providers that require bucket names in the URL path.',
+                'Default' => '',
+            ],
         ],
     ];
 }
@@ -102,11 +179,26 @@ function driveresource_gateway_activate(): array
                 $table->char('site_hash', 64)->index();
                 $table->char('token_hash', 64);
                 $table->string('status', 16)->default('active')->index();
+                // Legacy backend fields remain as aliases for the video provider.
+                $table->string('backend_key', 32)->default('elearningstream')->index();
+                $table->string('backend_profile', 64)->default('default');
+                $table->string('video_backend_key', 32)->default('elearningstream')->index();
+                $table->string('video_backend_profile', 64)->default('default');
+                $table->string('video_collection_id', 64)->nullable()->index();
+                $table->string('video_collection_name', 191)->nullable();
+                $table->string('object_backend_key', 32)->default('none')->index();
+                $table->string('object_backend_profile', 64)->default('default');
+                $table->string('connection_status', 16)->default('pending')->index();
+                $table->unsignedInteger('connection_checked_at')->nullable();
+                $table->string('connection_message', 255)->nullable();
+                $table->char('transfer_period', 7)->nullable()->index();
+                $table->unsignedBigInteger('transfer_bytes')->default(0);
+                $table->unsignedInteger('transfer_updated_at')->nullable();
                 $table->unsignedBigInteger('quota_bytes')->default(7000000000);
                 $table->unsignedBigInteger('used_bytes')->default(0);
                 $table->unsignedBigInteger('reserved_bytes')->default(0);
                 $table->boolean('overage_allowed')->default(true);
-                $table->unsignedInteger('retention_days')->default(30);
+                $table->unsignedInteger('retention_days')->default(0);
                 $table->unsignedInteger('created_at');
                 $table->unsignedInteger('updated_at');
                 $table->unsignedInteger('suspended_at')->nullable();
@@ -159,10 +251,281 @@ function driveresource_gateway_activate(): array
             });
         }
 
-        return ['status' => 'success', 'description' => 'Drive Resource Media Gateway activated.'];
+        if (!$schema->hasTable('mod_driveresource_usage_reports')) {
+            $schema->create('mod_driveresource_usage_reports', static function (Blueprint $table): void {
+                $table->bigIncrements('id');
+                $table->unsignedInteger('service_id')->index();
+                $table->char('report_id', 64);
+                $table->char('period_key', 7)->index();
+                $table->unsignedBigInteger('bytes')->default(0);
+                $table->unsignedInteger('created_at');
+                $table->unique(['service_id', 'report_id'], 'dr_usage_report_unique');
+            });
+        }
+
+        if (!$schema->hasTable('mod_driveresource_audit')) {
+            $schema->create('mod_driveresource_audit', static function (Blueprint $table): void {
+                $table->bigIncrements('id');
+                $table->unsignedInteger('service_id')->index();
+                $table->string('actor_type', 16)->index();
+                $table->unsignedInteger('actor_id')->nullable()->index();
+                $table->string('action', 64)->index();
+                $table->text('metadata_json')->nullable();
+                $table->unsignedInteger('created_at')->index();
+            });
+        }
+
+        driveresource_gateway_ensure_multitenant_schema();
+        driveresource_gateway_ensure_provider_schema();
+        driveresource_gateway_ensure_collection_schema();
+        driveresource_gateway_ensure_portal_schema();
+        driveresource_gateway_ensure_audit_schema();
+
+        return ['status' => 'success', 'description' => 'Elearning Stream Gateway activated.'];
     } catch (Throwable $exception) {
         return ['status' => 'error', 'description' => $exception->getMessage()];
     }
+}
+
+/**
+ * Upgrade addon persistence for multi-tenant backend selection.
+ *
+ * WHMCS invokes this function after detecting a module version change.
+ *
+ * @param array $vars WHMCS addon variables, including previously installed version.
+ * @return void
+ */
+function driveresource_gateway_upgrade(array $vars): void
+{
+    $installed = (string) ($vars['version'] ?? '0.0.0');
+    if (version_compare($installed, '0.3.0', '<')) {
+        driveresource_gateway_ensure_multitenant_schema();
+    }
+    if (version_compare($installed, '0.4.0', '<')) {
+        driveresource_gateway_ensure_portal_schema();
+    }
+    if (version_compare($installed, '0.4.1', '<')) {
+        driveresource_gateway_ensure_audit_schema();
+    }
+    if (version_compare($installed, '0.5.0', '<')) {
+        driveresource_gateway_ensure_provider_schema();
+    }
+    if (version_compare($installed, '0.5.3', '<')) {
+        driveresource_gateway_ensure_collection_schema();
+    }
+}
+
+/**
+ * Ensure backend identity exists on every provisioned service.
+ *
+ * Existing services remain on Elearning Stream/default. The fields are generic
+ * so future S3-compatible backends can be added without changing tenant,
+ * billing, quota or Moodle authentication identifiers.
+ *
+ * @return void
+ */
+function driveresource_gateway_ensure_multitenant_schema(): void
+{
+    $schema = Capsule::schema();
+    if (!$schema->hasTable('mod_driveresource_services')) {
+        return;
+    }
+
+    if (!$schema->hasColumn('mod_driveresource_services', 'backend_key')) {
+        $schema->table('mod_driveresource_services', static function (Blueprint $table): void {
+            $table->string('backend_key', 32)->default('elearningstream')->index();
+        });
+    }
+
+    if (!$schema->hasColumn('mod_driveresource_services', 'backend_profile')) {
+        $schema->table('mod_driveresource_services', static function (Blueprint $table): void {
+            $table->string('backend_profile', 64)->default('default');
+        });
+    }
+
+    Capsule::table('mod_driveresource_services')
+        ->whereNull('backend_key')
+        ->orWhere('backend_key', '')
+        ->update(['backend_key' => 'elearningstream']);
+
+    Capsule::table('mod_driveresource_services')
+        ->whereNull('backend_profile')
+        ->orWhere('backend_profile', '')
+        ->update(['backend_profile' => 'default']);
+}
+
+/**
+ * Split media-provider identity into independent video and object-storage lanes.
+ *
+ * Legacy backend_key/backend_profile continue to mirror the video provider so
+ * existing API code and installed services remain backward compatible.
+ *
+ * @return void
+ */
+function driveresource_gateway_ensure_provider_schema(): void
+{
+    $schema = Capsule::schema();
+    if (!$schema->hasTable('mod_driveresource_services')) {
+        return;
+    }
+
+    $addedVideoKey = false;
+    $addedVideoProfile = false;
+
+    if (!$schema->hasColumn('mod_driveresource_services', 'video_backend_key')) {
+        $schema->table('mod_driveresource_services', static function (Blueprint $table): void {
+            $table->string('video_backend_key', 32)->default('elearningstream')->index();
+        });
+        $addedVideoKey = true;
+    }
+
+    if (!$schema->hasColumn('mod_driveresource_services', 'video_backend_profile')) {
+        $schema->table('mod_driveresource_services', static function (Blueprint $table): void {
+            $table->string('video_backend_profile', 64)->default('default');
+        });
+        $addedVideoProfile = true;
+    }
+
+    if (!$schema->hasColumn('mod_driveresource_services', 'object_backend_key')) {
+        $schema->table('mod_driveresource_services', static function (Blueprint $table): void {
+            $table->string('object_backend_key', 32)->default('none')->index();
+        });
+    }
+
+    if (!$schema->hasColumn('mod_driveresource_services', 'object_backend_profile')) {
+        $schema->table('mod_driveresource_services', static function (Blueprint $table): void {
+            $table->string('object_backend_profile', 64)->default('default');
+        });
+    }
+
+    // Preserve any legacy video backend assignment when introducing the split.
+    if ($addedVideoKey || $addedVideoProfile) {
+        $services = Capsule::table('mod_driveresource_services')
+            ->select(['service_id', 'backend_key', 'backend_profile'])
+            ->get();
+
+        foreach ($services as $service) {
+            Capsule::table('mod_driveresource_services')
+                ->where('service_id', (int) $service->service_id)
+                ->update([
+                    'video_backend_key' => trim((string) ($service->backend_key ?? '')) !== ''
+                        ? (string) $service->backend_key
+                        : 'elearningstream',
+                    'video_backend_profile' => trim((string) ($service->backend_profile ?? '')) !== ''
+                        ? (string) $service->backend_profile
+                        : 'default',
+                ]);
+        }
+    }
+}
+
+/**
+ * Ensure each service can persist its provider-side virtual classroom.
+ *
+ * One Bunny collection is allocated lazily per WHMCS service. Existing
+ * services are left unassigned until the next upload/import or an explicit
+ * organisation action creates the provider collection.
+ *
+ * @return void
+ */
+function driveresource_gateway_ensure_collection_schema(): void
+{
+    $schema = Capsule::schema();
+    if (!$schema->hasTable('mod_driveresource_services')) {
+        return;
+    }
+
+    if (!$schema->hasColumn('mod_driveresource_services', 'video_collection_id')) {
+        $schema->table('mod_driveresource_services', static function (Blueprint $table): void {
+            $table->string('video_collection_id', 64)->nullable()->index();
+        });
+    }
+
+    if (!$schema->hasColumn('mod_driveresource_services', 'video_collection_name')) {
+        $schema->table('mod_driveresource_services', static function (Blueprint $table): void {
+            $table->string('video_collection_name', 191)->nullable();
+        });
+    }
+}
+
+/**
+ * Ensure client-portal connection and transfer metering schema.
+ *
+ * @return void
+ */
+function driveresource_gateway_ensure_portal_schema(): void
+{
+    $schema = Capsule::schema();
+    if (!$schema->hasTable('mod_driveresource_services')) {
+        return;
+    }
+
+    $columns = [
+        'connection_status' => static function (Blueprint $table): void {
+            $table->string('connection_status', 16)->default('pending')->index();
+        },
+        'connection_checked_at' => static function (Blueprint $table): void {
+            $table->unsignedInteger('connection_checked_at')->nullable();
+        },
+        'connection_message' => static function (Blueprint $table): void {
+            $table->string('connection_message', 255)->nullable();
+        },
+        'transfer_period' => static function (Blueprint $table): void {
+            $table->char('transfer_period', 7)->nullable()->index();
+        },
+        'transfer_bytes' => static function (Blueprint $table): void {
+            $table->unsignedBigInteger('transfer_bytes')->default(0);
+        },
+        'transfer_updated_at' => static function (Blueprint $table): void {
+            $table->unsignedInteger('transfer_updated_at')->nullable();
+        },
+    ];
+
+    foreach ($columns as $column => $callback) {
+        if (!$schema->hasColumn('mod_driveresource_services', $column)) {
+            $schema->table('mod_driveresource_services', $callback);
+        }
+    }
+
+    if (!$schema->hasTable('mod_driveresource_usage_reports')) {
+        $schema->create('mod_driveresource_usage_reports', static function (Blueprint $table): void {
+            $table->bigIncrements('id');
+            $table->unsignedInteger('service_id')->index();
+            $table->char('report_id', 64);
+            $table->char('period_key', 7)->index();
+            $table->unsignedBigInteger('bytes')->default(0);
+            $table->unsignedInteger('created_at');
+            $table->unique(['service_id', 'report_id'], 'dr_usage_report_unique');
+        });
+    }
+
+    Capsule::table('mod_driveresource_services')
+        ->whereNull('connection_status')
+        ->orWhere('connection_status', '')
+        ->update(['connection_status' => 'pending']);
+}
+
+/**
+ * Ensure redacted control-plane audit persistence exists.
+ *
+ * @return void
+ */
+function driveresource_gateway_ensure_audit_schema(): void
+{
+    $schema = Capsule::schema();
+    if ($schema->hasTable('mod_driveresource_audit')) {
+        return;
+    }
+
+    $schema->create('mod_driveresource_audit', static function (Blueprint $table): void {
+        $table->bigIncrements('id');
+        $table->unsignedInteger('service_id')->index();
+        $table->string('actor_type', 16)->index();
+        $table->unsignedInteger('actor_id')->nullable()->index();
+        $table->string('action', 64)->index();
+        $table->text('metadata_json')->nullable();
+        $table->unsignedInteger('created_at')->index();
+    });
 }
 
 /**
@@ -186,16 +549,5 @@ function driveresource_gateway_deactivate(): array
  */
 function driveresource_gateway_output(array $vars): void
 {
-    $services = Capsule::table('mod_driveresource_services')->count();
-    $active = Capsule::table('mod_driveresource_services')->where('status', 'active')->count();
-    $uploads = Capsule::table('mod_driveresource_uploads')->count();
-    $bytes = (int) Capsule::table('mod_driveresource_services')->sum('used_bytes');
-
-    echo '<div class="panel panel-default"><div class="panel-heading"><strong>Drive Resource Media Gateway</strong></div>';
-    echo '<div class="panel-body">';
-    echo '<p>Provisioned services: ' . (int) $services . ' &middot; Active: ' . (int) $active . '</p>';
-    echo '<p>Tracked videos: ' . (int) $uploads . ' &middot; Accounted storage: '
-        . htmlspecialchars(number_format($bytes / 1000000000, 2), ENT_QUOTES, 'UTF-8') . ' GB</p>';
-    echo '<p>Elearning Stream provider credentials are retained inside WHMCS and are not exposed to Moodle.</p>';
-    echo '</div></div>';
+    (new \WHMCS\Module\Addon\DriveresourceGateway\AdminDashboard())->render();
 }

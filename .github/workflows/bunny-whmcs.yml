@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - 'feature/bunny-whmcs-*'
+      - main
   pull_request:
 
 permissions:

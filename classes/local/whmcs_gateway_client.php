@@ -49,7 +49,8 @@ final class whmcs_gateway_client {
         if ((int)get_config('mod_videoplayer', 'whmcsserviceid') <= 0) {
             $missing[] = 'setting_whmcsserviceid';
         }
-        if (trim((string)get_config('mod_videoplayer', 'whmcsservicetoken')) === '') {
+        $token = strtolower(trim((string)get_config('mod_videoplayer', 'whmcsservicetoken')));
+        if (!preg_match('/^[a-f0-9]{64}$/', $token)) {
             $missing[] = 'setting_whmcsservicetoken';
         }
 
@@ -97,7 +98,7 @@ final class whmcs_gateway_client {
     public function __construct() {
         $this->baseurl = rtrim(trim((string)get_config('mod_videoplayer', 'whmcsgatewayurl')), '/');
         $this->serviceid = (int)get_config('mod_videoplayer', 'whmcsserviceid');
-        $this->servicetoken = trim((string)get_config('mod_videoplayer', 'whmcsservicetoken'));
+        $this->servicetoken = strtolower(trim((string)get_config('mod_videoplayer', 'whmcsservicetoken')));
         $this->timeout = max(5, min(60, (int)(get_config('mod_videoplayer', 'whmcstimeout') ?: 15)));
 
         if (!self::is_configured()) {
@@ -252,6 +253,52 @@ final class whmcs_gateway_client {
     }
 
     /**
+     * Register an existing Elearning Stream video from a pasted public URL.
+     *
+     * WHMCS validates the hostname against the centrally configured public
+     * aliases and verifies the resulting GUID against the Video Library.
+     *
+     * @param string $url Pasted public video URL.
+     * @param int $courseid Moodle course id.
+     * @return array Sanitised provider/accounting state.
+     */
+    public function import_asset_url(string $url, int $courseid): array {
+        $url = trim($url);
+        if (
+            strlen($url) > 2048
+            || \mod_videoplayer\local\provider\bunny_stream::extract_candidate_asset_id_from_url($url) === null
+        ) {
+            throw new moodle_exception('invalidstreamurl', 'mod_videoplayer');
+        }
+
+        $response = $this->post('/api/asset-import.php', [
+            'url' => $url,
+            'courseid' => max(0, $courseid),
+        ]);
+
+        $uploadid = clean_param((string)($response['uploadid'] ?? ''), PARAM_ALPHANUMEXT);
+        $returnedvideoid = clean_param((string)($response['videoid'] ?? ''), PARAM_ALPHANUMEXT);
+        $status = clean_param((string)($response['status'] ?? ''), PARAM_ALPHANUMEXT);
+        $filesize = max(0, (int)($response['filesize'] ?? 0));
+
+        if (
+            !preg_match('/^[a-f0-9-]{20,64}$/i', $uploadid)
+            || !preg_match('/^[a-f0-9-]{32,64}$/i', $returnedvideoid)
+            || !in_array($status, ['processing', 'ready'], true)
+        ) {
+            throw new moodle_exception('whmcsgatewayinvalidresponse', 'mod_videoplayer');
+        }
+
+        return [
+            'uploadid' => $uploadid,
+            'videoid' => $returnedvideoid,
+            'filesize' => $filesize,
+            'status' => $status,
+            'quota' => is_array($response['quota'] ?? null) ? $response['quota'] : [],
+        ];
+    }
+
+    /**
      * Register an existing Elearning Stream video with this WHMCS service.
      *
      * @param string $videoid Provider video GUID.
@@ -384,6 +431,31 @@ final class whmcs_gateway_client {
     }
 
     /**
+     * Report one idempotent protected-transfer usage batch to WHMCS.
+     *
+     * @param string $period Billing month in YYYY-MM format.
+     * @param int $bytes Delivered bytes.
+     * @param string $reportid Stable SHA-256 batch identifier.
+     * @return void
+     */
+    public function report_transfer(string $period, int $bytes, string $reportid): void {
+        if (
+            !preg_match('/^20\d{2}-(0[1-9]|1[0-2])$/', $period)
+            || $bytes <= 0
+            || $bytes > 1099511627776
+            || !preg_match('/^[a-f0-9]{64}$/', $reportid)
+        ) {
+            throw new moodle_exception('whmcsgatewayinvalidresponse', 'mod_videoplayer');
+        }
+
+        $this->post('/api/usage-report.php', [
+            'period' => $period,
+            'bytes' => $bytes,
+            'reportid' => $reportid,
+        ]);
+    }
+
+    /**
      * Bind a completed provider asset to a Moodle activity instance.
      *
      * @param string $uploadid WHMCS reservation identifier.
@@ -398,6 +470,32 @@ final class whmcs_gateway_client {
             'videoid' => $videoid,
             'instanceid' => $instanceid,
             'courseid' => $courseid,
+        ]);
+    }
+
+    /**
+     * Synchronise a bound provider video title with the Moodle activity name.
+     *
+     * @param string $videoid Provider video GUID.
+     * @param int $instanceid Moodle activity instance id.
+     * @param string $title Moodle activity title.
+     * @return array Gateway status.
+     */
+    public function update_asset_title(string $videoid, int $instanceid, string $title): array {
+        $videoid = strtolower(trim($videoid));
+        $title = trim($title);
+        if (
+            !preg_match('/^[a-f0-9-]{32,64}$/', $videoid)
+            || $instanceid <= 0
+            || $title === ''
+        ) {
+            throw new moodle_exception('whmcsgatewayinvalidresponse', 'mod_videoplayer');
+        }
+
+        return $this->post('/api/asset-update.php', [
+            'videoid' => $videoid,
+            'instanceid' => $instanceid,
+            'title' => \core_text::substr($title, 0, 255),
         ]);
     }
 
@@ -460,7 +558,11 @@ final class whmcs_gateway_client {
         $curl->setHeader([
             'Accept: application/json',
             'Content-Type: application/json',
+            // Keep Authorization for compatibility, but also send the
+            // service token in a dedicated header because some Apache/FastCGI
+            // stacks strip Authorization before PHP receives the request.
             'Authorization: Bearer ' . $this->servicetoken,
+            'X-Drive-Resource-Token: ' . $this->servicetoken,
             'X-Drive-Resource-Service: ' . $this->serviceid,
             'X-Drive-Resource-Site: ' . $CFG->wwwroot,
             'X-Drive-Resource-Timestamp: ' . $timestamp,
@@ -480,23 +582,29 @@ final class whmcs_gateway_client {
         $decoded = is_string($raw) && $raw !== '' ? json_decode($raw, true) : null;
         if ($status < 200 || $status >= 300 || !is_array($decoded)) {
             $message = is_array($decoded) ? clean_param((string)($decoded['message'] ?? ''), PARAM_TEXT) : '';
+            $message = $message !== ''
+                ? $message
+                : get_string('whmcsgatewayrequestfailed', 'mod_videoplayer');
+
             throw new moodle_exception(
                 'whmcsgatewayremoteerror',
                 'mod_videoplayer',
                 '',
-                null,
-                ($message !== '' ? $message : get_string('whmcsgatewayrequestfailed', 'mod_videoplayer'))
-                    . ' [HTTP ' . $status . ']'
+                $message . ' [HTTP ' . $status . ']'
             );
         }
 
         if (($decoded['ok'] ?? false) !== true) {
+            $message = clean_param((string)($decoded['message'] ?? ''), PARAM_TEXT);
+            if ($message === '') {
+                $message = get_string('whmcsgatewayrequestfailed', 'mod_videoplayer');
+            }
+
             throw new moodle_exception(
                 'whmcsgatewayremoteerror',
                 'mod_videoplayer',
                 '',
-                null,
-                clean_param((string)($decoded['message'] ?? ''), PARAM_TEXT)
+                $message
             );
         }
 

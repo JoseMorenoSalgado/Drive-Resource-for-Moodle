@@ -1,59 +1,186 @@
-# Drive Resource WHMCS companion
+# Elearning Stream Gateway for WHMCS
 
-This directory contains the commercial control-plane components used by the Moodle Drive Resource plugin.
+Version **0.5.4** is the multi-tenant control plane for Elearning Stream Moodle services.
 
-It is **not part of the Moodle plugin runtime package**.
+It is installed once in WHMCS and manages many customer services. Provider management credentials remain server-side and are never copied into Moodle.
 
 ## Deployables
 
-Copy these directories into WHMCS:
+Extract the installable ZIP directly into the WHMCS document root. It installs:
 
 ```text
 modules/addons/driveresource_gateway/
 modules/servers/driveresource/
 ```
 
-The addon owns the Elearning Stream management credentials and Moodle-facing media gateway. The provisioning module owns the WHMCS product/service lifecycle and exposes the storage metric used by Usage Billing.
+The internal module slugs remain `driveresource_gateway` and `driveresource` for upgrade compatibility. Customer-facing branding is **Elearning Stream Gateway** / **Elearning Stream**.
 
-## Credential boundary
+## Branded customer URL
 
-Provider management credentials must be configured only in the WHMCS addon. Moodle receives a service-scoped WHMCS gateway token and short-lived, video-scoped TUS upload authorization. It never receives the provider management `AccessKey`.
+Set **Public Gateway URL** in the addon configuration. Recommended:
 
-## Default commercial policy
+```text
+https://stream.elearningcloud.io
+```
 
-The provisioning module defaults to:
+The client portal shows this clean URL, the Service ID and the service token. It no longer exposes the internal Moodle site binding as an editable customer field.
 
-- 7 GB included video storage;
-- soft overage enabled;
-- 30-day retention after the last Moodle reference is released.
+A simple cPanel deployment can point the document root of `stream.elearningcloud.io` directly at:
 
-Configure the WHMCS Usage Billing metric `video_storage_gb` with the same included quantity and your desired per-GB overage price.
+```text
+<WHMCS-root>/modules/addons/driveresource_gateway
+```
 
-## Required WHMCS setup
+The addon includes a branded `index.php` landing page and its authenticated endpoints remain under `/api/`.
 
-1. Deploy and activate the addon module.
-2. Configure Elearning Stream Library ID and API key.
-3. Deploy the `driveresource` provisioning module.
-4. Create a WHMCS server and product using that module.
-5. Add a product custom field named `Moodle Site URL` when the Moodle installation URL cannot be represented exactly by the standard service domain field.
-6. Provision the service.
-7. Copy the generated WHMCS service ID and service token into the Drive Resource Moodle administration settings.
-8. Ensure WHMCS cron runs normally; the addon hook performs provider storage reconciliation, abandoned-upload cleanup and retention deletion.
+If a reverse proxy is used instead, it must preserve HTTPS, POST bodies and the signed request headers and must not convert gateway POST requests into redirects.
 
-Do not copy this `integrations/whmcs` directory beneath `mod/videoplayer` on a production Moodle site.
+## Internal Moodle site binding
+
+Connection validation still binds each service to the exact Moodle `$CFG->wwwroot`. The site URL is an internal service property used for signed validation, not the URL the customer pastes into Moodle.
+
+For provisioning, the module resolves the Moodle site from:
+
+1. the product custom field **Moodle Site URL**, when present; otherwise
+2. the WHMCS service domain.
+
+The customer-facing connection panel does not allow changing this binding.
+
+## Service credentials
+
+Each provisioned service gets:
+
+- username `dr-{service_id}`;
+- a cryptographically random 64-character hexadecimal service token;
+- an internal Moodle site binding;
+- quota, status and usage state.
+
+Generic WHMCS passwords are rejected as gateway tokens.
+
+## Independent provider lanes
+
+0.5.x separates video and protected-object storage.
+
+Per service:
+
+```text
+video_backend_key
+video_backend_profile
+object_backend_key
+object_backend_profile
+```
+
+Legacy `backend_key` / `backend_profile` remain and mirror the video provider for API compatibility.
+
+### Video provider
+
+The production provider is currently:
+
+```text
+Elearning Stream
+```
+
+The registry is capability-based so more video adapters can be added later without changing Moodle Service IDs or tokens.
+
+### Protected PDF / object storage
+
+Addon configuration includes S3-compatible credentials for:
+
+- Amazon S3;
+- Cloudflare R2;
+- Wasabi;
+- Backblaze B2 S3;
+- Hetzner Object Storage;
+- custom S3-compatible endpoints.
+
+Credentials include endpoint, region, bucket, access key, secret key and optional path-style addressing.
+
+The product configuration has an independent **Protected PDF Storage** lane and **Object Storage Profile**. In 0.5.x the S3 provider can be configured and assigned in the control plane, but its protected-PDF upload/delivery adapter remains intentionally non-operational until the data-plane implementation is complete. This prevents a partially implemented storage path from being sold as production-ready.
+
+## Virtual classroom organisation
+
+Each WHMCS service receives one provider-side Bunny collection named from the stable service ID and Moodle site, for example:
+
+```text
+S288 - campus.aspeten.org
+```
+
+The collection is created lazily on the first upload/import. New videos are created inside that collection automatically. Existing services can use the WHMCS module command **Organize virtual classroom** to create the collection and move already-accounted videos into it without changing their titles.
+
+The gateway stores the provider collection GUID and display name on the service. Moodle never receives Bunny collection credentials or management URLs.
+
+### Moodle title synchronization
+
+Gateway 0.5.4 exposes an authenticated `asset-update.php` endpoint used only by connected Moodle sites. Renaming an activity updates the Bunny video title after the gateway verifies the active service/site/activity reference. Provider credentials remain inside WHMCS.
+
+## Product configuration
+
+Use WHMCS Product Type **Other** and Module **Elearning Stream**.
+
+Available module options:
+
+- Included Storage GB
+- Allow Storage Overage
+- Retention Days
+- Video Provider
+- Video Provider Profile
+- Protected PDF Storage
+- Object Storage Profile
+
+No WHMCS Server or Server Group is required.
 
 
-## Existing video URLs
+### Deletion policy
 
-Moodle can register an existing Elearning Stream video by URL. Moodle sends only the parsed video GUID to `api/asset-import.php`. The gateway verifies the asset in the configured library, rejects a video already owned by another active WHMCS service, accounts its provider storage against the service quota, and returns a normal upload reference for binding.
+For the standard Elearning Stream product, set **Retention Days = 0**. When Moodle removes the final activity reference, the gateway deletes the provider video and recalculates storage usage. If another Moodle activity still references the same asset, the video is preserved.
 
-The full pasted URL is never stored by Moodle or WHMCS.
+Use a value from 1 to 365 only when the plan intentionally provides a recovery grace period. Gateway 0.5.4 receives the normal deletion request synchronously after Moodle commits the activity deletion; Moodle cron remains the retry path if the gateway/provider is temporarily unavailable.
 
+## Client portal
 
-## Protected playback
+The customer can:
 
-Configure **Elearning Stream CDN Hostname** and **Elearning Stream Token Key** in the addon in addition to the library ID/API key. The addon generates short-lived HS256 playback URLs only for assets accounted to the authenticated WHMCS service.
+- copy the clean Elearning Stream connection URL;
+- copy Service ID and service token;
+- generate/rotate the service token;
+- validate the signed Moodle connection;
+- view storage and monthly transfer;
+- browse managed videos;
+- delete videos only when they have no active Moodle references.
 
-Enable MP4 fallback in the provider video library. Drive Resource uses that progressive MP4 representation so Moodle can preserve native HTML5 seek/Range behavior while keeping provider URLs server-side.
+The customer cannot change the internal Moodle site binding from the self-service panel.
 
-Recommended **Elearning Stream Playback TTL**: 300 seconds. Moodle caches the authorization briefly and requests a fresh one when the player explicitly performs stall recovery.
+## Connection validation
+
+The gateway signs a short-lived request to:
+
+```text
+https://customer-moodle.example/mod/videoplayer/gateway-status.php
+```
+
+Moodle verifies:
+
+- exact Service ID;
+- exact `$CFG->wwwroot`;
+- timestamp window;
+- replay nonce;
+- HMAC signature derived from the service token.
+
+The gateway does not follow redirects and rejects private/reserved network destinations.
+
+## Video security and accounting
+
+Elearning Stream management credentials stay in WHMCS. Moodle receives only a service-scoped token and short-lived upload/playback authorizations.
+
+Storage, reservations and protected transfer are tracked per WHMCS service. Transfer reports are idempotent so retries do not double-count usage.
+
+## Upgrade from 0.4.3
+
+1. Replace both module directories with the 0.5.4 package.
+2. Open/activate **Elearning Stream Gateway** so the addon upgrade hook runs.
+3. Configure **Public Gateway URL**.
+4. Existing `backend_key/backend_profile` values are copied into the new video-provider fields.
+5. Existing service IDs, tokens, quotas and media references are preserved.
+6. Re-save products if you want to assign the new protected-object lane.
+
+Do not recreate existing services or rotate tokens solely for this upgrade.

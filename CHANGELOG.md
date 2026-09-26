@@ -1,6 +1,187 @@
 # Changelog
 
+## Elearning Stream 1.2.0-rc9-m45 — 2026-09-25
+
+- Repairs legacy activities created while Moodle cron did not execute the historical provider-bind task.
+- If a title update finds no active gateway reference, Moodle reconciles the already-owned provider asset to the current service/site/activity and retries the title update.
+- The metadata retry task performs the same safe ownership reconciliation before retrying.
+- Keeps RC8 immediate bind/delete behavior and RC7 seek/volume controls.
+- Moodle build: `2026092508`.
+
+## Elearning Stream 1.2.0-rc8-m45 — 2026-09-25
+
+- Makes provider binding part of the normal Moodle save path instead of relying exclusively on cron.
+- After a successful upload/import, Moodle now registers the WHMCS activity-to-video reference immediately and clears the temporary upload reservation id.
+- If the gateway is temporarily unavailable, the existing adhoc bind task remains the retry path.
+- This closes the lifecycle gap where playback could work but WHMCS had no active activity reference, which also prevented reliable rename/delete behavior on sites with delayed or misconfigured Moodle cron.
+- Includes the RC7 video-title, immediate-delete, seek and volume fixes.
+- Moodle build: `2026092507`.
+
+## Elearning Stream 1.2.0-rc7-m45 + Gateway 0.5.4 — 2026-09-25
+
+- Fixes Moodle activity deletion not removing the provider video until cron/manual cleanup. Moodle now attempts the signed gateway release immediately **after** the local deletion transaction commits, with the adhoc release task retained as a safe retry fallback.
+- Keeps last-reference protection: a Bunny video is deleted only when the gateway confirms no other active Moodle reference remains and the product retention policy allows immediate deletion.
+- Adds authenticated asset metadata synchronisation. Renaming a Moodle activity now updates the Bunny video title through the gateway without exposing provider credentials.
+- The post-bind flow also reapplies the final Moodle activity name so imported videos and completed uploads cannot remain with a stale local filename.
+- Adds a retryable metadata task for temporary gateway/provider failures.
+- Enlarges seek and volume touch targets, adds explicit mobile volume controls, and improves seek/volume event handling for desktop and mobile browsers.
+- Adds keyboard volume controls with Arrow Up/Down.
+- Gateway package version: `0.5.4`; Moodle build: `2026092506`.
+
+## Elearning Stream 1.2.0-rc6-m45 — 2026-09-25
+
+- Refactors the direct-upload click handler below Moodle's JavaScript cyclomatic-complexity limit.
+- Keeps the RC5 activity-title behavior unchanged while restoring a zero-warning Moodle Grunt gate.
+- Intended as the final Moodle 4.5 production-candidate build paired with Elearning Stream Gateway 0.5.3.
+
+## Elearning Stream Gateway 0.5.3 — 2026-09-25
+
+- Adds one Bunny collection per WHMCS service/virtual classroom, named for example `S288 - campus.aspeten.org`.
+- New uploads are created directly inside the service collection.
+- Imported existing videos are moved into the same service collection after ownership validation.
+- Stores `video_collection_id` and `video_collection_name` per service.
+- Adds a concurrency-safe lazy collection allocator so provisioning does not depend on Bunny availability.
+- Adds **Organize virtual classroom** as an admin module command to migrate already-owned videos without re-uploading or renaming them.
+- Shows the virtual classroom collection in the customer service portal.
+- Adds non-secret provider tags for Service ID, Moodle host and course ID.
+- Gateway package version: `0.5.3`.
+
+## Elearning Stream Gateway 0.5.2 — 2026-09-25
+
+- Fixes provider videos remaining in Bunny after the final Moodle activity reference is deleted when the product is configured for immediate deletion.
+- `Retention Days = 0` now performs physical provider deletion as soon as the signed Moodle release task reaches the gateway.
+- Reference counting protects videos still used by another Moodle activity.
+- Uses a transient `deleting` state to prevent concurrent rebinding while deletion is in flight.
+- Failed provider deletion is queued for WHMCS maintenance retry instead of being silently marked deleted.
+- Provider DELETE is idempotent (an already-absent asset is treated as deleted), and maintenance also recovers interrupted transient `deleting` records.
+- New Elearning Stream products now default to `Retention Days = 0`; positive values keep the recovery grace-period behavior.
+- Gateway package version: `0.5.2`.
+
+## Elearning Stream 1.2.0-rc5-m45 — 2026-09-25
+
+- Fixes Bunny Stream assets being renamed to the teacher's local filename during TUS creation.
+- Direct upload metadata now uses the Moodle activity **Nombre del recurso** as the Bunny video title.
+- The original local filename remains only as file metadata for traceability.
+- If the Moodle activity name is empty, the local filename is used only as a safe fallback.
+- Includes RC4 playback initialization and all previous RC3/RC2 hotfixes.
+
+## Elearning Stream 1.2.0-rc4-m45 — 2026-09-25
+
+- Fixes uploaded Elearning Stream videos remaining permanently on **Loading video...** in Moodle.
+- The learner view incorrectly excluded Elearning Stream resources from the `mod_videoplayer/nativevideo` AMD initialization even though the Mustache player relies on that module to assign the protected media URL.
+- All video providers now initialize the Moodle-owned HTML5 player; Elearning Stream continues to stream only through `protected.php`.
+- Includes RC3 gateway authentication, RC2 XMLDB migration, and direct-upload course-context hotfixes.
+
+## Elearning Stream 1.2.0-rc3-m45 + Gateway 0.5.1 — 2026-09-25
+
+- Fixes Moodle-to-gateway HTTP 401 on Apache/FastCGI stacks that strip the standard `Authorization` header before PHP receives it.
+- Moodle now sends the exact 64-hex service token in `X-Drive-Resource-Token` in addition to the legacy Bearer header.
+- Gateway 0.5.1 prefers `X-Drive-Resource-Token` and keeps Bearer authentication as a backward-compatible fallback.
+- Tightens gateway token validation to the same exact 64-hex contract used during provisioning.
+- Fixes Moodle gateway exceptions so the translated message substitutes `{$a}` instead of displaying the placeholder literally.
+- Includes the RC2 XMLDB indexed-default repair and the direct-upload course-context fix.
+
+## Elearning Stream 1.2.0-rc2-m45 — 2026-09-25
+
+- Fixes Moodle upgrade failure `ddl_dependency_exception` when changing the default of indexed field `videoplayer.source`.
+- Keeps historical savepoint `2026092401` schema-neutral and performs the default change in `2026092501`.
+- Drops `source_idx` before `change_field_default()` and recreates the index immediately afterwards, as required by Moodle XMLDB dependency checks.
+- Preserves all existing activity rows; only the default for future records changes to `bunnystream`.
+- Includes the direct-upload course-context fix that prevents `course.id = 0` during video upload authorization.
+
+## Elearning Stream 1.2.0-rc1-m45 + Gateway 0.5.0 — 2026-09-24
+
+- Fixes direct video upload authorization passing course ID `0` because the activity form incorrectly treated Moodle's course id as an object. The uploader now uses `moodleform_mod::get_course()` and `get_coursemodule()`, preventing `invalidrecord` on the `course` table.
+- Promotes the customer-facing product name to **Elearning Stream** while retaining the historical `mod_videoplayer` component for upgrade compatibility.
+- Removes visible WHMCS implementation wording from Moodle settings and errors; Moodle now asks only for the Elearning Stream connection URL, Service ID and service token.
+- Adds the branded **Public Gateway URL**, recommended as `https://stream.elearningcloud.io`, and shows that URL in the customer service portal instead of the internal Moodle site binding.
+- Makes new Moodle activities video-first and hides the legacy Google Drive/local-PDF source selector. Existing legacy activities remain supported and editable.
+- Changes the fresh-install/future-record source default to `bunnystream` without rewriting existing activity rows.
+- Splits service provider identity into independent video-provider and protected-object-storage lanes.
+- Adds a protected-PDF/object-storage control plane for Amazon S3, Cloudflare R2, Wasabi, Backblaze B2 S3, Hetzner Object Storage and custom S3-compatible endpoints.
+- Keeps the S3 protected-PDF data plane gated until upload, signed delivery, range handling, lifecycle and usage reconciliation are fully validated.
+- Adds a provider registry so future managed-video providers can be introduced without changing Moodle Service IDs or service tokens.
+- WHMCS package: `elearning-stream-whmcs-0.5.0.zip`.
+- Moodle package: `elearning-stream-1.2.0-rc1-m45.zip`.
+
 All notable changes to Drive Resource are documented here. The Moodle component remains `mod_videoplayer` for upgrade compatibility.
+
+## WHMCS companion 0.4.3 — 2026-09-23
+
+- Changes the WHMCS installable ZIP to extract directly into the WHMCS document root with top-level `modules/`; removes the confusing `whmcs-root/` wrapper.
+- Adds detailed installation/provisioning health diagnostics to the Drive Resource Media Gateway admin dashboard.
+- Detects missing server module, products not assigned to `driveresource`, services assigned but not provisioned, generic WHMCS usernames and products using a hosting type instead of `Other`.
+- Rejects generic WHMCS-generated passwords as Moodle service tokens; only Drive Resource 64-character hexadecimal tokens are exposed as valid connection credentials.
+- Adds package-layout and provisioning-diagnostic CI invariants.
+- Keeps Moodle at `1.2.0-beta10-m45`; this is a WHMCS packaging/provisioning diagnostics release.
+- WHMCS companion version: `0.4.3`.
+
+## WHMCS companion 0.4.2 — 2026-09-23
+
+- Adds an official `ClientAreaProductDetailsOutput` fallback for WHMCS client themes that omit provisioning-module `ClientArea()` output.
+- Verifies the logged-in client owns the service and the product uses the `driveresource` provisioning module before rendering.
+- Adds a per-service DOM identity marker and removes the fallback automatically when the standard module dashboard is already present, preventing duplicate dashboards.
+- Keeps Moodle at `1.2.0-beta10-m45`; this is a WHMCS client-area compatibility fix.
+- WHMCS companion version: `0.4.2`.
+
+## WHMCS companion 0.4.1 + Moodle 1.2.0-beta10-m45 — 2026-09-23
+
+- Adds centrally configured Elearning Stream public hostname aliases for pasted existing-video URLs.
+- Supports branded public video hostnames such as `video.elearningcloud.io` without persisting or fetching the pasted URL from Moodle.
+- Moves authoritative pasted-video hostname validation to WHMCS while preserving provider Video Library ownership verification.
+- Adds module-local English and Spanish dictionaries for the WHMCS customer portal and connection workflow.
+- Adds a redacted WHMCS audit trail for Moodle URL changes, token provisioning/rotation, connection validation and video deletion.
+- Adds the recent audit trail to the WHMCS multi-client administration dashboard.
+- Audit metadata excludes token/password/secret/signature/API-key fields.
+- Moodle release: `1.2.0-beta10-m45`, build `2026092209`.
+- WHMCS companion version: `0.4.1`.
+
+## WHMCS companion 0.4.0 + Moodle 1.2.0-beta9-m45 — 2026-09-23
+
+- Adds a customer self-service WHMCS dashboard for each Elearning Stream service.
+- Lets the customer set/change the authorised Moodle URL, generate/rotate the service key and run a signed connection validation against Moodle.
+- Adds connection cards with Connected/Pending/Not connected state and last validation message.
+- Adds storage/quota, monthly transfer and video-count cards.
+- Adds a paginated customer video library with status, provider size, active Moodle-reference count and guarded permanent deletion.
+- Prevents deleting videos still referenced by Moodle activities.
+- Prevents changing the service Moodle URL while active media references exist.
+- Adds signed `gateway-status.php` in Moodle with HMAC, exact site/service binding, timestamp validation and replay protection.
+- Adds actual protected-proxy byte metering, a bounded Moodle transfer queue and a five-minute idempotent WHMCS synchronization task.
+- Adds WHMCS `video_transfer_gb` as a monthly-period Usage Billing metric alongside `video_storage_gb`.
+- Adds WHMCS 0.4 schema for connection state, monthly transfer counters and idempotent usage reports.
+- Adds multi-client admin dashboard connection/transfer visibility.
+- WHMCS companion version: `0.4.0`.
+- Moodle release: `1.2.0-beta9-m45`, build `2026092208`.
+
+## WHMCS companion 0.3.2 — 2026-09-23
+
+- Adds an explicit **Generar/Reparar conexión Moodle** admin module action for services that exist in WHMCS but were never provisioned.
+- Adds a separate **Rotar token Moodle** admin action for intentional credential rotation.
+- Refactors `CreateAccount` to use the same idempotent provisioning path as the repair action.
+- Preserves an existing valid service token when repairing; generates a new token only when the service password is missing or rotation is explicitly requested.
+- Shows Moodle connection status, gateway URL, service ID and token in the WHMCS administrator service fields.
+- WHMCS companion version: `0.3.2`.
+
+## WHMCS companion 0.3.1 — 2026-09-23
+
+- Removes the unnecessary WHMCS server requirement from the Elearning Stream provisioning module.
+- Fixes services remaining unprovisioned with `Servidor: Ninguno`, empty username and empty password/token.
+- Keeps provisioning product-driven: each customer service generates its own `dr-{service_id}` username and service-scoped Moodle token when **Module Commands → Create** runs.
+- Adds administrator service fields for Moodle Gateway URL, Moodle Service ID and Moodle Service Token.
+- Adds CI invariants preventing reintroduction of a fake WHMCS server dependency.
+- WHMCS companion version: `0.3.1`.
+
+## WHMCS companion 0.3.0 — 2026-09-23
+
+- Converts the WHMCS companion into an explicit multi-tenant control plane for many customer Moodle services.
+- Adds per-service `backend_key` and `backend_profile` with automatic upgrade of existing services to `elearningstream/default`.
+- Adds a paginated WHMCS administration dashboard with customer, site, plan, quota, usage, video count, backend and service status.
+- Adds a backend capability registry; Elearning Stream remains provisionable while S3-compatible object storage is reserved but disabled until its production adapter exists.
+- Preserves the existing configoption1–3 contract and appends backend/profile as configoption4–5 so existing WHMCS products do not shift quota/overage/retention settings.
+- Blocks unsafe provider changes while a service owns media or reserved/used bytes.
+- Scopes Elearning Stream API and cron maintenance to services using that backend and lazy-loads provider credentials.
+- Adds upgrade guards so a partial WHMCS 0.2 → 0.3 deployment fails with an actionable message instead of a database-column error.
+- WHMCS addon version: `0.3.0`.
 
 ## 1.2.0-beta8-m45 — 2026-09-23
 

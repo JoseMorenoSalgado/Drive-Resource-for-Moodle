@@ -76,13 +76,15 @@ final class http_range_proxy {
      * @param string $filename Safe browser filename.
      * @param string $fallbacktype Fallback MIME type.
      * @param string $cachestatus Cache diagnostic status.
+     * @param callable|null $ontransfer Optional callback receiving actual emitted bytes.
      * @return never
      */
     public static function proxy(
         string $url,
         string $filename,
         string $fallbacktype,
-        string $cachestatus = 'BYPASS'
+        string $cachestatus = 'BYPASS',
+        ?callable $ontransfer = null
     ): never {
         if (!upstream_url_policy::is_allowed($url)) {
             debugging('Drive Resource proxy rejected a non-allowlisted upstream URL.', DEBUG_DEVELOPER);
@@ -122,6 +124,18 @@ final class http_range_proxy {
                 );
 
                 if ($lastresponse['sent']) {
+                    $transferbytes = max(0, (int)($lastresponse['transferbytes'] ?? 0));
+                    if (!$ishead && $transferbytes > 0 && $ontransfer !== null) {
+                        try {
+                            $ontransfer($transferbytes);
+                        } catch (\Throwable $exception) {
+                            debugging(
+                                'Drive Resource transfer metering callback failed: '
+                                    . $exception->getMessage(),
+                                DEBUG_DEVELOPER
+                            );
+                        }
+                    }
                     die;
                 }
 
@@ -218,7 +232,8 @@ final class http_range_proxy {
      *     invalidcontent: bool,
      *     warningbody: string,
      *     effectiveurl: string,
-     *     cookies: array
+     *     cookies: array,
+     *     transferbytes: int
      * }
      */
     private static function execute_attempt(
@@ -249,6 +264,7 @@ final class http_range_proxy {
         $syntheticwindow = null;
         $syntheticposition = 0;
         $syntheticrangeinvalid = false;
+        $transferbytes = 0;
 
         $headercallback = static function (
             $curl,
@@ -345,6 +361,7 @@ final class http_range_proxy {
                 'warningbody' => '',
                 'effectiveurl' => $url,
                 'cookies' => [],
+                'transferbytes' => 0,
             ];
         }
 
@@ -373,6 +390,7 @@ final class http_range_proxy {
                 &$warningbody,
                 &$syntheticwindow,
                 &$syntheticposition,
+                &$transferbytes,
                 $fallbacktype,
                 $filename,
                 $cachestatus,
@@ -442,6 +460,7 @@ final class http_range_proxy {
                         $offset = $emitstart - $chunkstart;
                         $emitlength = $emitend - $emitstart + 1;
                         echo substr($data, $offset, $emitlength);
+                        $transferbytes += $emitlength;
                         flush();
                     }
 
@@ -473,6 +492,7 @@ final class http_range_proxy {
 
                 if ($headerssent) {
                     echo $data;
+                    $transferbytes += $datalength;
                     flush();
                 }
 
@@ -567,6 +587,7 @@ final class http_range_proxy {
             'warningbody' => $warningbody,
             'effectiveurl' => $effectiveurl !== '' ? $effectiveurl : $url,
             'cookies' => $responsecookies,
+            'transferbytes' => $transferbytes,
         ];
     }
 

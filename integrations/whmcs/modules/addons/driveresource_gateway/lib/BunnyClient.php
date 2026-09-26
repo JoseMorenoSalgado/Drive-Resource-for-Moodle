@@ -22,13 +22,20 @@ final class BunnyClient
      * Create an empty Bunny video object for a direct TUS upload.
      *
      * @param string $title Video title.
+     * @param string|null $collectionId Optional virtual-classroom collection.
      * @return string Video GUID.
      */
-    public function createVideo(string $title): string
+    public function createVideo(string $title, ?string $collectionId = null): string
     {
-        $response = $this->request('POST', '/library/' . $this->libraryId . '/videos', [
-            'title' => mb_substr(trim($title) ?: 'Drive Resource video', 0, 255),
-        ]);
+        $body = [
+            'title' => mb_substr(trim($title) ?: 'Elearning Stream video', 0, 255),
+        ];
+        if ($collectionId !== null && $collectionId !== '') {
+            $this->assertProviderGuid($collectionId, 'collection');
+            $body['collectionId'] = $collectionId;
+        }
+
+        $response = $this->request('POST', '/library/' . $this->libraryId . '/videos', $body);
 
         $videoId = trim((string) ($response['guid'] ?? ''));
         if (!preg_match('/^[a-f0-9-]{32,64}$/i', $videoId)) {
@@ -36,6 +43,76 @@ final class BunnyClient
         }
 
         return $videoId;
+    }
+
+    /**
+     * Create one Bunny collection used as the service's virtual classroom.
+     *
+     * @param string $name Collection display name.
+     * @return array{id:string,name:string}
+     */
+    public function createCollection(string $name): array
+    {
+        $name = mb_substr(trim($name), 0, 191);
+        if ($name === '') {
+            throw new RuntimeException('Virtual classroom collection name is required.');
+        }
+
+        $response = $this->request(
+            'POST',
+            '/library/' . $this->libraryId . '/collections',
+            ['name' => $name]
+        );
+        $collectionId = trim((string) ($response['guid'] ?? $response['id'] ?? ''));
+        $this->assertProviderGuid($collectionId, 'collection');
+
+        return [
+            'id' => strtolower($collectionId),
+            'name' => trim((string) ($response['name'] ?? $name)),
+        ];
+    }
+
+    /**
+     * Delete a Bunny collection created by a losing concurrent initializer.
+     *
+     * @param string $collectionId Collection GUID.
+     * @return void
+     */
+    public function deleteCollection(string $collectionId): void
+    {
+        $this->assertProviderGuid($collectionId, 'collection');
+        $this->request(
+            'DELETE',
+            '/library/' . $this->libraryId . '/collections/' . rawurlencode($collectionId),
+            null,
+            [200, 204, 404]
+        );
+    }
+
+    /**
+     * Move one video into a virtual-classroom collection and attach safe tags.
+     *
+     * @param string $videoId Video GUID.
+     * @param string $collectionId Collection GUID.
+     * @param array<int,array{property:string,value:string}> $metaTags Non-secret metadata.
+     * @return void
+     */
+    public function setVideoCollection(string $videoId, string $collectionId, array $metaTags = []): void
+    {
+        $this->assertProviderGuid($videoId, 'video');
+        $this->assertProviderGuid($collectionId, 'collection');
+
+        $body = ['collectionId' => strtolower($collectionId)];
+        if ($metaTags !== []) {
+            $body['metaTags'] = array_values($metaTags);
+        }
+
+        $this->request(
+            'POST',
+            '/library/' . $this->libraryId . '/videos/' . rawurlencode($videoId),
+            $body,
+            [200]
+        );
     }
 
     /**
@@ -50,6 +127,29 @@ final class BunnyClient
     }
 
     /**
+     * Rename one Bunny video without changing ownership or collection.
+     *
+     * @param string $videoId Video GUID.
+     * @param string $title New display title.
+     * @return void
+     */
+    public function updateVideoTitle(string $videoId, string $title): void
+    {
+        $this->assertProviderGuid($videoId, 'video');
+        $title = mb_substr(trim($title), 0, 255);
+        if ($title === '') {
+            throw new RuntimeException('Video title is required.');
+        }
+
+        $this->request(
+            'POST',
+            '/library/' . $this->libraryId . '/videos/' . rawurlencode($videoId),
+            ['title' => $title],
+            [200]
+        );
+    }
+
+    /**
      * Delete a Bunny video.
      *
      * @param string $videoId Video GUID.
@@ -57,7 +157,12 @@ final class BunnyClient
      */
     public function deleteVideo(string $videoId): void
     {
-        $this->request('DELETE', '/library/' . $this->libraryId . '/videos/' . rawurlencode($videoId), null, [200, 204]);
+        $this->request(
+            'DELETE',
+            '/library/' . $this->libraryId . '/videos/' . rawurlencode($videoId),
+            null,
+            [200, 204, 404]
+        );
     }
 
     /**
@@ -151,6 +256,20 @@ final class BunnyClient
     public function libraryId(): int
     {
         return $this->libraryId;
+    }
+
+    /**
+     * Validate provider GUIDs before constructing management API paths.
+     *
+     * @param string $value Provider identifier.
+     * @param string $kind Human-readable resource kind.
+     * @return void
+     */
+    private function assertProviderGuid(string $value, string $kind): void
+    {
+        if (!preg_match('/^[a-f0-9-]{32,64}$/i', trim($value))) {
+            throw new RuntimeException('Elearning Stream returned an invalid ' . $kind . ' GUID.');
+        }
     }
 
     /**

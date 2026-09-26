@@ -21,6 +21,9 @@ require_file "amd/build/nativevideo.min.js.map"
 require_file "amd/build/pdfviewer.min.js"
 require_file "amd/build/pdfviewer.min.js.map"
 require_file "protected.php"
+require_file "gateway-status.php"
+require_file "classes/local/transfer_meter.php"
+require_file "classes/task/sync_transfer_usage.php"
 
 echo "Checking browser-facing URL confidentiality..."
 if grep -RniE     'drive\.google\.com|docs\.google\.com|googleusercontent\.com|googlevideo\.com|content-workspacevideo-pa\.googleapis\.com'     templates amd/src; then
@@ -49,6 +52,15 @@ if grep -nE 'required_param\([^,]+,[[:space:]]*PARAM_URL|optional_param\([^,]+,[
     fail "protected.php accepts a browser-supplied arbitrary URL."
 fi
 
+echo "Checking signed Moodle gateway probe..."
+grep -q 'NO_MOODLE_COOKIES' gateway-status.php     || fail "gateway-status.php must not create Moodle browser sessions."
+grep -q 'hash_hmac' gateway-status.php     || fail "gateway-status.php no longer verifies HMAC."
+grep -q 'hash_equals' gateway-status.php     || fail "gateway-status.php no longer uses constant-time signature comparison."
+grep -q 'gatewaynonces' gateway-status.php     || fail "gateway-status.php replay protection is missing."
+if grep -nE 'require_login\(|require_sesskey\(' gateway-status.php; then
+    fail "Server-to-server gateway-status.php must use HMAC authentication instead of browser sessions."
+fi
+
 echo "Checking upstream redirect confinement..."
 if grep -n "CURLOPT_FOLLOWLOCATION => true" \
     classes/local/http_range_proxy.php \
@@ -71,6 +83,7 @@ grep -q 'streamplayback' db/caches.php     || fail "Managed stream playback cach
 grep -q 'watched_range_set' classes/local/progress/progress_service.php     || fail "Server completion no longer validates watched ranges."
 grep -q 'watchedranges' db/install.xml     || fail "Watched-range persistence is missing from XMLDB."
 grep -q '2026092204' db/upgrade.php     || fail "Critical beta schema-repair savepoint is missing from upgrade.php."
+grep -q '2026092401' db/upgrade.php     || fail "RC1 video-first upgrade savepoint is missing from upgrade.php."
 grep -q 'completionprogressenabled' db/upgrade.php     || fail "Completion schema recovery is missing from upgrade.php."
 grep -q "get_columns('videoplayer')" lib.php     || fail "Course cache is not resilient to partial beta schemas."
 if grep -A12 "new xmldb_field('watchedranges'" db/upgrade.php | grep -q "'duration'"; then
@@ -90,6 +103,6 @@ grep -q 'get_suffix()' mod_form.php     || fail "Custom completion controls no l
 
 echo "Checking release metadata..."
 grep -q "\$plugin->supported = \[405, 405\]" version.php     || fail "Moodle 4.5 support declaration changed unexpectedly."
-grep -q 'MATURITY_BETA' version.php     || fail "Beta hardening branch must remain beta maturity until release exit gates pass."
+grep -q 'MATURITY_RC' version.php     || fail "RC release must declare MATURITY_RC."
 
-echo "Drive Resource release invariants: PASS"
+echo "Elearning Stream release invariants: PASS"

@@ -1,5 +1,36 @@
 # Drive Resource architecture
 
+## Elearning Stream production architecture
+
+The commercial user-facing surface is now video-first. The installed Moodle component remains `mod_videoplayer` so upgrades, capabilities, backup records and database tables remain compatible.
+
+The control plane is deliberately provider-neutral:
+
+```text
+Moodle Elearning Stream activity
+        |
+        | Service ID + service-scoped HMAC token
+        v
+https://stream.elearningcloud.io
+        |
+        v
+Elearning Stream Gateway (WHMCS control plane)
+        |
+        +--> Video provider lane
+        |      -> Elearning Stream today
+        |      -> additional managed-video adapters later
+        |
+        +--> Protected object lane
+               -> Disabled for video-only plans
+               -> S3-compatible provider profile
+```
+
+Video provider identity (`video_backend_key/profile`) and protected-object provider identity (`object_backend_key/profile`) are independent. Legacy `backend_key/profile` remain as video-provider aliases for upgrade compatibility.
+
+The exact Moodle `$CFG->wwwroot` is still stored server-side as a trust binding for signed connection validation, but it is no longer a customer-editable connection field. Customers copy the branded public gateway URL, Service ID and service token into Moodle.
+
+New Moodle activities expose only Elearning Stream video. Google Drive and Moodle-local PDF code paths remain legacy compatibility paths for existing records. Protected PDF on S3 is a separate provider lane; its data plane must remain disabled until its adapter passes the same access, range, lifecycle and accounting gates as video.
+
 ## Scope
 
 Drive Resource is a Moodle 4.5 activity module that presents Google Drive learning resources without delegating the learner experience to the Google Drive viewer. The component name remains `mod_videoplayer`; the architecture is resource-oriented rather than video-only.
@@ -200,7 +231,7 @@ A reservation is created under a database lock before Bunny authorization is emi
 
 ### Provider asset lifecycle
 
-A Bunny asset can have multiple Moodle references. Deleting or replacing an activity releases only that reference. Physical provider deletion is deferred until no active references remain and the WHMCS retention period expires. Course restore never trusts a copied provider GUID by itself: the restored reference is reconciled through WHMCS and is accepted only when the asset belongs to the same WHMCS service tenant.
+A Bunny asset can have multiple Moodle references. Deleting or replacing an activity releases only that reference. When the final active reference disappears, `Retention Days = 0` deletes the provider asset immediately at the gateway; positive retention values defer deletion until the grace period expires. Course restore never trusts a copied provider GUID by itself: the restored reference is reconciled through WHMCS and is accepted only when the asset belongs to the same WHMCS service tenant.
 
 ## Resilient progress-schema evolution
 
@@ -256,3 +287,146 @@ The browser-facing `<video>` source remains a Moodle URL. WHMCS verifies that th
 Moodle does not contain provider management credentials. Its Elearning Stream control-plane configuration consists only of the WHMCS addon URL, provisioned WHMCS service ID and service-scoped token.
 
 Activity-form validation checks that those three values exist before an Elearning Stream URL/import or upload workflow can proceed. This keeps configuration failures outside the instance persistence path and prevents partial activity creation.
+
+
+## WHMCS multi-tenant backend architecture
+
+The commercial control plane is independent from the Moodle activity lifecycle:
+
+```text
+                         WHMCS 9
+                           |
+              +------------+-------------+
+              |            |             |
+          service 101   service 102   service 103
+          customer A    customer B    customer C
+          Moodle A      Moodle B      Moodle C
+          quota/token   quota/token   quota/token
+              |            |             |
+              +------+-----+-------------+
+                     |
+              BackendRegistry
+                  /       \
+                 /         \
+      Elearning Stream     S3-compatible
+      active backend       reserved/future
+```
+
+A WHMCS service is the tenant/security/accounting boundary. The service row stores `backend_key` and `backend_profile`; credentials remain backend-owned in WHMCS and are not copied to Moodle.
+
+Current managed-video endpoints require backend capabilities before they execute. Elearning Stream is lazy-loaded only when a matching service invokes video upload/playback work. Daily maintenance also filters by backend, so a future S3-only tenant will not require Elearning Stream credentials.
+
+The S3-compatible registry entry is intentionally non-provisionable. A future adapter can implement multipart/direct upload, signed protected delivery, authoritative object-size reconciliation and lifecycle deletion while reusing the existing service id, token authentication, quota, overage and billing model.
+
+
+### Serverless WHMCS provisioning
+
+The commercial service is a logical control-plane tenant, not a workload hosted on a WHMCS server. The provisioning module therefore declares `RequiresServer=false`.
+
+`CreateAccount` derives the tenant from the WHMCS service itself, generates a cryptographically random service token, persists only its hash in the gateway tenant table, and stores the recoverable token in WHMCS's protected service password property for administrator handoff to Moodle.
+
+
+## WHMCS customer self-service and transfer metering
+
+Each WHMCS service exposes a client dashboard backed only by rows scoped to that `service_id`. It presents connection state, storage/quota, current-month transfer and a paginated video library.
+
+The connection-validation flow is server-to-server:
+
+```text
+WHMCS Client Area
+    -> ValidateMoodleConnection
+    -> MoodleConnectionProbe
+    -> POST https://moodle/mod/videoplayer/gateway-status.php
+       headers: service/site/timestamp/nonce/HMAC
+    -> Moodle validates configured service id + wwwroot + token HMAC
+    -> replay nonce cache
+    -> connected / failed
+```
+
+No browser session or learner credential is used by the probe. Redirects are not followed; the configured Moodle URL must be the exact public `$CFG->wwwroot`.
+
+Per-service transfer is measured at the actual byte-delivery boundary:
+
+```text
+Elearning Stream signed MP4
+    -> Moodle http_range_proxy
+    -> bytes actually echoed to browser
+    -> transfer_meter
+    -> videoplayer_transfer_events
+    -> scheduled sync every 5 minutes
+    -> WHMCS authenticated usage-report.php
+    -> idempotent report id
+    -> service transfer_period / transfer_bytes
+    -> video_transfer_gb monthly Usage Billing metric
+```
+
+HEAD responses, rejected content, discarded range responses and bytes never emitted to the browser are not counted. A Service ID change cannot reattribute queued events from an old service to a new one.
+
+Client video deletion checks both tenant ownership and active Moodle references before invoking the provider delete operation. URL reassignment is blocked while active references exist; a content-bearing site/domain migration requires a dedicated migration workflow.
+
+
+## Branded public video URL authority
+
+Pasted video URLs use a two-stage validation model:
+
+```text
+Teacher pastes https://video.elearningcloud.io/.../<guid>
+        |
+Moodle: HTTPS + credentials/port + GUID syntax only
+        |
+authenticated Moodle -> WHMCS request (URL is transient)
+        |
+WHMCS Config::publicVideoHosts()
+        |
+exact configured alias / approved provider host
+        |
+GUID extraction
+        |
+Elearning Stream Video Library API ownership verification
+        |
+Moodle persists only provider GUID + WHMCS upload reference
+```
+
+This keeps public-brand hostname policy centralized in WHMCS and avoids hardcoding customer/vendor domains into the Moodle plugin. The pasted URL is never used as a proxy target and is never persisted in Moodle or WHMCS asset rows.
+
+## WHMCS audit boundary
+
+`mod_driveresource_audit` stores control-plane events independently of Moodle learner activity. It records service id, actor type/id, stable action, bounded redacted metadata and timestamp. AuditLogger strips keys matching token/password/secret/signature/API-key patterns before persistence.
+
+Current audited operations include Moodle URL changes, connection provisioning, token rotation, signed connection validation and client-requested video deletion. The WHMCS administrator dashboard exposes the most recent audit entries.
+
+
+## Video deletion lifecycle
+
+Moodle never receives provider management credentials and therefore never calls the video provider directly. When an Elearning Stream activity is deleted, Moodle queues a signed release request to the gateway. The gateway deactivates that activity reference and counts remaining active references for the same provider asset.
+
+- if one or more active references remain, the provider video is preserved;
+- if no references remain and `Retention Days = 0`, the gateway deletes the provider video immediately and recalculates service storage usage;
+- if `Retention Days > 0`, physical deletion is deferred until the grace period expires;
+- a failed immediate provider deletion is left eligible for the WHMCS maintenance retry instead of silently losing accounting state.
+
+The Moodle release is asynchronous through an adhoc task, so a correctly configured Moodle cron is required. This avoids blocking course deletion on an external provider request while still making zero-day deletion occur on the next task execution.
+
+
+## Virtual classroom collections
+
+The WHMCS Service ID is the tenant identity. Each service is mapped to one provider-side Bunny collection. The default collection name is deterministic and support-friendly:
+
+```text
+S{service_id} - {moodle-host[/optional-path]}
+```
+
+Example: `S288 - campus.aspeten.org`.
+
+The mapping is persisted as `video_collection_id` and `video_collection_name` on the gateway service row. Collection creation is lazy: provisioning remains independent from provider availability, while the first upload/import creates the collection. Concurrent first uploads use an optimistic create + database-lock winner strategy; any losing empty collection is deleted best-effort.
+
+New provider videos are created directly inside the service collection. Imported and legacy service-owned videos can be moved into the same collection through the WHMCS **Organize virtual classroom** action. Provider meta tags carry only non-secret support identifiers (service ID, Moodle host and course ID).
+
+
+## Moodle-triggered provider lifecycle
+
+Binding and deletion both have synchronous healthy paths with asynchronous retry fallbacks. After Moodle persists an uploaded/imported activity, it immediately registers the service/site/activity reference with the gateway; if that call fails, the existing bind adhoc task retries later. Deletion is initiated only after the local activity deletion transaction commits. The normal healthy path calls the signed gateway release synchronously so administrators do not depend on cron to see the provider asset disappear. If the gateway is unavailable, Moodle queues the existing `release_bunny_asset` adhoc task and completes the local deletion; the task retries the same reference-counted gateway contract later.
+
+Renaming uses a separate authenticated metadata endpoint. Moodle can update only the provider asset referenced by the same active service/site/activity tuple. Bunny credentials and management URLs remain gateway-only.
+
+The player continues to expose only `protected.php` to learners. Seeking generates byte-range requests through the authenticated Moodle proxy; the provider URL is never rendered into the page.

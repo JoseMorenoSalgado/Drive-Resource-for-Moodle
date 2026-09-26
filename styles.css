@@ -568,13 +568,28 @@
     position: relative;
     z-index: 2;
     width: 100%;
-    height: 4px;
+    height: 1.6rem;
     margin: 0;
     appearance: none;
     -webkit-appearance: none;
     border-radius: 999px;
-    background: rgba(255, 255, 255, .22);
+    background: transparent;
     cursor: pointer;
+    touch-action: pan-y;
+}
+
+.mod-videoplayer-seek::-webkit-slider-runnable-track,
+.mod-videoplayer-volume::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .22);
+}
+
+.mod-videoplayer-seek::-moz-range-track,
+.mod-videoplayer-volume::-moz-range-track {
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .22);
 }
 
 .mod-videoplayer-seek::-webkit-slider-thumb,
@@ -668,13 +683,46 @@
     }
 
     .mod-videoplayer-own-controls {
-        grid-template-columns: auto auto minmax(60px, 1fr) auto auto;
-        gap: .32rem;
-        min-height: 3.7rem;
+        grid-template-columns: auto auto minmax(70px, 1fr) auto auto;
+        grid-template-areas:
+            "toggle current seek mute fullscreen"
+            "speed speed volume volume volume";
+        gap: .25rem .4rem;
+        min-height: 5.25rem;
         padding: 1.1rem .45rem .4rem;
     }
 
-    .mod-videoplayer-own-controls .mod-videoplayer-volume,
+    .mod-videoplayer-own-controls .js-video-toggle {
+        grid-area: toggle;
+    }
+
+    .mod-videoplayer-own-controls .js-video-current {
+        grid-area: current;
+    }
+
+    .mod-videoplayer-own-controls .mod-videoplayer-seek-wrap {
+        grid-area: seek;
+    }
+
+    .mod-videoplayer-own-controls .js-video-speed {
+        grid-area: speed;
+        justify-self: start;
+    }
+
+    .mod-videoplayer-own-controls .js-video-mute {
+        grid-area: mute;
+    }
+
+    .mod-videoplayer-own-controls .js-video-volume {
+        grid-area: volume;
+        display: block;
+        min-width: 7rem;
+    }
+
+    .mod-videoplayer-own-controls .js-video-fullscreen {
+        grid-area: fullscreen;
+    }
+
     .mod-videoplayer-own-controls > .mod-videoplayer-time:nth-of-type(2) {
         display: none;
     }

@@ -1,4 +1,4 @@
-name: Drive Resource Hardening Gate
+name: Elearning Stream Hardening Gate
 
 on:
   workflow_dispatch:
@@ -17,7 +17,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: drive-resource-hardening-${{ github.ref }}
+  group: elearning-stream-hardening-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

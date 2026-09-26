@@ -1,5 +1,20 @@
 # Drive Resource developer guide
 
+## Production provider extension model
+
+For new development, treat **Elearning Stream** as the product surface and `mod_videoplayer` as the immutable compatibility component name.
+
+Provider work is split by capability rather than by a single storage backend:
+
+- managed video adapters implement upload authorization, asset ownership, protected playback and usage accounting;
+- object-storage adapters implement protected document upload, object metadata, signed/server-side retrieval, range delivery, lifecycle and accounting;
+- provider credentials stay in the gateway/control plane and must never be copied into Moodle;
+- Moodle keeps only the public connection URL, Service ID and service-scoped token.
+
+To add another video provider, add it to the gateway provider registry and implement the same capability contract before marking it operational. Do not add provider API keys or provider-specific management URLs to Moodle settings.
+
+The S3-compatible object provider is currently assignable/configurable in the control plane but intentionally non-operational in the protected-PDF data plane. Do not expose it in Moodle until upload, retrieval, deletion, retention, quota and failure-recovery tests are complete.
+
 ## Component identity
 
 - Product: Drive Resource
@@ -233,3 +248,135 @@ The internal `bunny_*` setting and class identifiers are retained for compatibil
 Any teacher workflow that calls `whmcs_gateway_client` must perform a Moodle-side configuration preflight before persistence. Use `whmcs_gateway_client::missing_configuration()` / `is_configured()` rather than duplicating configuration checks.
 
 The required Moodle settings are the addon URL, WHMCS service ID and service-scoped token. The addon URL must target the deployed `modules/addons/driveresource_gateway` path because client endpoints are appended beneath its `api/` directory.
+
+
+## WHMCS storage backend extension contract
+
+WHMCS service identity must remain provider-neutral. Do not add provider credentials to Moodle and do not encode provider choice into a Moodle token.
+
+The provisioning module appends backend selection after the legacy quota settings:
+
+- `configoption1`: included storage GB;
+- `configoption2`: overage allowed;
+- `configoption3`: retention days;
+- `configoption4`: backend key;
+- `configoption5`: backend profile.
+
+Never reorder these options in an upgrade because WHMCS passes module configuration by numbered position.
+
+To add an S3-compatible implementation:
+
+1. mark `s3compatible` provisionable only after the adapter is complete;
+2. keep credentials/profile configuration in WHMCS;
+3. implement direct multipart upload authorization rather than proxying large uploads through WHMCS/PHP;
+4. implement server-side signed delivery compatible with the Moodle protected endpoint;
+5. reconcile authoritative object size into existing service usage accounting;
+6. enforce tenant prefixes/buckets and cross-tenant object ownership;
+7. integrate lifecycle deletion/retention into backend-scoped maintenance;
+8. add CI invariants and production tests before exposing the backend in product configuration.
+
+Backend switching for a service with existing assets must use an explicit migration workflow. `ChangePackage` intentionally rejects an in-place backend change when media or bytes remain.
+
+
+## WHMCS provisioning token contract
+
+Do not set `RequiresServer=true` for the Elearning Stream provisioning module: no server hostname or server credential is part of the service contract.
+
+The Moodle gateway token must be created by `driveresource_CreateAccount()`. Its plaintext copy belongs only in WHMCS protected service properties; the gateway database stores only SHA-256 of that token. Administrators may retrieve the service token through the module's administrator service fields to configure Moodle.
+
+Do not allow operators to repair an unprovisioned service by inventing a password manually. Re-run the module Create action so the WHMCS password and gateway token hash are created atomically by the module.
+
+
+## Idempotent WHMCS connection repair
+
+`driveresource_CreateAccount()`, `driveresource_ProvisionMoodleConnection()` and explicit token rotation share one provisioning implementation.
+
+Repair must preserve an existing valid service password/token. If WHMCS no longer has a plaintext service token, repair generates a new cryptographically random token and atomically replaces the gateway hash before persisting the new protected WHMCS service property.
+
+Never expose a "repair" path that accepts an arbitrary operator-supplied token. Explicit rotation must be a separate administrator action.
+
+
+## WHMCS client self-service contract
+
+Client actions are exposed through WHMCS provisioning-module custom functions and remain bound to the service selected by WHMCS. Mutating actions must use POST and must never accept a caller-supplied WHMCS service id as the ownership authority.
+
+The current self-service actions are:
+- provision/repair Moodle connection;
+- rotate Moodle service token;
+- update Moodle URL;
+- validate Moodle connection;
+- delete an unreferenced provider video.
+
+The Moodle URL stored in `mod_driveresource_services.site_url` is authoritative after provisioning. Changing it marks connection state pending and is rejected while active media references exist.
+
+Provider deletion must remain idempotent and must refuse any video with active `mod_driveresource_asset_refs`.
+
+## Transfer metering contract
+
+`http_range_proxy` may receive an optional transfer callback. Increment usage only for bytes actually emitted to the browser. Do not count HEAD bodies, provider bytes discarded while retrying ranges, warning HTML, failed upstream requests or bytes after a client disconnect.
+
+Moodle stores short-lived aggregateable events in `videoplayer_transfer_events`. The scheduled task groups at most 1000 events by service/month and sends an idempotent SHA-256 batch id to WHMCS. Events collected under an old Service ID must never be reported with the current token.
+
+WHMCS stores the current UTC month in `transfer_period` and the accumulated bytes in `transfer_bytes`. Usage Billing exposes this as `video_transfer_gb` with `MetricInterface::TYPE_PERIOD_MONTH`; storage remains `TYPE_SNAPSHOT`.
+
+The signed connection probe endpoint must remain cookie-free, HTTPS-exact, HMAC-authenticated and replay-protected.
+
+
+## Public video hostname validation contract
+
+Do not add branded video domains directly to Moodle allow-lists. Moodle may validate only safe HTTPS URL shape and provider-GUID syntax. WHMCS is authoritative for public video hostnames through `Config::publicVideoHosts()`.
+
+`bunny_public_aliases` accepts exact DNS hostnames separated by commas/whitespace/semicolons. Never accept URL schemes, wildcards, IP literals or arbitrary ports in this setting.
+
+The pasted URL may cross the authenticated Moodle→WHMCS channel only long enough to validate hostname and extract the provider GUID. Do not persist it and do not fetch it. Provider ownership must always be verified with the configured Video Library API.
+
+## WHMCS localisation contract
+
+Customer-facing server-module strings belong in `modules/servers/driveresource/lang/english.php` and `spanish.php`. Use `Translator::fromParams()` from Client Area and service actions. Do not add new hardcoded Spanish/English UI labels inside `ClientPortal.php`.
+
+## WHMCS audit contract
+
+Use `driveresource_audit()` / `AuditLogger::log()` for successful sensitive control-plane mutations. Metadata must be operational and non-secret. Never pass service tokens, provider API keys, token-signing keys, request signatures or passwords.
+
+Audit failure should not corrupt the user operation; the logger records an appropriately redacted module-log failure when possible.
+
+
+## Provider asset deletion contract
+
+Provider deletion is reference-counted and gateway-owned. Moodle's `videoplayer_delete_instance()` queues `release_bunny_asset`; the gateway is authoritative for whether physical deletion is safe.
+
+For `Retention Days = 0`, the final reference release moves the upload to transient status `deleting` before the provider API call. This prevents a concurrent bind from reviving an asset while deletion is in flight. On success the upload becomes `deleted`, accounted bytes are zeroed, and service usage is recomputed. On provider failure the prior status is restored and `delete_after` is set to the current time so daily maintenance can retry.
+
+Do not bypass this contract by adding direct Bunny deletion code to Moodle.
+
+
+## Virtual classroom provider contract
+
+Managed-video providers must support a tenant-level organisational primitive equivalent to a collection/folder. For Elearning Stream, one Bunny collection is persisted per WHMCS service.
+
+The gateway owns collection creation and assignment. Moodle only sends the existing Service ID, course ID and activity metadata; it must never create provider collections directly.
+
+For upgrades from Gateway < 0.5.3, use the WHMCS admin module command **Organize virtual classroom**. It calls `GatewayService::organizeServiceAssets()`, creates the service collection if needed, and moves up to 1000 currently owned videos without renaming them.
+
+
+## Activity rename contract
+
+A Moodle activity name is the canonical teacher-facing video title. When a bound Elearning Stream activity name changes, `videoplayer_update_instance()` calls the gateway metadata endpoint. The gateway verifies service ownership plus the active site/activity reference before calling the provider title API.
+
+If the synchronous metadata update fails, Moodle queues `sync_bunny_asset_metadata`. The retry task rereads the current activity and provider GUID before updating, so stale queued work cannot rename a deleted or replaced asset.
+
+## Deletion execution contract
+
+`videoplayer_delete_instance()` must commit local Moodle deletion before any destructive provider operation. After commit it calls `videoplayer_release_bunny_asset()`. That helper attempts the gateway release immediately and queues the adhoc release task only on failure.
+
+Do not move provider deletion before the Moodle transaction commit.
+
+
+## Binding execution contract
+
+`videoplayer_add_instance()` and provider-changing updates call `videoplayer_bind_bunny_asset()` after Moodle persistence succeeds. The helper registers the WHMCS reference immediately, synchronises the final activity title, and clears the temporary provider upload id. If the gateway call fails, it queues `bind_bunny_asset` for retry.
+
+Core ownership/reference state must not depend exclusively on Moodle cron. Cron is the recovery path, not the normal success path.
+
+
+Legacy pre-RC8 activities can exist without a durable gateway reference when an installation accepted an upload but never ran Moodle adhoc tasks. Title synchronisation detects this state: it first attempts the reference-authorized metadata update, then uses the existing ownership-checked reconcile endpoint and retries the metadata update. This repair path never trusts the Moodle GUID alone; the gateway verifies that the provider asset belongs to the same WHMCS service before creating the reference.
