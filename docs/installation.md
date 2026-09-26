@@ -30,7 +30,10 @@ In Moodle configure only:
 - **Service token**;
 - **Gateway timeout** (15 seconds recommended).
 
-The customer portal now displays these connection values. The Moodle site's own URL remains an internal service binding and is not the connection URL pasted into Moodle.
+The customer portal now displays these connection values.
+
+For video products, set **Retention Days = 0** when deleting the final Moodle activity should remove the provider video on the next Moodle adhoc-task execution. Use a positive value only when a recovery grace period is intentionally required. After changing an existing WHMCS product, run **Module Commands → Change Package** for existing services so the per-service retention policy is refreshed.
+ The Moodle site's own URL remains an internal service binding and is not the connection URL pasted into Moodle.
 
 ### Provider configuration
 
