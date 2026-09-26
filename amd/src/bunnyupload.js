@@ -292,6 +292,19 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
             }
         };
 
+        var activityTitle = function(file) {
+            if (nameField && nameField.value) {
+                return nameField.value;
+            }
+            return file.name;
+        };
+
+        var clearQuota = function() {
+            if (quota) {
+                quota.textContent = '';
+            }
+        };
+
         fileInput.addEventListener('change', function() {
             selectedFile = fileInput.files && fileInput.files.length ? fileInput.files[0] : null;
             if (!selectedFile) {
@@ -327,9 +340,7 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
 
             setFormLocked(true);
             setStatus(strings.authorizing || 'Authorizing upload…', false);
-            if (quota) {
-                quota.textContent = '';
-            }
+            clearQuota();
 
             try {
                 var auth = await callMoodle('mod_videoplayer_create_bunny_upload', {
@@ -338,14 +349,14 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
                     filename: selectedFile.name,
                     filesize: selectedFile.size,
                     mimetype: selectedFile.type || 'application/octet-stream',
-                    title: nameField && nameField.value ? nameField.value : selectedFile.name
+                    title: activityTitle(selectedFile)
                 });
 
                 showQuota(auth.quota);
                 setStatus(strings.uploading || 'Uploading directly to Bunny Stream…', false);
 
                 await uploadFile(auth, selectedFile, {
-                    title: nameField && nameField.value ? nameField.value : selectedFile.name,
+                    title: activityTitle(selectedFile),
                     onProgress: setProgress,
                     onRetry: function() {
                         setStatus(strings.retrying || 'Resuming upload…', false);
