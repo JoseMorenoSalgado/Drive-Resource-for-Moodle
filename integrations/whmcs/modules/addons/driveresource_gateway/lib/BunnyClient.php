@@ -127,6 +127,29 @@ final class BunnyClient
     }
 
     /**
+     * Rename one Bunny video without changing ownership or collection.
+     *
+     * @param string $videoId Video GUID.
+     * @param string $title New display title.
+     * @return void
+     */
+    public function updateVideoTitle(string $videoId, string $title): void
+    {
+        $this->assertProviderGuid($videoId, 'video');
+        $title = mb_substr(trim($title), 0, 255);
+        if ($title === '') {
+            throw new RuntimeException('Video title is required.');
+        }
+
+        $this->request(
+            'POST',
+            '/library/' . $this->libraryId . '/videos/' . rawurlencode($videoId),
+            ['title' => $title],
+            [200]
+        );
+    }
+
+    /**
      * Delete a Bunny video.
      *
      * @param string $videoId Video GUID.
