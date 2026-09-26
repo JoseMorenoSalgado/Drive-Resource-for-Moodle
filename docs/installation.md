@@ -385,3 +385,17 @@ Wrong product type: 0
 For **Stream Pro** use Product Type **Other** and provisioning module **Elearning Stream / driveresource**. WHMCS documents Product Type Other for non-hosting products; using Shared Hosting causes generic domain/account UI that is not appropriate for Elearning Stream.
 
 If an existing service shows a username such as one derived from the domain instead of `dr-{service_id}`, run **Generate/Repair Moodle connection** from the administrator service page. Do not copy the generic WHMCS password into Moodle: 0.4.3 recognizes only the module-generated 64-character hexadecimal service token as a valid Moodle credential.
+
+
+### Organize existing videos by virtual classroom
+
+Gateway 0.5.3 creates one Bunny collection per WHMCS service automatically when a new video is uploaded or imported. The collection name is similar to `S288 - campus.aspeten.org`.
+
+For services that already owned videos before 0.5.3:
+
+1. update the WHMCS companion to Gateway 0.5.3 and open the addon once so the schema upgrade runs;
+2. open the customer's WHMCS service;
+3. run **Module Commands → Organize virtual classroom**;
+4. verify the service now shows its virtual classroom name and the existing videos appear in that Bunny collection.
+
+No Moodle token rotation or video re-upload is required.
