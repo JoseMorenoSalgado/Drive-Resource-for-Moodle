@@ -44,11 +44,13 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
         return window.btoa(binary);
     };
 
-    var uploadMetadata = function(file) {
+    var uploadMetadata = function(file, title) {
+        var activityTitle = String(title || '').trim() || file.name;
+
         return [
             'filename ' + base64Utf8(file.name),
             'filetype ' + base64Utf8(file.type || 'application/octet-stream'),
-            'title ' + base64Utf8(file.name)
+            'title ' + base64Utf8(activityTitle)
         ].join(',');
     };
 
@@ -62,10 +64,10 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
         };
     };
 
-    var createUpload = async function(auth, file) {
+    var createUpload = async function(auth, file, title) {
         var headers = authHeaders(auth);
         headers['Upload-Length'] = String(file.size);
-        headers['Upload-Metadata'] = uploadMetadata(file);
+        headers['Upload-Metadata'] = uploadMetadata(file, title);
 
         var response = await window.fetch(auth.endpoint, {
             method: 'POST',
@@ -150,7 +152,7 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
     };
 
     var uploadFile = async function(auth, file, callbacks) {
-        var uploadUrl = await createUpload(auth, file);
+        var uploadUrl = await createUpload(auth, file, callbacks.title);
         var offset = 0;
         var retry = 0;
 
@@ -343,6 +345,7 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
                 setStatus(strings.uploading || 'Uploading directly to Bunny Stream…', false);
 
                 await uploadFile(auth, selectedFile, {
+                    title: nameField && nameField.value ? nameField.value : selectedFile.name,
                     onProgress: setProgress,
                     onRetry: function() {
                         setStatus(strings.retrying || 'Resuming upload…', false);
