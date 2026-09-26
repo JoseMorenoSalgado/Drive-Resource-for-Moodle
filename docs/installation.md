@@ -1,6 +1,6 @@
 # Elearning Stream installation and upgrade
 
-## Supported platform for 1.2.0-rc4-m45
+## Supported platform for 1.2.0-rc5-m45
 
 - Moodle 4.5 LTS
 - PHP 8.1+
