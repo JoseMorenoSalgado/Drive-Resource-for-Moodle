@@ -357,3 +357,16 @@ Managed-video providers must support a tenant-level organisational primitive equ
 The gateway owns collection creation and assignment. Moodle only sends the existing Service ID, course ID and activity metadata; it must never create provider collections directly.
 
 For upgrades from Gateway < 0.5.3, use the WHMCS admin module command **Organize virtual classroom**. It calls `GatewayService::organizeServiceAssets()`, creates the service collection if needed, and moves up to 1000 currently owned videos without renaming them.
+
+
+## Activity rename contract
+
+A Moodle activity name is the canonical teacher-facing video title. When a bound Elearning Stream activity name changes, `videoplayer_update_instance()` calls the gateway metadata endpoint. The gateway verifies service ownership plus the active site/activity reference before calling the provider title API.
+
+If the synchronous metadata update fails, Moodle queues `sync_bunny_asset_metadata`. The retry task rereads the current activity and provider GUID before updating, so stale queued work cannot rename a deleted or replaced asset.
+
+## Deletion execution contract
+
+`videoplayer_delete_instance()` must commit local Moodle deletion before any destructive provider operation. After commit it calls `videoplayer_release_bunny_asset()`. That helper attempts the gateway release immediately and queues the adhoc release task only on failure.
+
+Do not move provider deletion before the Moodle transaction commit.
