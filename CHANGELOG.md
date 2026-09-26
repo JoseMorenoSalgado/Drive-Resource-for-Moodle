@@ -1,5 +1,12 @@
 # Changelog
 
+## Elearning Stream 1.2.0-rc4-m45 — 2026-09-25
+
+- Fixes uploaded Elearning Stream videos remaining permanently on **Loading video...** in Moodle.
+- The learner view incorrectly excluded Elearning Stream resources from the `mod_videoplayer/nativevideo` AMD initialization even though the Mustache player relies on that module to assign the protected media URL.
+- All video providers now initialize the Moodle-owned HTML5 player; Elearning Stream continues to stream only through `protected.php`.
+- Includes RC3 gateway authentication, RC2 XMLDB migration, and direct-upload course-context hotfixes.
+
 ## Elearning Stream 1.2.0-rc3-m45 + Gateway 0.5.1 — 2026-09-25
 
 - Fixes Moodle-to-gateway HTTP 401 on Apache/FastCGI stacks that strip the standard `Authorization` header before PHP receives it.
