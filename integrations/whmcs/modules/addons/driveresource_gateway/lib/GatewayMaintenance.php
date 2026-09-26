@@ -184,7 +184,7 @@ final class GatewayMaintenance
         $rows = $query
             ->whereNotNull('u.delete_after')
             ->where('u.delete_after', '<=', $now)
-            ->whereIn('u.status', ['processing', 'ready', 'bound'])
+            ->whereIn('u.status', ['processing', 'ready', 'bound', 'deleting'])
             ->orderBy('u.delete_after', 'asc')
             ->limit(100)
             ->select('u.*')
