@@ -1,6 +1,6 @@
 # Elearning Stream Gateway for WHMCS
 
-Version **0.5.2** is the multi-tenant control plane for Elearning Stream Moodle services.
+Version **0.5.3** is the multi-tenant control plane for Elearning Stream Moodle services.
 
 It is installed once in WHMCS and manages many customer services. Provider management credentials remain server-side and are never copied into Moodle.
 
@@ -97,6 +97,18 @@ Credentials include endpoint, region, bucket, access key, secret key and optiona
 
 The product configuration has an independent **Protected PDF Storage** lane and **Object Storage Profile**. In 0.5.x the S3 provider can be configured and assigned in the control plane, but its protected-PDF upload/delivery adapter remains intentionally non-operational until the data-plane implementation is complete. This prevents a partially implemented storage path from being sold as production-ready.
 
+## Virtual classroom organisation
+
+Each WHMCS service receives one provider-side Bunny collection named from the stable service ID and Moodle site, for example:
+
+```text
+S288 - campus.aspeten.org
+```
+
+The collection is created lazily on the first upload/import. New videos are created inside that collection automatically. Existing services can use the WHMCS module command **Organize virtual classroom** to create the collection and move already-accounted videos into it without changing their titles.
+
+The gateway stores the provider collection GUID and display name on the service. Moodle never receives Bunny collection credentials or management URLs.
+
 ## Product configuration
 
 Use WHMCS Product Type **Other** and Module **Elearning Stream**.
@@ -160,7 +172,7 @@ Storage, reservations and protected transfer are tracked per WHMCS service. Tran
 
 ## Upgrade from 0.4.3
 
-1. Replace both module directories with the 0.5.2 package.
+1. Replace both module directories with the 0.5.3 package.
 2. Open/activate **Elearning Stream Gateway** so the addon upgrade hook runs.
 3. Configure **Public Gateway URL**.
 4. Existing `backend_key/backend_profile` values are copied into the new video-provider fields.
