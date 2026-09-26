@@ -421,3 +421,12 @@ Example: `S288 - campus.aspeten.org`.
 The mapping is persisted as `video_collection_id` and `video_collection_name` on the gateway service row. Collection creation is lazy: provisioning remains independent from provider availability, while the first upload/import creates the collection. Concurrent first uploads use an optimistic create + database-lock winner strategy; any losing empty collection is deleted best-effort.
 
 New provider videos are created directly inside the service collection. Imported and legacy service-owned videos can be moved into the same collection through the WHMCS **Organize virtual classroom** action. Provider meta tags carry only non-secret support identifiers (service ID, Moodle host and course ID).
+
+
+## Moodle-triggered provider lifecycle
+
+Deletion is initiated by Moodle only after its local activity deletion transaction commits. The normal healthy path calls the signed gateway release synchronously so administrators do not depend on cron to see the provider asset disappear. If the gateway is unavailable, Moodle queues the existing `release_bunny_asset` adhoc task and completes the local deletion; the task retries the same reference-counted gateway contract later.
+
+Renaming uses a separate authenticated metadata endpoint. Moodle can update only the provider asset referenced by the same active service/site/activity tuple. Bunny credentials and management URLs remain gateway-only.
+
+The player continues to expose only `protected.php` to learners. Seeking generates byte-range requests through the authenticated Moodle proxy; the provider URL is never rendered into the page.
