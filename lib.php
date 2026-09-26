@@ -452,13 +452,36 @@ function videoplayer_sync_bunny_title(stdClass $instance): void {
         return;
     }
 
+    $client = new whmcs_gateway_client();
     try {
-        (new whmcs_gateway_client())->update_asset_title(
+        $client->update_asset_title(
             (string)$instance->providerassetid,
             (int)$instance->id,
             (string)$instance->name
         );
+        return;
     } catch (Throwable $exception) {
+        // Older installations may have uploaded successfully while Moodle cron
+        // never executed the historical bind task. Repair that durable
+        // reference once, then retry the metadata update.
+        if (!empty($instance->course)) {
+            try {
+                $client->reconcile_asset(
+                    (string)$instance->providerassetid,
+                    (int)$instance->id,
+                    (int)$instance->course
+                );
+                $client->update_asset_title(
+                    (string)$instance->providerassetid,
+                    (int)$instance->id,
+                    (string)$instance->name
+                );
+                return;
+            } catch (Throwable $repairfailure) {
+                // The retry task below will re-evaluate current Moodle state.
+            }
+        }
+
         debugging(
             'Elearning Stream title synchronisation failed; queued for retry: '
                 . $exception->getMessage(),
