@@ -399,3 +399,22 @@ For services that already owned videos before 0.5.3:
 4. verify the service now shows its virtual classroom name and the existing videos appear in that Bunny collection.
 
 No Moodle token rotation or video re-upload is required.
+
+
+### Moodle cron and immediate deletion
+
+Gateway 0.5.4 and Moodle RC7 attempt provider release immediately after the Moodle activity deletion is committed. A healthy gateway therefore removes an unreferenced Bunny asset without waiting for cron when **Retention Days = 0**.
+
+Moodle cron must still run normally because it provides the retry path when the gateway/provider is temporarily unavailable, and it also processes binding, transfer accounting and other asynchronous work.
+
+### Video controls smoke test
+
+Before enabling a site for production, verify on desktop and mobile:
+
+1. play/pause works;
+2. dragging/tapping the timeline seeks to a later position without restarting at zero;
+3. mute and volume controls respond;
+4. playback speed changes;
+5. fullscreen works;
+6. changing the Moodle activity name updates the Bunny video title;
+7. deleting the final Moodle activity reference deletes the Bunny video when Retention Days is 0.
