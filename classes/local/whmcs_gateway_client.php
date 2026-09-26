@@ -474,6 +474,32 @@ final class whmcs_gateway_client {
     }
 
     /**
+     * Synchronise a bound provider video title with the Moodle activity name.
+     *
+     * @param string $videoid Provider video GUID.
+     * @param int $instanceid Moodle activity instance id.
+     * @param string $title Moodle activity title.
+     * @return array Gateway status.
+     */
+    public function update_asset_title(string $videoid, int $instanceid, string $title): array {
+        $videoid = strtolower(trim($videoid));
+        $title = trim($title);
+        if (
+            !preg_match('/^[a-f0-9-]{32,64}$/', $videoid)
+            || $instanceid <= 0
+            || $title === ''
+        ) {
+            throw new moodle_exception('whmcsgatewayinvalidresponse', 'mod_videoplayer');
+        }
+
+        return $this->post('/api/asset-update.php', [
+            'videoid' => $videoid,
+            'instanceid' => $instanceid,
+            'title' => core_text::substr($title, 0, 255),
+        ]);
+    }
+
+    /**
      * Reconcile an externally referenced provider asset after restore.
      *
      * WHMCS must verify that the video belongs to this service before adding
