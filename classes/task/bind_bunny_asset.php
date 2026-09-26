@@ -37,7 +37,8 @@ final class bind_bunny_asset extends \core\task\adhoc_task {
             return;
         }
 
-        (new whmcs_gateway_client())->bind_asset(
+        $client = new whmcs_gateway_client();
+        $client->bind_asset(
             (string)$data->uploadid,
             (string)$data->videoid,
             (int)$data->instanceid,
@@ -49,7 +50,7 @@ final class bind_bunny_asset extends \core\task\adhoc_task {
         $instance = $DB->get_record(
             'videoplayer',
             ['id' => (int)$data->instanceid],
-            'id, providerassetid, provideruploadid',
+            'id, name, providerassetid, provideruploadid',
             IGNORE_MISSING
         );
         if (
@@ -58,6 +59,16 @@ final class bind_bunny_asset extends \core\task\adhoc_task {
             && hash_equals((string)$instance->provideruploadid, (string)$data->uploadid)
         ) {
             $DB->set_field('videoplayer', 'provideruploadid', null, ['id' => (int)$instance->id]);
+
+            // Ensure imported videos and completed uploads use the final
+            // Moodle activity name, not a stale provider/local filename.
+            if (trim((string)$instance->name) !== '') {
+                $client->update_asset_title(
+                    (string)$data->videoid,
+                    (int)$data->instanceid,
+                    (string)$instance->name
+                );
+            }
         }
     }
 }
