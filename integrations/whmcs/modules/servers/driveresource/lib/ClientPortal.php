@@ -166,6 +166,19 @@ final class ClientPortal
         $html .= '<input class="form-control" type="text" readonly value="' . $serviceId . '">';
         $html .= '</div>';
 
+        $collectionName = trim((string) ($service->video_collection_name ?? ''));
+        $html .= '<div class="form-group">';
+        $html .= '<label>' . $this->e($this->translator->t('virtual_classroom')) . '</label>';
+        if ($collectionName !== '') {
+            $html .= '<input class="form-control" type="text" readonly value="'
+                . $this->e($collectionName) . '">';
+        } else {
+            $html .= '<p class="form-control-static text-muted">'
+                . $this->e($this->translator->t('virtual_classroom_pending'))
+                . '</p>';
+        }
+        $html .= '</div>';
+
         $html .= '<div class="form-group">';
         $html .= '<label>' . $this->e($this->translator->t('service_token')) . '</label>';
         $html .= '<div class="input-group">';
