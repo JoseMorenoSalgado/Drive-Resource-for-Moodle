@@ -96,5 +96,14 @@ jobs:
       - name: JavaScript lint and AMD build check
         run: moodle-plugin-ci grunt --max-lint-warnings 0
 
+      - name: Capture generated AMD build
+        if: ${{ always() && matrix.php == '8.3' && matrix.database == 'pgsql' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-amd-build
+          path: |
+            plugin/amd/build/bunnyupload.min.js
+            plugin/amd/build/bunnyupload.min.js.map
+
       - name: PHPUnit
         run: moodle-plugin-ci phpunit --fail-on-warning
