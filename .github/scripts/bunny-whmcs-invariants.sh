@@ -181,6 +181,8 @@ grep -Fq "'Default' => '0'" integrations/whmcs/modules/servers/driveresource/dri
 grep -Fq "if (\$retentionDays > 0)" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "Retention policy branch is missing."
 grep -Fq "'status' => 'deleting'" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "Immediate provider deletion must lock the asset against concurrent rebinding."
 grep -Fq "deleteVideo(\$videoId)" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "Final Moodle reference release must support provider deletion."
+grep -Fq "[200, 204, 404]" integrations/whmcs/modules/addons/driveresource_gateway/lib/BunnyClient.php     || fail "Provider DELETE must be idempotent when the asset is already absent."
+grep -Fq "'deleting'" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayMaintenance.php     || fail "Maintenance must recover interrupted deleting-state assets."
 grep -Fq "'status' => 'deleted'" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "Provider deletion must zero and close the upload record."
 grep -q "'video_storage_gb'" integrations/whmcs/modules/servers/driveresource/lib/MetricsProvider.php     || fail "WHMCS storage usage metric is missing."
 grep -q 'TYPE_SNAPSHOT' integrations/whmcs/modules/servers/driveresource/lib/MetricsProvider.php     || fail "Storage usage must remain a snapshot metric."
