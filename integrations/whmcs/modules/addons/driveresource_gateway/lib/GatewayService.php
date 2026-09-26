@@ -549,7 +549,12 @@ final class GatewayService
     }
 
     /**
-     * Release one Moodle reference. Physical deletion remains deferred.
+     * Release one Moodle reference and apply the product deletion policy.
+     *
+     * A video is never deleted while another active Moodle reference exists.
+     * retention_days=0 means immediate provider deletion after the final
+     * reference disappears. A positive value keeps the existing grace-period
+     * behaviour and lets daily maintenance perform the physical deletion.
      *
      * @param object $service Service row.
      * @param string $siteUrl Authenticated Moodle site.
@@ -565,31 +570,131 @@ final class GatewayService
             throw new GatewayException('Invalid asset release request.', 422);
         }
 
+        $serviceId = (int) $service->service_id;
         $siteHash = hash('sha256', $siteUrl);
-        Capsule::table('mod_driveresource_asset_refs')
-            ->where('service_id', (int) $service->service_id)
-            ->where('site_hash', $siteHash)
-            ->where('instance_id', $instanceId)
-            ->where('video_id', $videoId)
-            ->update(['active' => false, 'updated_at' => time()]);
+        $retentionDays = max(0, min(365, (int) ($service->retention_days ?? 0)));
+        $deleteNow = false;
+        $uploadId = '';
+        $previousStatus = '';
+        $remaining = 0;
+        $now = time();
 
-        $remaining = Capsule::table('mod_driveresource_asset_refs')
-            ->where('service_id', (int) $service->service_id)
-            ->where('video_id', $videoId)
-            ->where('active', true)
-            ->count();
-
-        if ($remaining === 0) {
-            Capsule::table('mod_driveresource_uploads')
-                ->where('service_id', (int) $service->service_id)
+        Capsule::connection()->transaction(function () use (
+            $serviceId,
+            $siteHash,
+            $instanceId,
+            $videoId,
+            $retentionDays,
+            $now,
+            &$deleteNow,
+            &$uploadId,
+            &$previousStatus,
+            &$remaining
+        ): void {
+            Capsule::table('mod_driveresource_asset_refs')
+                ->where('service_id', $serviceId)
+                ->where('site_hash', $siteHash)
+                ->where('instance_id', $instanceId)
                 ->where('video_id', $videoId)
+                ->update(['active' => false, 'updated_at' => $now]);
+
+            $remaining = (int) Capsule::table('mod_driveresource_asset_refs')
+                ->where('service_id', $serviceId)
+                ->where('video_id', $videoId)
+                ->where('active', true)
+                ->count();
+
+            if ($remaining > 0) {
+                return;
+            }
+
+            $upload = Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->where('video_id', $videoId)
+                ->whereIn('status', ['processing', 'ready', 'bound'])
+                ->lockForUpdate()
+                ->first();
+
+            if (!$upload) {
+                return;
+            }
+
+            if ($retentionDays > 0) {
+                Capsule::table('mod_driveresource_uploads')
+                    ->where('upload_id', (string) $upload->upload_id)
+                    ->update([
+                        'delete_after' => $now + ($retentionDays * 86400),
+                        'updated_at' => $now,
+                    ]);
+                return;
+            }
+
+            $deleteNow = true;
+            $uploadId = (string) $upload->upload_id;
+            $previousStatus = (string) $upload->status;
+
+            // Lock the asset against a concurrent rebind while the provider
+            // deletion is in flight.
+            Capsule::table('mod_driveresource_uploads')
+                ->where('upload_id', $uploadId)
                 ->update([
-                    'delete_after' => time() + ((int) $service->retention_days * 86400),
-                    'updated_at' => time(),
+                    'status' => 'deleting',
+                    'delete_after' => null,
+                    'updated_at' => $now,
                 ]);
+        });
+
+        if (!$deleteNow) {
+            return [
+                'status' => $remaining > 0 ? 'released' : 'scheduled',
+                'remainingrefs' => $remaining,
+            ];
         }
 
-        return ['status' => 'released', 'remainingrefs' => (int) $remaining];
+        try {
+            $this->streamClient($service)->deleteVideo($videoId);
+        } catch (Throwable $exception) {
+            Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->where('upload_id', $uploadId)
+                ->update([
+                    'status' => $previousStatus,
+                    // Make DailyCronJob retry a failed provider deletion.
+                    'delete_after' => time(),
+                    'updated_at' => time(),
+                ]);
+
+            throw new GatewayException(
+                'Elearning Stream could not delete the unreferenced video. Deletion was queued for retry.',
+                502
+            );
+        }
+
+        Capsule::connection()->transaction(function () use ($serviceId, $uploadId): void {
+            Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->where('upload_id', $uploadId)
+                ->update([
+                    'status' => 'deleted',
+                    'accounted_bytes' => 0,
+                    'delete_after' => null,
+                    'updated_at' => time(),
+                ]);
+
+            $used = (int) Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->whereIn('status', ['processing', 'ready', 'bound'])
+                ->sum('accounted_bytes');
+
+            Capsule::table('mod_driveresource_services')
+                ->where('service_id', $serviceId)
+                ->update([
+                    'used_bytes' => max(0, $used),
+                    'updated_at' => time(),
+                ]);
+        });
+
+        return ['status' => 'deleted', 'remainingrefs' => 0];
     }
 
     /**
