@@ -113,6 +113,8 @@ grep -q "OrganizeVideoCollection" integrations/whmcs/modules/servers/driveresour
 test -f integrations/whmcs/modules/addons/driveresource_gateway/api/asset-update.php     || fail "Authenticated asset metadata update endpoint is missing."
 grep -q "function updateAssetMetadata" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "Gateway metadata ownership enforcement is missing."
 grep -q "updateVideoTitle" integrations/whmcs/modules/addons/driveresource_gateway/lib/BunnyClient.php     || fail "Provider video title update support is missing."
+grep -q "function videoplayer_bind_bunny_asset" lib.php     || fail "Moodle immediate provider bind helper is missing."
+grep -q "videoplayer_bind_bunny_asset(\$data)" lib.php     || fail "Moodle add/update lifecycle must attempt immediate provider binding."
 grep -q "function videoplayer_release_bunny_asset" lib.php     || fail "Moodle immediate provider release helper is missing."
 grep -q "videoplayer_release_bunny_asset(\$instance)" lib.php     || fail "Moodle delete callback must attempt immediate provider release."
 grep -q "function videoplayer_sync_bunny_title" lib.php     || fail "Moodle activity-title synchronization helper is missing."
