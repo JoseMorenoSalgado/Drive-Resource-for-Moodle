@@ -1,5 +1,13 @@
 # Changelog
 
+## Elearning Stream 1.2.0-rc5-m45 — 2026-09-25
+
+- Fixes Bunny Stream assets being renamed to the teacher's local filename during TUS creation.
+- Direct upload metadata now uses the Moodle activity **Nombre del recurso** as the Bunny video title.
+- The original local filename remains only as file metadata for traceability.
+- If the Moodle activity name is empty, the local filename is used only as a safe fallback.
+- Includes RC4 playback initialization and all previous RC3/RC2 hotfixes.
+
 ## Elearning Stream 1.2.0-rc4-m45 — 2026-09-25
 
 - Fixes uploaded Elearning Stream videos remaining permanently on **Loading video...** in Moodle.
