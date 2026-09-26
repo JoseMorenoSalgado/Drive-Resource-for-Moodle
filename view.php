@@ -65,10 +65,13 @@ if (!isguestuser()) {
     ]) ?: null;
 }
 
-if ($resource->is_available() && !$resource->is_bunny_stream()) {
+if ($resource->is_available()) {
     if ($resource->is_pdf_like()) {
         $PAGE->requires->js_call_amd('mod_videoplayer/pdfviewer', 'init');
     } else if ($resource->is_video()) {
+        // All video providers use the Moodle-owned HTML5 player. Elearning
+        // Stream still proxies bytes through protected.php; only the upstream
+        // authorization differs.
         $PAGE->requires->js_call_amd('mod_videoplayer/nativevideo', 'init');
     } else if ($resource->is_audio()) {
         $PAGE->requires->js_call_amd('mod_videoplayer/nativeaudio', 'init');
