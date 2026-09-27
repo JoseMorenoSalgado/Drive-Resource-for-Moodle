@@ -804,7 +804,10 @@ final class http_range_proxy {
         http_response_code($status);
         header('Content-Type: ' . $contenttype);
         $disposition = $attachment ? 'attachment' : 'inline';
-        header('Content-Disposition: ' . $disposition . '; filename="' . $safefilename . '"; filename*=UTF-8\'\'' . rawurlencode($safefilename));
+        $contentdisposition = 'Content-Disposition: ' . $disposition
+            . '; filename="' . $safefilename . '"'
+            . '; filename*=UTF-8\'\'' . rawurlencode($safefilename);
+        header($contentdisposition);
         header('X-Content-Type-Options: nosniff');
         header('X-Robots-Tag: noindex, nofollow, noarchive');
         header('X-Accel-Buffering: no');
