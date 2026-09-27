@@ -583,12 +583,50 @@ final class GatewayService
     }
 
     /**
-     * Release one Moodle reference and apply the product deletion policy.
+     * Rename a service-owned video that is bound to this Moodle activity.
+     *
+     * @param object $service Service row.
+     * @param string $siteUrl Authenticated Moodle site.
+     * @param array $payload Request body.
+     * @return array
+     */
+    public function renameAsset(object $service, string $siteUrl, array $payload): array
+    {
+        $this->requireBackendCapability($service, BackendRegistry::CAP_MANAGED_VIDEO);
+        $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
+        $instanceId = (int) ($payload['instanceid'] ?? 0);
+        $title = trim((string) ($payload['title'] ?? ''));
+        if ($instanceId <= 0 || !preg_match('/^[a-f0-9-]{32,64}$/', $videoId)
+            || $title === '' || mb_strlen($title) > 255) {
+            throw new GatewayException('Invalid asset title update.', 422);
+        }
+
+        $serviceId = (int) $service->service_id;
+        $owned = Capsule::table('mod_driveresource_uploads')
+            ->where('service_id', $serviceId)
+            ->where('video_id', $videoId)
+            ->whereIn('status', ['processing', 'ready', 'bound'])
+            ->exists();
+        $bound = Capsule::table('mod_driveresource_asset_refs')
+            ->where('service_id', $serviceId)
+            ->where('site_hash', hash('sha256', $siteUrl))
+            ->where('instance_id', $instanceId)
+            ->where('video_id', $videoId)
+            ->where('active', true)
+            ->exists();
+        if (!$owned || !$bound) {
+            throw new GatewayException('This activity does not own the video.', 403);
+        }
+
+        $this->streamClient($service)->renameVideo($videoId, $title);
+        return ['status' => 'renamed'];
+    }
+
+    /**
+     * Release a video reference and apply the retention policy.
      *
      * A video is never deleted while another active Moodle reference exists.
-     * retention_days=0 means immediate provider deletion after the final
-     * reference disappears. A positive value keeps the existing grace-period
-     * behaviour and lets daily maintenance perform the physical deletion.
+     * Zero retention triggers immediate deletion after the last reference.
      *
      * @param object $service Service row.
      * @param string $siteUrl Authenticated Moodle site.

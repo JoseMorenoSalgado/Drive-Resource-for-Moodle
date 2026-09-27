@@ -97,4 +97,9 @@ grep -q "AuthorizationSignature" amd/src/bunnyupload.js     || fail "Bunny presi
 grep -q "mod_videoplayer_refresh_bunny_upload" amd/src/bunnyupload.js     || fail "Long-running TUS authorization refresh is missing."
 grep -q "credentials: 'omit'" amd/src/bunnyupload.js     || fail "Direct Bunny upload must not send Moodle cookies cross-origin."
 
+# Guard video title updates behind the authenticated WHMCS reference boundary.
+require_file "integrations/whmcs/modules/addons/driveresource_gateway/api/asset-rename.php"
+grep -q 'renameAsset' integrations/whmcs/modules/addons/driveresource_gateway/api/asset-rename.php || fail "Rename gateway endpoint is missing."
+grep -q "where('active', true)" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php || fail "Rename reference authorization is missing."
+
 echo "Elearning Stream/WHMCS integration invariants: PASS"

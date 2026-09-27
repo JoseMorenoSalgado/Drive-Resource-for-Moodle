@@ -26,7 +26,7 @@ function driveresource_gateway_config(): array
     return [
         'name' => 'Elearning Stream Gateway',
         'description' => 'Multi-tenant media gateway, quota control and provider credential boundary for Elearning Stream.',
-        'version' => '0.5.3',
+        'version' => '0.5.4',
         'author' => 'Elearning Cloud',
         'fields' => [
             'public_gateway_url' => [

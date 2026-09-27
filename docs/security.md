@@ -257,3 +257,5 @@ Collection IDs are stored only in the gateway control plane. Collection names us
 ## RC7 implementation note
 
 A delayed bind task now rejects deleted or repointed activities before contacting WHMCS and releases a binding if deletion occurs during the remote call. Provider credentials remain in WHMCS. A Moodle deletion still requires cron to execute its queued release task.
+
+Video title updates use the signed Moodle-to-WHMCS gateway and require a matching active reference for the authenticated site and service.

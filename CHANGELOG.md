@@ -1,8 +1,9 @@
 # Changelog
 
-## Elearning Stream 1.2.0-rc7-m45 — 2026-09-27
+## Elearning Stream 1.2.0-rc8-m45 — 2026-09-27
 
 - Aligns GitHub source with the rc6 Moodle and WHMCS packages.
+- Synchronises Moodle activity renames through the authenticated WHMCS gateway after validating service ownership and active binding.
 - Fixes desktop and mobile video controls, keyboard focus and seek feedback.
 - Checks queued Bunny binding against current Moodle activity state.
 

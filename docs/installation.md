@@ -403,3 +403,5 @@ No Moodle token rotation or video re-upload is required.
 ## RC7 implementation note
 
 For 1.2.0-rc7-m45, install the Moodle ZIP over an existing `mod_videoplayer` installation, run the Moodle upgrade, purge caches and run cron. Keep the WHMCS 0.5.3 gateway deployed. Verify play, seek, volume and deletion with a disposable test video before live traffic.
+
+RC8 requires WHMCS Gateway 0.5.4 before editing activity names. Run Moodle cron to process the rename task and verify the provider title in the service collection.

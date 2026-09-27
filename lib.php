@@ -302,6 +302,28 @@ function videoplayer_queue_bunny_release(stdClass $instance): void {
 }
 
 /**
+ * Synchronise an edited Moodle activity name with its owned Stream video.
+ *
+ * @param stdClass $instance Persisted activity.
+ * @return void
+ */
+function videoplayer_queue_bunny_rename(stdClass $instance): void {
+    if (($instance->source ?? '') !== bunny_stream::SOURCE
+            || !bunny_stream::is_valid_asset_id((string)($instance->providerassetid ?? ''))) {
+        return;
+    }
+
+    $task = new \mod_videoplayer\task\rename_bunny_asset();
+    $task->set_component('mod_videoplayer');
+    $task->set_custom_data([
+        'instanceid' => (int)$instance->id,
+        'videoid' => (string)$instance->providerassetid,
+        'name' => (string)$instance->name,
+    ]);
+    \core\task\manager::queue_adhoc_task($task, true);
+}
+
+/**
  * Add a module instance.
  *
  * @param stdClass $data Submitted instance data.
@@ -381,6 +403,10 @@ function videoplayer_update_instance($data, $mform = null) {
             )
         ) {
             videoplayer_queue_bunny_bind($data);
+        }
+        if ($oldisbunny && $newisbunny && $oldasset === $newasset
+                && (string)$oldinstance->name !== (string)$data->name) {
+            videoplayer_queue_bunny_rename($data);
         }
     }
 

@@ -57,3 +57,7 @@ Configure **Elearning Stream CDN Hostname** and **Elearning Stream Token Key** i
 Enable MP4 fallback in the provider video library. Drive Resource uses that progressive MP4 representation so Moodle can preserve native HTML5 seek/Range behavior while keeping provider URLs server-side.
 
 Recommended **Elearning Stream Playback TTL**: 300 seconds. Moodle caches the authorization briefly and requests a fresh one when the player explicitly performs stall recovery.
+
+## Gateway 0.5.4
+
+Editing the name of a bound Moodle video calls the authenticated `asset-rename.php` endpoint. The gateway verifies the active Moodle activity reference and service ownership before changing its Bunny title. Deploy this version before Moodle 1.2.0-rc8-m45.

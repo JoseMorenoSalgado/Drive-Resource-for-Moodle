@@ -127,6 +127,20 @@ final class BunnyClient
     }
 
     /**
+     * Change a video title in the service-owned Bunny library.
+     *
+     * @param string $videoId Video GUID.
+     * @param string $title New display title.
+     * @return void
+     */
+    public function renameVideo(string $videoId, string $title): void
+    {
+        $this->assertProviderGuid($videoId, 'video');
+        $this->request('POST', '/library/' . $this->libraryId . '/videos/' . rawurlencode($videoId),
+            ['title' => $title], [200]);
+    }
+
+    /**
      * Delete a Bunny video.
      *
      * @param string $videoId Video GUID.

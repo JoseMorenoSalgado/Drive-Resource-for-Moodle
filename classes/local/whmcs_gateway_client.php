@@ -509,6 +509,22 @@ final class whmcs_gateway_client {
     }
 
     /**
+     * Rename a bound video after editing its Moodle activity name.
+     *
+     * @param string $videoid Bunny video GUID.
+     * @param int $instanceid Moodle activity instance id.
+     * @param string $title New display title.
+     * @return array Gateway status.
+     */
+    public function rename_asset(string $videoid, int $instanceid, string $title): array {
+        return $this->post('/api/asset-rename.php', [
+            'videoid' => $videoid,
+            'instanceid' => $instanceid,
+            'title' => $title,
+        ]);
+    }
+
+    /**
      * Send a signed JSON POST request to WHMCS.
      *
      * @param string $path Relative API path.

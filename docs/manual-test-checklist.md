@@ -162,3 +162,5 @@ Before signing off this checklist, record the commit SHA, Moodle/PHP/database ve
 - [ ] Upload a disposable Bunny video, save the activity and run Moodle cron until the bind task succeeds.
 - [ ] Delete the activity, run Moodle cron until the release task succeeds and verify WHMCS reference count and retention policy; verify provider deletion if retention is zero.
 - [ ] Delete an activity before its queued bind runs, then run cron and confirm no orphan reference is created.
+
+- [ ] Rename an existing bound activity, run cron and confirm the Bunny title changes. Ensure an activity in another service cannot rename it.

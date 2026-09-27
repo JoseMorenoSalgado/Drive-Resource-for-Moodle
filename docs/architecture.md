@@ -425,3 +425,5 @@ New provider videos are created directly inside the service collection. Imported
 ## RC7 implementation note
 
 The Moodle 1.2.0-rc7 binding task checks the persisted activity before a delayed WHMCS bind and releases a binding if the activity was removed while the request ran. WHMCS remains the only component that deletes Bunny media.
+
+Activity name edits enqueue a guarded rename task; WHMCS verifies both service ownership and an active reference before calling Bunny.
