@@ -120,6 +120,13 @@ if ($ADMIN->fulltree) {
         PARAM_INT
     ));
 
+    $deletionurl = new moodle_url('/mod/videoplayer/deletions.php');
+    $settings->add(new admin_setting_heading(
+        'mod_videoplayer/deletionmanagement',
+        get_string('deletionmanagement', 'mod_videoplayer'),
+        get_string('setting_deletionmanagement_desc', 'mod_videoplayer', $deletionurl->out(false))
+    ));
+
     $settings->add(new admin_setting_configtext(
         'mod_videoplayer/pdfcachettl',
         get_string('setting_pdfcachettl', 'mod_videoplayer'),
