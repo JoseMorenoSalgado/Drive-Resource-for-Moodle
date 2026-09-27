@@ -96,5 +96,16 @@ jobs:
       - name: JavaScript lint and AMD build check
         run: moodle-plugin-ci grunt --max-lint-warnings 0
 
+      - name: Preserve generated AMD diagnostics
+        if: ${{ failure() && matrix.php == '8.3' && matrix.database == 'mariadb' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-amd-build
+          path: |
+            plugin/amd/build/nativevideo.min.js
+            plugin/amd/build/nativevideo.min.js.map
+          if-no-files-found: error
+          retention-days: 3
+
       - name: PHPUnit
         run: moodle-plugin-ci phpunit --fail-on-warning
