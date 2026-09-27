@@ -7,6 +7,7 @@
 - Changes the asset-reference uniqueness contract to include `video_id`, preserving the old reference when one Moodle activity switches to another video.
 - Adds an idempotent WHMCS schema upgrade for the new reference index and CI invariants for lifecycle locking.
 - Restores the installable WHMCS ZIP layout so it extracts directly to top-level `modules/` instead of introducing a `whmcs-root/` wrapper.
+- Allows deletion/replacement of an activity before its queued bind runs by carrying the original upload reservation as scoped proof; unrelated unbound assets remain non-releasable.
 
 ## Elearning Stream 1.2.0-rc9-m45 — 2026-09-27
 
