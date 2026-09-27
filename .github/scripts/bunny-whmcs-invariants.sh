@@ -98,7 +98,7 @@ grep -Fq "preg_match('/^[a-f0-9]{64}$/', \$token)" integrations/whmcs/modules/ad
 grep -q 'mod_driveresource_nonces' integrations/whmcs/modules/addons/driveresource_gateway/lib/RequestAuthenticator.php     || fail "Replay nonce protection is missing."
 
 echo "Checking multi-tenant provider architecture..."
-grep -q "'version' => '0.5.4'" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "WHMCS addon version 0.5.4 is missing."
+grep -q "'version' => '0.5.5'" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "WHMCS addon version 0.5.5 is missing."
 grep -q "function driveresource_gateway_upgrade" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "WHMCS addon upgrade function is missing."
 grep -q "video_backend_key" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "Independent video-provider schema is missing."
 grep -q "object_backend_key" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "Independent object-storage schema is missing."
@@ -206,6 +206,12 @@ grep -Fq "deleteVideo(\$videoId)" integrations/whmcs/modules/addons/driveresourc
 grep -Fq "[200, 204, 404]" integrations/whmcs/modules/addons/driveresource_gateway/lib/BunnyClient.php     || fail "Provider DELETE must be idempotent when the asset is already absent."
 grep -Fq "'deleting'" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayMaintenance.php     || fail "Maintenance must recover interrupted deleting-state assets."
 grep -Fq "'status' => 'deleted'" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "Provider deletion must zero and close the upload record."
+grep -q "function forceDeleteAsset" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "Gateway delete-now action is missing."
+grep -q "function listPendingDeletions" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "Gateway pending-deletion queue is missing."
+test -f integrations/whmcs/modules/addons/driveresource_gateway/api/asset-delete-now.php     || fail "Gateway delete-now endpoint is missing."
+test -f integrations/whmcs/modules/addons/driveresource_gateway/api/asset-deletions.php     || fail "Gateway deletion-list endpoint is missing."
+test -f download.php     || fail "Teacher-only Moodle download endpoint is missing."
+grep -q "mod/videoplayer:downloadvideo" db/access.php     || fail "Teacher-only download capability is missing."
 grep -q "'video_storage_gb'" integrations/whmcs/modules/servers/driveresource/lib/MetricsProvider.php     || fail "WHMCS storage usage metric is missing."
 grep -q 'TYPE_SNAPSHOT' integrations/whmcs/modules/servers/driveresource/lib/MetricsProvider.php     || fail "Storage usage must remain a snapshot metric."
 
