@@ -235,6 +235,8 @@ Activity callbacks no longer contain provider transition rules. `bunny_asset_lif
 
 At the WHMCS boundary, each reference is keyed by service, Moodle site, activity instance **and video id**. Gateway 0.5.5 locks the upload row before bind, restore or release mutations. This common lock order prevents a zero-retention release from deleting an asset while another worker is binding/restoring it, while historical inactive references remain available for idempotent release retries.
 
+A short pre-bind window is handled separately: the Moodle release task carries the upload reservation id when it still exists. WHMCS may use that reservation as release proof only while `bound_instance_id = 0`; once an asset has been bound, the normal exact activity+video reference is mandatory.
+
 A Bunny asset can have multiple Moodle references. Deleting or replacing an activity releases only that reference. When the final active reference disappears, `Retention Days = 0` deletes the provider asset immediately at the gateway; positive retention values defer deletion until the grace period expires. Course restore never trusts a copied provider GUID by itself: the restored reference is reconciled through WHMCS and is accepted only when the asset belongs to the same WHMCS service tenant.
 
 ## Resilient progress-schema evolution
