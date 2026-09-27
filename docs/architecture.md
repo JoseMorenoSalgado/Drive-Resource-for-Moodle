@@ -231,6 +231,8 @@ A reservation is created under a database lock before Bunny authorization is emi
 
 ### Provider asset lifecycle
 
+Activity callbacks no longer contain provider transition rules. `bunny_asset_lifecycle` owns create/update/delete reconciliation and translates persisted Moodle state into asynchronous bind, release and rename tasks. Delete releases are queued only after the Moodle database transaction commits, so a failed local deletion cannot prematurely release the remote reference.
+
 A Bunny asset can have multiple Moodle references. Deleting or replacing an activity releases only that reference. When the final active reference disappears, `Retention Days = 0` deletes the provider asset immediately at the gateway; positive retention values defer deletion until the grace period expires. Course restore never trusts a copied provider GUID by itself: the restored reference is reconciled through WHMCS and is accepted only when the asset belongs to the same WHMCS service tenant.
 
 ## Resilient progress-schema evolution
