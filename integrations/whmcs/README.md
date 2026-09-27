@@ -58,6 +58,10 @@ Enable MP4 fallback in the provider video library. Drive Resource uses that prog
 
 Recommended **Elearning Stream Playback TTL**: 300 seconds. Moodle caches the authorization briefly and requests a fresh one when the player explicitly performs stall recovery.
 
+## Gateway 0.5.5
+
+Managed-video references are now stored per Moodle activity **and provider video**, so replacing a video cannot overwrite the historical reference needed to release the previous asset. Bind/restore/release operations serialize on the upload row, and release rejects unknown activity/video pairs before retention or provider deletion is evaluated.
+
 ## Gateway 0.5.4
 
 Editing the name of a bound Moodle video calls the authenticated `asset-rename.php` endpoint. The gateway verifies the active Moodle activity reference and service ownership before changing its Bunny title. Deploy this version before Moodle 1.2.0-rc8-m45.
