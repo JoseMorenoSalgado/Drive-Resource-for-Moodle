@@ -394,7 +394,7 @@ function videoplayer_bind_bunny_asset(stdClass $instance): void {
  * eventual cleanup without blocking deletion.
  *
  * @param stdClass $instance Persisted activity instance.
- * @return void
+ * @return array|null
  */
 function videoplayer_release_bunny_asset(stdClass $instance): ?array {
     if (
