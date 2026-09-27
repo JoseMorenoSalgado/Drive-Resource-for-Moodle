@@ -51,6 +51,7 @@ class backup_videoplayer_activity_structure_step extends backup_activity_structu
             'type',
             'displaymode',
             'disabledownload',
+            'allowteacherdownload',
             'disablecontextmenu',
             'enablewatermark',
             'enablegamification',
