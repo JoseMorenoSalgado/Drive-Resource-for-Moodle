@@ -133,6 +133,12 @@ if "This activity does not own the video." not in release:
     raise SystemExit("releaseAsset must reject unknown activity/video references")
 if "where('video_id', $videoId)" not in release:
     raise SystemExit("releaseAsset must bind authorization to the exact video")
+if "requestedUploadId" not in release or "bound_instance_id" not in release:
+    raise SystemExit("releaseAsset must support reservation proof for a never-bound Moodle activity")
+
+moodle_release = Path("classes/task/release_bunny_asset.php").read_text()
+if "uploadid" not in moodle_release:
+    raise SystemExit("Moodle release task must carry the upload reservation when available")
 
 print("Managed-video lifecycle serialization: PASS")
 PY
