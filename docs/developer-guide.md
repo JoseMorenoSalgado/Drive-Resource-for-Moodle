@@ -174,6 +174,8 @@ Moodle 4.5 provides `get_suffix()` through the completion form trait. When addin
 
 Provider lifecycle decisions belong in `local/provider/bunny_asset_lifecycle.php`, not in `lib.php`. Keep Moodle callbacks focused on persistence and local file/cache work; add lifecycle transition tests whenever bind/release/rename rules change. Queue destructive release work only after the corresponding Moodle database mutation has committed.
 
+WHMCS lifecycle code must acquire the upload-row lock before mutating asset references. Do not revert the asset-reference unique key to service/site/instance only: `video_id` is required so a replacement bind and the previous asset release remain independently addressable under concurrent cron workers.
+
 
 Managed video is intentionally split across two trust domains.
 
