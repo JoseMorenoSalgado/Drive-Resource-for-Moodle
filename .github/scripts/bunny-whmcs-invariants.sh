@@ -15,6 +15,7 @@ require_file() {
 echo "Checking Elearning Stream/WHMCS required files..."
 require_file "classes/local/provider/bunny_stream.php"
 require_file "classes/local/whmcs_gateway_client.php"
+require_file "classes/local/gateway/upload_authorisation.php"
 require_file "classes/external/create_bunny_upload.php"
 require_file "classes/external/refresh_bunny_upload.php"
 require_file "classes/external/complete_bunny_upload.php"
@@ -42,7 +43,7 @@ if grep -RniE 'AccessKey:|bunny_api_key|bunny_token_key' classes amd db lib.php 
     fail "A Bunny management credential identifier leaked into Moodle runtime code."
 fi
 grep -q "Provider credentials remain protected in the gateway" lang/en/videoplayer.php     || fail "Moodle secret-boundary language invariant is missing."
-grep -q "video\.bunnycdn\.com" classes/local/whmcs_gateway_client.php     || fail "Moodle no longer pins the TUS upload host."
+grep -q "video\.bunnycdn\.com" classes/local/gateway/upload_authorisation.php     || fail "Moodle no longer pins the TUS upload host."
 if grep -Rni '/library/' classes amd/src amd/build; then
     fail "Moodle runtime contains a Bunny management API path."
 fi
