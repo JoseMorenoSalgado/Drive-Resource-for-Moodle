@@ -25,7 +25,7 @@ The provisioning module defaults to:
 
 - 7 GB included video storage;
 - soft overage enabled;
-- 30-day retention after the last Moodle reference is released.
+- immediate provider deletion after the final Moodle reference is released (`Retention Days = 0`); use a positive value only when a recovery grace period is intentionally required.
 
 Configure the WHMCS Usage Billing metric `video_storage_gb` with the same included quantity and your desired per-GB overage price.
 
