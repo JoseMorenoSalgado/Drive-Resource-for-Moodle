@@ -106,6 +106,8 @@ For rc9, also create a disposable managed-video activity, rename it, then delete
 
 When upgrading the gateway from 0.5.4 or earlier, open/activate the addon so the 0.5.5 upgrade rebuilds `dr_asset_ref_unique` with `video_id`. Then test replacing the video in an existing activity before cron runs; the old asset must be released independently and the new asset must remain bound/playable.
 
+The 0.5.5 WHMCS ZIP must be extracted at the WHMCS document root and contains top-level `modules/addons/...` and `modules/servers/...`. If an archive shows an extra `whmcs-root/` parent directory, do not deploy that artifact.
+
 
 After installing rc19:
 
