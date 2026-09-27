@@ -1,7 +1,26 @@
 <?php
 // This file is part of Moodle - http://moodle.org/
 //
-// Site-administrator view of mandatory Elearning Stream deletions.
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle. If not, see <https://www.gnu.org/licenses/>.
+
+/**
+ * Site-administrator view of mandatory Elearning Stream deletions.
+ *
+ * @package    mod_videoplayer
+ * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 
 require(__DIR__ . '/../../config.php');
 require_once(__DIR__ . '/lib.php');
@@ -22,12 +41,24 @@ $videoid = optional_param('videoid', '', PARAM_ALPHANUMEXT);
 
 if ($action === 'delete') {
     require_sesskey();
+
     try {
         $result = (new whmcs_gateway_client())->force_delete_asset($videoid);
         if (($result['status'] ?? '') === 'deleted') {
-            redirect($url, get_string('deletiondeletednow', 'mod_videoplayer'), null, \core\output\notification::NOTIFY_SUCCESS);
+            redirect(
+                $url,
+                get_string('deletiondeletednow', 'mod_videoplayer'),
+                null,
+                \core\output\notification::NOTIFY_SUCCESS
+            );
         }
-        redirect($url, get_string('deletionnotdeleted', 'mod_videoplayer'), null, \core\output\notification::NOTIFY_WARNING);
+
+        redirect(
+            $url,
+            get_string('deletionnotdeleted', 'mod_videoplayer'),
+            null,
+            \core\output\notification::NOTIFY_WARNING
+        );
     } catch (Throwable $exception) {
         redirect(
             $url,
@@ -57,14 +88,14 @@ try {
     exit;
 }
 
-$retentiondays = max(0, (int)($queue['retentiondays'] ?? 0));
+$retentiondays = max(0, (int) ($queue['retentiondays'] ?? 0));
 echo html_writer::tag(
     'p',
     get_string('deletionpolicyactive', 'mod_videoplayer', $retentiondays),
     ['class' => 'mb-4']
 );
 
-$items = (array)($queue['deletions'] ?? []);
+$items = (array) ($queue['deletions'] ?? []);
 if ($items === []) {
     echo $OUTPUT->notification(
         get_string('deletionqueuenone', 'mod_videoplayer'),
@@ -85,27 +116,44 @@ $table->head = [
 $table->data = [];
 
 foreach ($items as $item) {
-    $deleteafter = max(0, (int)($item['deleteafter'] ?? 0));
-    $bytes = max(0, (int)($item['bytes'] ?? 0));
-    $form = html_writer::start_tag('form', ['method' => 'post', 'action' => $url->out(false)]);
-    $form .= html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
-    $form .= html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'action', 'value' => 'delete']);
+    $deleteafter = max(0, (int) ($item['deleteafter'] ?? 0));
+    $bytes = max(0, (int) ($item['bytes'] ?? 0));
+
+    $form = html_writer::start_tag('form', [
+        'method' => 'post',
+        'action' => $url->out(false),
+    ]);
+    $form .= html_writer::empty_tag('input', [
+        'type' => 'hidden',
+        'name' => 'sesskey',
+        'value' => sesskey(),
+    ]);
+    $form .= html_writer::empty_tag('input', [
+        'type' => 'hidden',
+        'name' => 'action',
+        'value' => 'delete',
+    ]);
     $form .= html_writer::empty_tag('input', [
         'type' => 'hidden',
         'name' => 'videoid',
-        'value' => s((string)($item['videoid'] ?? '')),
+        'value' => (string) ($item['videoid'] ?? ''),
     ]);
     $form .= html_writer::tag(
         'button',
         get_string('deletiondeletenow', 'mod_videoplayer'),
-        ['type' => 'submit', 'class' => 'btn btn-danger btn-sm']
+        [
+            'type' => 'submit',
+            'class' => 'btn btn-danger btn-sm',
+        ]
     );
     $form .= html_writer::end_tag('form');
 
     $table->data[] = [
-        s((string)($item['title'] ?? '')),
-        s((string)($item['status'] ?? '')),
-        $deleteafter > 0 ? userdate($deleteafter) : get_string('deletionautomaticsoon', 'mod_videoplayer'),
+        s((string) ($item['title'] ?? '')),
+        s((string) ($item['status'] ?? '')),
+        $deleteafter > 0
+            ? userdate($deleteafter)
+            : get_string('deletionautomaticsoon', 'mod_videoplayer'),
         display_size($bytes),
         $form,
     ];
