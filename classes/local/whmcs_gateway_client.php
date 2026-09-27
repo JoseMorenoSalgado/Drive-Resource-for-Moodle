@@ -424,13 +424,19 @@ final class whmcs_gateway_client {
      *
      * @param string $videoid Bunny video GUID.
      * @param int $instanceid Moodle activity instance id.
+     * @param string $uploadid Optional upload reservation for a never-bound activity.
      * @return array Gateway status.
      */
-    public function release_asset(string $videoid, int $instanceid): array {
-        return $this->post('/api/asset-release.php', [
+    public function release_asset(string $videoid, int $instanceid, string $uploadid = ''): array {
+        $payload = [
             'videoid' => $videoid,
             'instanceid' => $instanceid,
-        ]);
+        ];
+        if ($uploadid !== '') {
+            $payload['uploadid'] = $uploadid;
+        }
+
+        return $this->post('/api/asset-release.php', $payload);
     }
 
     /**
