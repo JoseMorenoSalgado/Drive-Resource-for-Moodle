@@ -194,6 +194,7 @@ function videoplayer_normalise_instance_data(stdClass $data): stdClass {
         unset($data->streaminputmode, $data->streamurl);
         $data->displaymode = 'standard';
         $data->disabledownload = 1;
+        $data->allowteacherdownload = empty($data->allowteacherdownload) ? 0 : 1;
     } else {
         $data->videourl = trim((string)($data->videourl ?? ''));
         $data->providerassetid = null;
@@ -210,6 +211,11 @@ function videoplayer_normalise_instance_data(stdClass $data): stdClass {
     // Direct-download UI is not supported by the protected-only architecture.
     // Keep the legacy database field pinned for backup/restore compatibility.
     $data->disabledownload = 1;
+    if ($data->source !== bunny_stream::SOURCE) {
+        $data->allowteacherdownload = 0;
+    } else {
+        $data->allowteacherdownload = empty($data->allowteacherdownload) ? 0 : 1;
+    }
     $data->disablecontextmenu = empty($data->disablecontextmenu) ? 0 : 1;
     $data->enablewatermark = empty($data->enablewatermark) ? 0 : 1;
     $data->enablegamification = empty($data->enablegamification) ? 0 : 1;
