@@ -84,6 +84,8 @@ Moodle meters protected transfer per service and reports idempotent usage batche
 
 Managed-video lifecycle transitions are coordinated by `classes/local/provider/bunny_asset_lifecycle.php`. Moodle callbacks persist local state first, then the lifecycle service queues idempotent WHMCS bind, release or rename tasks. Provider credentials and destructive provider calls remain outside Moodle.
 
+WHMCS Gateway 0.5.5 additionally serializes bind/restore/release transitions on the provider upload row and stores references per activity+video. This prevents a replacement bind from erasing the old reference before its release task runs and prevents deletion from racing a concurrent rebind.
+
 The WHMCS companion 0.5.0 separates:
 
 - **video provider** — Elearning Stream today, extensible to additional managed-video providers;
