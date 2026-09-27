@@ -86,6 +86,8 @@ Managed-video lifecycle transitions are coordinated by `classes/local/provider/b
 
 WHMCS Gateway 0.5.5 additionally serializes bind/restore/release transitions on the provider upload row and stores references per activity+video. This prevents a replacement bind from erasing the old reference before its release task runs and prevents deletion from racing a concurrent rebind.
 
+If an activity is deleted before its first bind task executes, Moodle forwards the original upload reservation id with the release task. WHMCS accepts that fallback only when the reservation belongs to the same service/video and has never been bound to another activity.
+
 The WHMCS companion 0.5.0 separates:
 
 - **video provider** — Elearning Stream today, extensible to additional managed-video providers;
