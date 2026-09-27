@@ -1,5 +1,12 @@
 # Changelog
 
+## Elearning Stream 1.2.0-rc9-m45 — 2026-09-27
+
+- Extracts managed-video bind/release/rename decisions from `lib.php` into a dedicated provider lifecycle service.
+- Queues provider release only after Moodle has committed activity deletion, reducing cross-system inconsistency risk.
+- Adds PHPUnit coverage for create, replace, rename, source-switch and delete lifecycle transitions.
+- Keeps the central TUS authorization validator and regenerated Moodle AMD output from rc8 hardening.
+
 ## Elearning Stream 1.2.0-rc8-m45 — 2026-09-27
 
 - Centralises TUS upload-authorisation validation and binds refresh responses to the exact reservation/video requested by Moodle, rejecting endpoint credentials, query/fragment injection and non-standard ports.
