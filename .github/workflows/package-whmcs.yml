@@ -36,9 +36,10 @@ jobs:
             zip -qr ../elearning-stream-whmcs-0.5.5.zip modules README-Drive-Resource-WHMCS.md
           )
 
-          unzip -Z1 dist-whmcs/elearning-stream-whmcs-0.5.5.zip | grep -q '^modules/addons/driveresource_gateway/'
-          unzip -Z1 dist-whmcs/elearning-stream-whmcs-0.5.5.zip | grep -q '^modules/servers/driveresource/'
-          if unzip -Z1 dist-whmcs/elearning-stream-whmcs-0.5.5.zip | grep -q '^whmcs-root/'; then
+          package_entries="$(unzip -Z1 dist-whmcs/elearning-stream-whmcs-0.5.5.zip)"
+          grep -q '^modules/addons/driveresource_gateway/' <<<"$package_entries"
+          grep -q '^modules/servers/driveresource/' <<<"$package_entries"
+          if grep -q '^whmcs-root/' <<<"$package_entries"; then
             echo "::error::WHMCS package must extract directly into the WHMCS document root."
             exit 1
           fi
