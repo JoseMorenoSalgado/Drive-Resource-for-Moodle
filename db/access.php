@@ -52,6 +52,17 @@ $capabilities = [
         'clonepermissionsfrom' => 'moodle/course:manageactivities',
     ],
 
+    // Download managed video only when the activity explicitly allows teacher downloads.
+    'mod/videoplayer:downloadvideo' => [
+        'riskbitmask' => RISK_DATALOSS,
+        'captype' => 'read',
+        'contextlevel' => CONTEXT_MODULE,
+        'archetypes' => [
+            'editingteacher' => CAP_ALLOW,
+            'manager' => CAP_ALLOW,
+        ],
+    ],
+
     // Capability to view Drive Resource content after normal Moodle enrolment/access checks.
     'mod/videoplayer:view' => [
         'captype' => 'read',
