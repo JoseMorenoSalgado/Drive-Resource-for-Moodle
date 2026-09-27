@@ -42,6 +42,11 @@
         {{#showresourcetype}}<span class="mod-videoplayer-meta-item">{{resourcetype}}</span>{{/showresourcetype}}
         <span class="mod-videoplayer-meta-item">{{#str}} protectedresource, mod_videoplayer {{/str}}</span>
         <span class="mod-videoplayer-meta-item js-video-progress-label">{{completionpercent}}%</span>
+        {{#allowteacherdownload}}
+            <a class="btn btn-sm btn-outline-secondary ml-auto" href="{{teacherdownloadurl}}">
+                {{#str}} downloadvideo, mod_videoplayer {{/str}}
+            </a>
+        {{/allowteacherdownload}}
     </div>
 
     <div class="mod-videoplayer-native-frame mod-videoplayer-own-player js-native-video-frame"
