@@ -683,11 +683,32 @@ final class GatewayService
         $this->requireBackendCapability($service, BackendRegistry::CAP_MANAGED_VIDEO);
         $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
         $instanceId = (int) ($payload['instanceid'] ?? 0);
-        if ($instanceId <= 0 || !preg_match('/^[a-f0-9-]{32,64}$/i', $videoId)) {
+        $requestedUploadId = strtolower(trim((string) ($payload['uploadid'] ?? '')));
+
+        if (
+            $instanceId <= 0
+            || !preg_match('/^[a-f0-9-]{32,64}$/i', $videoId)
+            || ($requestedUploadId !== '' && !preg_match('/^[a-f0-9]{32}$/', $requestedUploadId))
+        ) {
             throw new GatewayException('Invalid asset release request.', 422);
         }
 
         $serviceId = (int) $service->service_id;
+
+        // A Moodle activity can be deleted before its queued bind task runs.
+        // In that case the upload reservation is the only durable proof that
+        // this site legitimately created the still-unbound provider asset.
+        if ($requestedUploadId !== '') {
+            $candidate = $this->requireUpload($serviceId, $requestedUploadId, $videoId);
+            if ((string) $candidate->status === 'authorized') {
+                $this->completeUpload($service, [
+                    'uploadid' => $requestedUploadId,
+                    'videoid' => $videoId,
+                    'filesize' => (int) $candidate->source_size,
+                ]);
+            }
+        }
+
         $siteHash = hash('sha256', $siteUrl);
         $retentionDays = max(0, min(365, (int) ($service->retention_days ?? 0)));
         $deleteNow = false;
@@ -702,6 +723,7 @@ final class GatewayService
             $siteHash,
             $instanceId,
             $videoId,
+            $requestedUploadId,
             $retentionDays,
             $now,
             &$deleteNow,
@@ -712,17 +734,25 @@ final class GatewayService
         ): void {
             // Always lock the provider asset before its references. Bind and
             // restore use the same lock order, preventing bind/delete races.
-            $upload = Capsule::table('mod_driveresource_uploads')
+            $query = Capsule::table('mod_driveresource_uploads')
                 ->where('service_id', $serviceId)
-                ->where('video_id', $videoId)
+                ->where('video_id', $videoId);
+            if ($requestedUploadId !== '') {
+                $query->where('upload_id', $requestedUploadId);
+            }
+            $upload = $query
                 ->whereIn('status', ['processing', 'ready', 'bound', 'deleting'])
                 ->lockForUpdate()
                 ->first();
 
             if (!$upload) {
-                $upload = Capsule::table('mod_driveresource_uploads')
+                $query = Capsule::table('mod_driveresource_uploads')
                     ->where('service_id', $serviceId)
-                    ->where('video_id', $videoId)
+                    ->where('video_id', $videoId);
+                if ($requestedUploadId !== '') {
+                    $query->where('upload_id', $requestedUploadId);
+                }
+                $upload = $query
                     ->where('status', 'deleted')
                     ->lockForUpdate()
                     ->first();
@@ -740,11 +770,17 @@ final class GatewayService
                 ->lockForUpdate()
                 ->first();
 
-            if (!$reference) {
+            $isUnboundReservation = !$reference
+                && $requestedUploadId !== ''
+                && hash_equals((string) $upload->upload_id, $requestedUploadId)
+                && (int) $upload->bound_instance_id === 0
+                && in_array((string) $upload->status, ['processing', 'ready'], true);
+
+            if (!$reference && !$isUnboundReservation) {
                 throw new GatewayException('This activity does not own the video.', 403);
             }
 
-            if ((bool) $reference->active) {
+            if ($reference && (bool) $reference->active) {
                 Capsule::table('mod_driveresource_asset_refs')
                     ->where('id', (int) $reference->id)
                     ->update(['active' => false, 'updated_at' => $now]);
