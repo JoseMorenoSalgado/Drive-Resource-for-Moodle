@@ -851,12 +851,6 @@ final class GatewayService
     }
 
     /**
-     * Remove an uncompleted quota reservation.
-     *
-     * @param string $uploadId Upload reservation.
-     * @return void
-     */
-    /**
      * Record one idempotent Moodle transfer-usage batch.
      *
      * @param object $service Authenticated service row.
@@ -1245,6 +1239,12 @@ final class GatewayService
         }
     }
 
+    /**
+     * Remove an uncompleted quota reservation and return reserved capacity.
+     *
+     * @param string $uploadId Upload reservation.
+     * @return void
+     */
     private function cancelReservation(string $uploadId): void
     {
         Capsule::connection()->transaction(function () use ($uploadId): void {
