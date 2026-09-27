@@ -176,6 +176,8 @@ Provider lifecycle decisions belong in `local/provider/bunny_asset_lifecycle.php
 
 WHMCS lifecycle code must acquire the upload-row lock before mutating asset references. Do not revert the asset-reference unique key to service/site/instance only: `video_id` is required so a replacement bind and the previous asset release remain independently addressable under concurrent cron workers.
 
+When queueing a release from Moodle, preserve `provideruploadid` if it is still present. It is the scoped proof for the edge case where the activity is deleted before `bind_bunny_asset` creates an WHMCS asset reference. Never accept a reservation-based release after `bound_instance_id` becomes non-zero without the exact reference row.
+
 
 Managed video is intentionally split across two trust domains.
 
