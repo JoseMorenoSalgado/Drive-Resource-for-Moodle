@@ -38,6 +38,10 @@ final class release_bunny_asset extends \core\task\adhoc_task {
             return;
         }
 
-        (new whmcs_gateway_client())->release_asset((string)$data->videoid, (int)$data->instanceid);
+        (new whmcs_gateway_client())->release_asset(
+            (string)$data->videoid,
+            (int)$data->instanceid,
+            (string)($data->uploadid ?? '')
+        );
     }
 }
