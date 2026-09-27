@@ -550,7 +550,10 @@ function videoplayer_sync_bunny_title(stdClass $instance): void {
                 );
                 return;
             } catch (Throwable $repairfailure) {
-                // The retry task below will re-evaluate current Moodle state.
+                debugging(
+                    'Elearning Stream metadata ownership repair failed: ' . $repairfailure->getMessage(),
+                    DEBUG_DEVELOPER
+                );
             }
         }
 
