@@ -1,6 +1,6 @@
 # Elearning Stream installation and upgrade
 
-## Supported platform for 1.2.0-rc6-m45
+## Supported platform for 1.2.0-rc9-m45
 
 - Moodle 4.5 LTS
 - PHP 8.1+
@@ -15,7 +15,7 @@ This compatibility package declares Moodle 4.5 only. Do not install it on Moodle
 
 ## Production connection model
 
-Install the matching **Elearning Stream Gateway 0.5.1** companion in WHMCS. In the addon configure **Public Gateway URL** to the branded HTTPS endpoint that customers will paste into Moodle; the recommended production value is:
+Install the matching **Elearning Stream Gateway 0.5.4** companion in WHMCS. In the addon configure **Public Gateway URL** to the branded HTTPS endpoint that customers will paste into Moodle; the recommended production value is:
 
 ```text
 https://stream.elearningcloud.io
@@ -101,6 +101,9 @@ The Moodle server must be able to access the linked Drive resource using the sha
 Paste a normal supported Drive/Docs sharing URL into the activity. The learner must not be given the direct source URL separately.
 
 ## Post-upgrade validation
+
+For rc9, also create a disposable managed-video activity, rename it, then delete it and run cron. Confirm WHMCS receives the rename while the reference is active and receives the release only after Moodle has removed the activity row. With Retention Days = 0, the final unreferenced provider asset should then be deleted by the gateway.
+
 
 After installing rc19:
 
