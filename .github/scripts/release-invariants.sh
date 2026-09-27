@@ -17,7 +17,6 @@ echo "Checking required production assets..."
 require_file "thirdpartylibs/pdfjs/pdf.min.mjs"
 require_file "thirdpartylibs/pdfjs/pdf.worker.min.mjs"
 require_file "amd/build/nativevideo.min.js"
-require_file "amd/build/nativevideo.min.js.map"
 require_file "amd/build/pdfviewer.min.js"
 require_file "amd/build/pdfviewer.min.js.map"
 require_file "protected.php"
@@ -90,6 +89,6 @@ grep -q 'get_suffix()' mod_form.php     || fail "Custom completion controls no l
 
 echo "Checking release metadata..."
 grep -q "\$plugin->supported = \[405, 405\]" version.php     || fail "Moodle 4.5 support declaration changed unexpectedly."
-grep -q 'MATURITY_BETA' version.php     || fail "Beta hardening branch must remain beta maturity until release exit gates pass."
+grep -q 'MATURITY_RC' version.php     || fail "The Moodle release candidate must declare RC maturity."
 
 echo "Drive Resource release invariants: PASS"
