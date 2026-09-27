@@ -29,6 +29,7 @@
 
 namespace mod_videoplayer\local;
 
+use mod_videoplayer\local\gateway\upload_authorisation;
 use moodle_exception;
 
 /**
@@ -129,61 +130,19 @@ final class whmcs_gateway_client {
      */
     public function create_upload(array $payload): array {
         $response = $this->post('/api/upload-authorize.php', $payload);
-
-        foreach (['uploadid', 'videoid', 'libraryid', 'endpoint', 'signature', 'expiration'] as $key) {
-            if (!array_key_exists($key, $response)) {
-                throw new moodle_exception('whmcsgatewayinvalidresponse', 'mod_videoplayer');
-            }
-        }
-
-        $videoid = trim((string)$response['videoid']);
-        $uploadid = trim((string)$response['uploadid']);
-        $libraryid = trim((string)$response['libraryid']);
-        $endpoint = trim((string)$response['endpoint']);
-        $signature = strtolower(trim((string)$response['signature']));
-        $expiration = (int)$response['expiration'];
-
-        if (
-            !preg_match('/^[a-f0-9-]{32,64}$/i', $videoid)
-            || !preg_match('/^[a-f0-9-]{20,64}$/i', $uploadid)
-            || !preg_match('/^\d{1,20}$/', $libraryid)
-            || !preg_match('/^[a-f0-9]{64}$/', $signature)
-            || $expiration <= time()
-            || $expiration > time() + DAYSECS
-        ) {
-            throw new moodle_exception('whmcsgatewayinvalidresponse', 'mod_videoplayer');
-        }
-
-        $endpointparts = parse_url($endpoint);
-        if (
-            !$endpointparts
-            || strtolower((string)($endpointparts['scheme'] ?? '')) !== 'https'
-            || strtolower((string)($endpointparts['host'] ?? '')) !== 'video.bunnycdn.com'
-            || rtrim((string)($endpointparts['path'] ?? ''), '/') !== '/tusupload'
-            || !empty($endpointparts['user'])
-            || !empty($endpointparts['pass'])
-        ) {
-            throw new moodle_exception('whmcsgatewayinvaliduploadendpoint', 'mod_videoplayer');
-        }
-
+        $authorisation = upload_authorisation::normalise($response);
         $quota = is_array($response['quota'] ?? null) ? $response['quota'] : [];
 
-        return [
-            'uploadid' => $uploadid,
-            'videoid' => $videoid,
-            'libraryid' => $libraryid,
-            'endpoint' => $endpoint,
-            'signature' => $signature,
-            'expiration' => $expiration,
-            'quota' => [
-                'includedbytes' => max(0, (int)($quota['includedbytes'] ?? 0)),
-                'usedbytes' => max(0, (int)($quota['usedbytes'] ?? 0)),
-                'reservedbytes' => max(0, (int)($quota['reservedbytes'] ?? 0)),
-                'projectedbytes' => max(0, (int)($quota['projectedbytes'] ?? 0)),
-                'overagebytes' => max(0, (int)($quota['overagebytes'] ?? 0)),
-                'overageallowed' => !empty($quota['overageallowed']),
-            ],
+        $authorisation['quota'] = [
+            'includedbytes' => max(0, (int)($quota['includedbytes'] ?? 0)),
+            'usedbytes' => max(0, (int)($quota['usedbytes'] ?? 0)),
+            'reservedbytes' => max(0, (int)($quota['reservedbytes'] ?? 0)),
+            'projectedbytes' => max(0, (int)($quota['projectedbytes'] ?? 0)),
+            'overagebytes' => max(0, (int)($quota['overagebytes'] ?? 0)),
+            'overageallowed' => !empty($quota['overageallowed']),
         ];
+
+        return $authorisation;
     }
 
     /**
@@ -199,41 +158,7 @@ final class whmcs_gateway_client {
             'videoid' => $videoid,
         ]);
 
-        foreach (['uploadid', 'videoid', 'libraryid', 'endpoint', 'signature', 'expiration'] as $key) {
-            if (!array_key_exists($key, $response)) {
-                throw new moodle_exception('whmcsgatewayinvalidresponse', 'mod_videoplayer');
-            }
-        }
-
-        $endpoint = trim((string)$response['endpoint']);
-        $endpointparts = parse_url($endpoint);
-        if (
-            !$endpointparts
-            || strtolower((string)($endpointparts['scheme'] ?? '')) !== 'https'
-            || strtolower((string)($endpointparts['host'] ?? '')) !== 'video.bunnycdn.com'
-            || rtrim((string)($endpointparts['path'] ?? ''), '/') !== '/tusupload'
-        ) {
-            throw new moodle_exception('whmcsgatewayinvaliduploadendpoint', 'mod_videoplayer');
-        }
-
-        $signature = strtolower(trim((string)$response['signature']));
-        $expiration = (int)$response['expiration'];
-        if (
-            !preg_match('/^[a-f0-9]{64}$/', $signature)
-            || $expiration <= time()
-            || $expiration > time() + DAYSECS
-        ) {
-            throw new moodle_exception('whmcsgatewayinvalidresponse', 'mod_videoplayer');
-        }
-
-        return [
-            'uploadid' => clean_param((string)$response['uploadid'], PARAM_ALPHANUMEXT),
-            'videoid' => clean_param((string)$response['videoid'], PARAM_ALPHANUMEXT),
-            'libraryid' => trim((string)$response['libraryid']),
-            'endpoint' => $endpoint,
-            'signature' => $signature,
-            'expiration' => $expiration,
-        ];
+        return upload_authorisation::normalise($response, $uploadid, $videoid);
     }
 
     /**

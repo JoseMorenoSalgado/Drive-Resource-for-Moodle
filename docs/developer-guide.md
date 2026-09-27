@@ -365,3 +365,7 @@ When editing `amd/src/nativevideo.js`, regenerate `amd/build/nativevideo.min.js`
 Changing a bound activity name queues `rename_bunny_asset`. WHMCS endpoint `asset-rename.php` verifies service and site-scoped reference ownership. Deploy Gateway 0.5.4 before RC8.
 
 The Moodle code checker also validates task file boilerplate and PSR-12 layout for multiline calls and conditions; run it after editing the task classes.
+
+## Gateway TUS response contract
+
+Do not duplicate TUS capability parsing inside external functions or `whmcs_gateway_client`. Route create/refresh responses through `local/gateway/upload_authorisation::normalise()`. A refresh is identity-preserving: the returned `uploadid` and `videoid` must match the requested identifiers. Any future provider adapter that changes the browser upload endpoint requires an explicit validator change plus PHPUnit and security-documentation updates.

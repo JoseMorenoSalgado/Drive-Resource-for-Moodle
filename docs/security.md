@@ -259,3 +259,7 @@ Collection IDs are stored only in the gateway control plane. Collection names us
 A delayed bind task now rejects deleted or repointed activities before contacting WHMCS and releases a binding if deletion occurs during the remote call. Provider credentials remain in WHMCS. A Moodle deletion still requires cron to execute its queued release task.
 
 Video title updates use the signed Moodle-to-WHMCS gateway and require a matching active reference for the authenticated site and service.
+
+## TUS authorization response integrity
+
+Gateway trust does not bypass Moodle-side validation of browser-exposed upload capabilities. Create and refresh responses are validated through one policy object. The allowed endpoint is HTTPS `video.bunnycdn.com/tusupload` on the standard TLS port, without URL credentials, query strings or fragments. Signatures and expiry windows are bounded, identifiers are format-checked, and refresh responses are rejected if the gateway returns a different upload reservation or video id than Moodle requested.

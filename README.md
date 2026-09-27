@@ -110,3 +110,7 @@ The `mod_videoplayer` component name, database tables and internal compatibility
 ## License
 
 GNU GPL v3 or later for the Moodle plugin. Companion-module licensing is declared in the WHMCS integration source.
+
+### Gateway upload authorization integrity
+
+Direct TUS upload capabilities returned by the control plane are revalidated inside Moodle before they reach the teacher browser. Drive Resource requires the exact HTTPS Bunny upload host/path, standard TLS port, bounded expiration, strict identifiers and signature format. Refreshed capabilities must preserve the upload reservation and video identity originally requested by Moodle.

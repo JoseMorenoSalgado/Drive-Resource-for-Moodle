@@ -427,3 +427,7 @@ New provider videos are created directly inside the service collection. Imported
 The Moodle 1.2.0-rc7 binding task checks the persisted activity before a delayed WHMCS bind and releases a binding if the activity was removed while the request ran. WHMCS remains the only component that deletes Bunny media.
 
 Activity name edits enqueue a guarded rename task; WHMCS verifies both service ownership and an active reference before calling Bunny.
+
+## TUS authorization validation boundary
+
+The WHMCS/control-plane response is not passed through directly to JavaScript. `local/gateway/upload_authorisation` is the single Moodle-side validator for create and refresh capabilities. It validates identifier formats, library id, signature shape, expiration, the exact Bunny TUS HTTPS endpoint and, for refreshes, compares the returned reservation/video identifiers with the values Moodle requested.

@@ -2,6 +2,8 @@
 
 ## Elearning Stream 1.2.0-rc8-m45 — 2026-09-27
 
+- Centralises TUS upload-authorisation validation and binds refresh responses to the exact reservation/video requested by Moodle, rejecting endpoint credentials, query/fragment injection and non-standard ports.
+
 - Aligns GitHub source with the rc6 Moodle and WHMCS packages.
 - Synchronises Moodle activity renames through the authenticated WHMCS gateway after validating service ownership and active binding.
 - Fixes desktop and mobile video controls, keyboard focus and seek feedback.
