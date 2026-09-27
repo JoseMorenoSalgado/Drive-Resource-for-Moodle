@@ -666,5 +666,27 @@ function xmldb_videoplayer_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026092501, 'videoplayer');
     }
 
+    // Add an explicit, teacher-only download permission flag for managed video.
+    if ($oldversion < 2026092701) {
+        $table = new xmldb_table('videoplayer');
+        if ($dbman->table_exists($table)) {
+            $field = new xmldb_field(
+                'allowteacherdownload',
+                XMLDB_TYPE_INTEGER,
+                '1',
+                null,
+                XMLDB_NOTNULL,
+                null,
+                '0',
+                'disabledownload'
+            );
+            if (!$dbman->field_exists($table, $field)) {
+                $dbman->add_field($table, $field);
+            }
+        }
+
+        upgrade_mod_savepoint(true, 2026092701, 'videoplayer');
+    }
+
     return true;
 }

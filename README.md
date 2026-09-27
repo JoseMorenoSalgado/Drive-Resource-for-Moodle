@@ -6,7 +6,13 @@ Elearning Stream is a protected-video activity for Moodle. The historical Moodle
 
 - Product: **Elearning Stream**
 - Moodle component: `mod_videoplayer`
-- Release: **1.2.0-rc9-m45**
+- Release: **1.2.0-rc10-m45**
+
+### Lifecycle policy
+
+- **Mandatory remote cleanup:** after the final Moodle reference is removed, Elearning Stream deletes the provider video immediately when Retention Days is 0, or schedules deletion for the configured WHMCS grace period. Moodle administrators can delete a pending orphan earlier, but cannot disable cleanup.
+- **Teacher downloads:** each activity can optionally allow protected MP4 downloads for editing teachers/managers with `mod/videoplayer:downloadvideo`. Students never receive this permission by default, and Bunny URLs/credentials are never exposed.
+
 - Target: Moodle **4.5 LTS**
 - PHP baseline: PHP 8.1+
 - Video runtime: native HTML5 Media API

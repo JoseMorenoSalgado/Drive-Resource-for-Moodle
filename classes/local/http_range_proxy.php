@@ -77,6 +77,7 @@ final class http_range_proxy {
      * @param string $fallbacktype Fallback MIME type.
      * @param string $cachestatus Cache diagnostic status.
      * @param callable|null $ontransfer Optional callback receiving actual emitted bytes.
+     * @param bool $attachment Force Content-Disposition attachment.
      * @return never
      */
     public static function proxy(
@@ -84,7 +85,8 @@ final class http_range_proxy {
         string $filename,
         string $fallbacktype,
         string $cachestatus = 'BYPASS',
-        ?callable $ontransfer = null
+        ?callable $ontransfer = null,
+        bool $attachment = false
     ): never {
         if (!upstream_url_policy::is_allowed($url)) {
             debugging('Drive Resource proxy rejected a non-allowlisted upstream URL.', DEBUG_DEVELOPER);
@@ -120,7 +122,8 @@ final class http_range_proxy {
                     $range,
                     $rangemode,
                     $ishead,
-                    $requestcookies
+                    $requestcookies,
+                    $attachment
                 );
 
                 if ($lastresponse['sent']) {
@@ -223,6 +226,7 @@ final class http_range_proxy {
      * @param string $rangemode Range transmission strategy.
      * @param bool $ishead Whether this is a HEAD request.
      * @param array $requestcookies Domain-scoped cookies obtained from Drive responses.
+     * @param bool $attachment Force Content-Disposition attachment.
      * @return array{
      *     sent: bool,
      *     result: bool,
@@ -245,7 +249,8 @@ final class http_range_proxy {
         string $range,
         string $rangemode,
         bool $ishead,
-        array $requestcookies = []
+        array $requestcookies = [],
+        bool $attachment = false
     ): array {
         $requestheaders = [
             'Accept: */*',
@@ -396,7 +401,8 @@ final class http_range_proxy {
                 $cachestatus,
                 $validator,
                 $range,
-                $rangemode
+                $rangemode,
+                $attachment
             ): int {
                 $datalength = strlen($data);
                 $status = (int) ($responseheaders['status'] ?? 0);
@@ -452,7 +458,8 @@ final class http_range_proxy {
                                 $fallbacktype,
                                 $filename,
                                 $cachestatus,
-                                $validator
+                                $validator,
+                                $attachment
                             );
                             $headerssent = true;
                         }
@@ -485,7 +492,8 @@ final class http_range_proxy {
                         $fallbacktype,
                         $filename,
                         $cachestatus,
-                        $validator
+                        $validator,
+                        $attachment
                     );
                     $headerssent = true;
                 }
@@ -554,7 +562,8 @@ final class http_range_proxy {
                 $fallbacktype,
                 $filename,
                 $cachestatus,
-                $validator
+                $validator,
+                $attachment
             );
             $headerssent = true;
         } else if (
@@ -572,7 +581,8 @@ final class http_range_proxy {
                 $fallbacktype,
                 $filename,
                 $cachestatus,
-                $validator
+                $validator,
+                $attachment
             );
             $headerssent = true;
         }
@@ -772,6 +782,7 @@ final class http_range_proxy {
      * @param string $filename Safe filename.
      * @param string $cachestatus Cache diagnostic status.
      * @param string $validator Stable proxy ETag.
+     * @param bool $attachment Force Content-Disposition attachment.
      * @return void
      */
     private static function send_response_headers(
@@ -779,7 +790,8 @@ final class http_range_proxy {
         string $fallbacktype,
         string $filename,
         string $cachestatus,
-        string $validator
+        string $validator,
+        bool $attachment = false
     ): void {
         $status = (int) ($headers['status'] ?? 200) === 206 ? 206 : 200;
         $contenttype = self::resolve_content_type(
@@ -791,7 +803,11 @@ final class http_range_proxy {
 
         http_response_code($status);
         header('Content-Type: ' . $contenttype);
-        header('Content-Disposition: inline; filename="' . $safefilename . '"; filename*=UTF-8\'\'' . rawurlencode($safefilename));
+        $disposition = $attachment ? 'attachment' : 'inline';
+        $contentdisposition = 'Content-Disposition: ' . $disposition
+            . '; filename="' . $safefilename . '"'
+            . '; filename*=UTF-8\'\'' . rawurlencode($safefilename);
+        header($contentdisposition);
         header('X-Content-Type-Options: nosniff');
         header('X-Robots-Tag: noindex, nofollow, noarchive');
         header('X-Accel-Buffering: no');

@@ -750,9 +750,24 @@ final class GatewayService
         });
 
         if (!$deleteNow) {
+            $status = $remaining > 0 ? 'released' : 'scheduled';
+            $deleteAfter = ($status === 'scheduled' && $retentionDays > 0)
+                ? $now + ($retentionDays * 86400)
+                : 0;
+
+            if ($status === 'scheduled') {
+                AuditLogger::log($serviceId, 'asset.delete_scheduled', [
+                    'videoid' => $videoId,
+                    'deleteafter' => $deleteAfter,
+                    'retentiondays' => $retentionDays,
+                ]);
+            }
+
             return [
-                'status' => $remaining > 0 ? 'released' : 'scheduled',
+                'status' => $status,
                 'remainingrefs' => $remaining,
+                'deleteafter' => $deleteAfter,
+                'retentiondays' => $retentionDays,
             ];
         }
 
@@ -799,7 +814,169 @@ final class GatewayService
                 ]);
         });
 
-        return ['status' => 'deleted', 'remainingrefs' => 0];
+        AuditLogger::log($serviceId, 'asset.deleted', [
+            'videoid' => $videoId,
+            'mode' => 'automatic',
+        ]);
+
+        return [
+            'status' => 'deleted',
+            'remainingrefs' => 0,
+            'deleteafter' => 0,
+            'retentiondays' => $retentionDays,
+        ];
+    }
+
+    /**
+     * List provider assets already scheduled for mandatory deletion.
+     *
+     * The gateway is authoritative: Moodle can display this queue but cannot
+     * disable cleanup or extend the retention window.
+     *
+     * @param object $service Service row.
+     * @return array
+     */
+    public function listPendingDeletions(object $service): array
+    {
+        $this->requireBackendCapability($service, BackendRegistry::CAP_MANAGED_VIDEO);
+        $serviceId = (int) $service->service_id;
+        $rows = Capsule::table('mod_driveresource_uploads')
+            ->where('service_id', $serviceId)
+            ->whereNotNull('delete_after')
+            ->whereIn('status', ['processing', 'ready', 'bound', 'deleting'])
+            ->orderBy('delete_after', 'asc')
+            ->limit(100)
+            ->get();
+
+        $deletions = [];
+        foreach ($rows as $row) {
+            $remaining = (int) Capsule::table('mod_driveresource_asset_refs')
+                ->where('service_id', $serviceId)
+                ->where('video_id', (string) $row->video_id)
+                ->where('active', true)
+                ->count();
+
+            if ($remaining > 0) {
+                continue;
+            }
+
+            $deletions[] = [
+                'videoid' => (string) $row->video_id,
+                'title' => mb_substr((string) $row->filename, 0, 255),
+                'status' => (string) $row->status,
+                'deleteafter' => max(0, (int) $row->delete_after),
+                'bytes' => max(0, (int) $row->accounted_bytes),
+            ];
+        }
+
+        return [
+            'deletions' => $deletions,
+            'retentiondays' => max(0, min(365, (int) ($service->retention_days ?? 0))),
+            'automatic' => true,
+        ];
+    }
+
+    /**
+     * Delete one already-unreferenced provider asset immediately.
+     *
+     * This action only shortens the mandatory retention window. It can never
+     * delete an asset that still has an active Moodle reference.
+     *
+     * @param object $service Service row.
+     * @param array $payload Request body.
+     * @return array
+     */
+    public function forceDeleteAsset(object $service, array $payload): array
+    {
+        $this->requireBackendCapability($service, BackendRegistry::CAP_MANAGED_VIDEO);
+        $serviceId = (int) $service->service_id;
+        $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
+        if (!preg_match('/^[a-f0-9-]{32,64}$/i', $videoId)) {
+            throw new GatewayException('Invalid asset deletion request.', 422);
+        }
+
+        $remaining = (int) Capsule::table('mod_driveresource_asset_refs')
+            ->where('service_id', $serviceId)
+            ->where('video_id', $videoId)
+            ->where('active', true)
+            ->count();
+        if ($remaining > 0) {
+            throw new GatewayException(
+                'This video is still referenced by Moodle and cannot be deleted.',
+                409
+            );
+        }
+
+        $upload = Capsule::table('mod_driveresource_uploads')
+            ->where('service_id', $serviceId)
+            ->where('video_id', $videoId)
+            ->orderBy('created_at', 'desc')
+            ->first();
+        if (!$upload) {
+            throw new GatewayException('The requested video is not tracked by this service.', 404);
+        }
+        if ((string) $upload->status === 'deleted') {
+            return ['status' => 'deleted', 'remainingrefs' => 0, 'deleteafter' => 0];
+        }
+
+        $previousStatus = (string) $upload->status;
+        $uploadId = (string) $upload->upload_id;
+        Capsule::table('mod_driveresource_uploads')
+            ->where('service_id', $serviceId)
+            ->where('upload_id', $uploadId)
+            ->update([
+                'status' => 'deleting',
+                'delete_after' => null,
+                'updated_at' => time(),
+            ]);
+
+        try {
+            $this->streamClient($service)->deleteVideo($videoId);
+        } catch (Throwable $exception) {
+            Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->where('upload_id', $uploadId)
+                ->update([
+                    'status' => $previousStatus,
+                    'delete_after' => time(),
+                    'updated_at' => time(),
+                ]);
+            throw new GatewayException(
+                'Elearning Stream could not delete the video now. Automatic deletion remains queued for retry.',
+                502
+            );
+        }
+
+        Capsule::connection()->transaction(function () use ($serviceId, $uploadId): void {
+            Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->where('upload_id', $uploadId)
+                ->update([
+                    'status' => 'deleted',
+                    'accounted_bytes' => 0,
+                    'delete_after' => null,
+                    'updated_at' => time(),
+                ]);
+
+            $used = (int) Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->whereIn('status', ['processing', 'ready', 'bound'])
+                ->sum('accounted_bytes');
+
+            Capsule::table('mod_driveresource_services')
+                ->where('service_id', $serviceId)
+                ->update([
+                    'used_bytes' => max(0, $used),
+                    'updated_at' => time(),
+                ]);
+        });
+
+        AuditLogger::log($serviceId, 'asset.deleted', [
+            'videoid' => $videoId,
+            'mode' => 'moodle_admin_now',
+        ]);
+
+        return ['status' => 'deleted', 'remainingrefs' => 0, 'deleteafter' => 0];
     }
 
     /**

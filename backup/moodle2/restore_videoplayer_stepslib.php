@@ -85,6 +85,9 @@ class restore_videoplayer_activity_structure_step extends restore_activity_struc
 
         $data->displaymode = 'standard';
         $data->disabledownload = 1;
+        $data->allowteacherdownload = $data->source === bunny_stream::SOURCE
+            ? (empty($data->allowteacherdownload) ? 0 : 1)
+            : 0;
         if (!isset($data->disablecontextmenu)) {
             $data->disablecontextmenu = 1;
         }

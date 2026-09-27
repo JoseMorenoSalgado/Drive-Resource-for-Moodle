@@ -44,13 +44,15 @@ final class protected_resource_service {
      * @param \stdClass $instance
      * @param string $streammode Video stream mode: auto, transcoded or source.
      * @param bool $forcerefresh Bypass the short-lived resolved stream cache.
+     * @param bool $attachment Force Content-Disposition attachment for authorised downloads.
      * @return never
      */
     public function send(
         resource_descriptor $resource,
         \stdClass $instance,
         string $streammode = 'auto',
-        bool $forcerefresh = false
+        bool $forcerefresh = false,
+        bool $attachment = false
     ): never {
         if (!$resource->is_available()) {
             throw new \moodle_exception('protectedresourceunavailable', 'mod_videoplayer');
@@ -88,7 +90,8 @@ final class protected_resource_service {
                 'ELEARNING_STREAM',
                 static function (int $bytes) use ($videoid): void {
                     transfer_meter::record($videoid, $bytes);
-                }
+                },
+                $attachment
             );
         }
 

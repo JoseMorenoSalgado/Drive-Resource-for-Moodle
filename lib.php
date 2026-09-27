@@ -194,6 +194,7 @@ function videoplayer_normalise_instance_data(stdClass $data): stdClass {
         unset($data->streaminputmode, $data->streamurl);
         $data->displaymode = 'standard';
         $data->disabledownload = 1;
+        $data->allowteacherdownload = empty($data->allowteacherdownload) ? 0 : 1;
     } else {
         $data->videourl = trim((string)($data->videourl ?? ''));
         $data->providerassetid = null;
@@ -210,6 +211,11 @@ function videoplayer_normalise_instance_data(stdClass $data): stdClass {
     // Direct-download UI is not supported by the protected-only architecture.
     // Keep the legacy database field pinned for backup/restore compatibility.
     $data->disabledownload = 1;
+    if ($data->source !== bunny_stream::SOURCE) {
+        $data->allowteacherdownload = 0;
+    } else {
+        $data->allowteacherdownload = empty($data->allowteacherdownload) ? 0 : 1;
+    }
     $data->disablecontextmenu = empty($data->disablecontextmenu) ? 0 : 1;
     $data->enablewatermark = empty($data->enablewatermark) ? 0 : 1;
     $data->enablegamification = empty($data->enablegamification) ? 0 : 1;
@@ -297,6 +303,7 @@ function videoplayer_queue_bunny_release(stdClass $instance): void {
     $task->set_custom_data([
         'instanceid' => (int)$instance->id,
         'videoid' => (string)$instance->providerassetid,
+        'title' => trim((string)($instance->name ?? '')),
     ]);
     \core\task\manager::queue_adhoc_task($task, true);
 }
@@ -387,28 +394,93 @@ function videoplayer_bind_bunny_asset(stdClass $instance): void {
  * eventual cleanup without blocking deletion.
  *
  * @param stdClass $instance Persisted activity instance.
- * @return void
+ * @return array|null
  */
-function videoplayer_release_bunny_asset(stdClass $instance): void {
+function videoplayer_release_bunny_asset(stdClass $instance): ?array {
     if (
         ($instance->source ?? '') !== bunny_stream::SOURCE
         || !bunny_stream::is_valid_asset_id((string)($instance->providerassetid ?? ''))
     ) {
-        return;
+        return null;
     }
 
     try {
-        (new whmcs_gateway_client())->release_asset(
+        $result = (new whmcs_gateway_client())->release_asset(
             (string)$instance->providerassetid,
             (int)$instance->id
         );
+        videoplayer_notify_admin_deletion($instance, $result, false);
+        return $result;
     } catch (Throwable $exception) {
         debugging(
             'Elearning Stream immediate asset release failed; queued for retry: '
                 . $exception->getMessage(),
             DEBUG_DEVELOPER
         );
+        videoplayer_notify_admin_deletion($instance, [
+            'status' => 'queued',
+            'remainingrefs' => 0,
+            'deleteafter' => 0,
+        ], true);
         videoplayer_queue_bunny_release($instance);
+        return null;
+    }
+}
+
+/**
+ * Notify the primary Moodle administrator about remote video cleanup.
+ *
+ * Deletion is mandatory once the final Moodle reference is released. The
+ * administrator may only accelerate a scheduled deletion; the Moodle plugin
+ * does not provide a permanent opt-out from remote cleanup.
+ *
+ * @param stdClass $instance Deleted/replaced activity snapshot.
+ * @param array $result Gateway deletion status.
+ * @param bool $queued Whether the gateway request is waiting for retry.
+ * @return void
+ */
+function videoplayer_notify_admin_deletion(stdClass $instance, array $result, bool $queued = false): void {
+    $status = clean_param((string)($result['status'] ?? ''), PARAM_ALPHANUMEXT);
+    $remaining = max(0, (int)($result['remainingrefs'] ?? 0));
+    if (!$queued && $remaining > 0) {
+        return;
+    }
+
+    try {
+        $admin = get_admin();
+        if (!$admin || empty($admin->email)) {
+            return;
+        }
+
+        $title = trim((string)($instance->name ?? ''));
+        if ($title === '') {
+            $title = get_string('modulename', 'mod_videoplayer');
+        }
+        $deleteafter = max(0, (int)($result['deleteafter'] ?? 0));
+        $manageurl = (new moodle_url('/mod/videoplayer/deletions.php'))->out(false);
+
+        if ($status === 'deleted') {
+            $subject = get_string('deletionemailsubjectdeleted', 'mod_videoplayer');
+            $message = get_string('deletionemaildeleted', 'mod_videoplayer', $title);
+        } else if ($queued) {
+            $subject = get_string('deletionemailsubjectqueued', 'mod_videoplayer');
+            $message = get_string('deletionemailqueued', 'mod_videoplayer', $title);
+        } else {
+            $subject = get_string('deletionemailsubjectscheduled', 'mod_videoplayer');
+            $when = $deleteafter > 0 ? userdate($deleteafter) : get_string('deletionautomaticsoon', 'mod_videoplayer');
+            $a = (object)['title' => $title, 'when' => $when];
+            $message = get_string('deletionemailscheduled', 'mod_videoplayer', $a);
+        }
+
+        $message .= "\n\n" . get_string('deletionemailmanage', 'mod_videoplayer', $manageurl);
+        email_to_user(
+            $admin,
+            \core_user::get_noreply_user(),
+            $subject,
+            $message
+        );
+    } catch (Throwable $exception) {
+        debugging('Elearning Stream admin deletion notification failed: ' . $exception->getMessage(), DEBUG_DEVELOPER);
     }
 }
 
@@ -478,7 +550,10 @@ function videoplayer_sync_bunny_title(stdClass $instance): void {
                 );
                 return;
             } catch (Throwable $repairfailure) {
-                // The retry task below will re-evaluate current Moodle state.
+                debugging(
+                    'Elearning Stream metadata ownership repair failed: ' . $repairfailure->getMessage(),
+                    DEBUG_DEVELOPER
+                );
             }
         }
 

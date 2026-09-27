@@ -146,6 +146,14 @@ class mod_videoplayer_mod_form extends moodleform_mod {
                 $uploadhtml
             );
             $mform->hideIf('bunnyuploadpanel', 'streaminputmode', 'neq', 'upload');
+
+            $mform->addElement(
+                'advcheckbox',
+                'allowteacherdownload',
+                get_string('allowteacherdownload', 'mod_videoplayer')
+            );
+            $mform->addHelpButton('allowteacherdownload', 'allowteacherdownload', 'mod_videoplayer');
+            $mform->setDefault('allowteacherdownload', 0);
         } else if ($currentsource === drive::SOURCE_GOOGLEDRIVE) {
             // Backward compatibility only: no new Google Drive resources are exposed.
             $mform->addElement('text', 'videourl', get_string('driveurl', 'mod_videoplayer'), ['size' => 90]);

@@ -99,6 +99,12 @@ final class resource_view implements \renderable, \templatable {
             }
         }
         $isguest = isguestuser();
+        $allowteacherdownload = $this->resource->is_bunny_stream()
+            && !empty($instance->allowteacherdownload)
+            && has_capability('mod/videoplayer:downloadvideo', $this->activity->context());
+        $teacherdownloadurl = $allowteacherdownload
+            ? (new \moodle_url('/mod/videoplayer/download.php', ['id' => $cmid]))->out(false)
+            : '';
 
         $typestringkey = 'type' . $type;
         $typestring = get_string_manager()->string_exists($typestringkey, 'mod_videoplayer')
@@ -151,6 +157,8 @@ final class resource_view implements \renderable, \templatable {
             'points' => $points,
             'completionpercent' => round($completionpercent, 2),
             'watermark' => $watermark,
+            'allowteacherdownload' => $allowteacherdownload,
+            'teacherdownloadurl' => $teacherdownloadurl,
         ];
     }
 }

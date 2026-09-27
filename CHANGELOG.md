@@ -1,5 +1,16 @@
 # Changelog
 
+## Elearning Stream 1.2.0-rc10-m45 + Gateway 0.5.5 — 2026-09-27
+
+- Makes remote provider cleanup an enforced lifecycle rule: after the final Moodle reference is removed, the Bunny/Elearning Stream video is either deleted immediately or scheduled according to the WHMCS service Retention Days policy.
+- Adds a Moodle administrator deletion queue showing unreferenced videos waiting for deletion, their scheduled time and storage usage.
+- Adds a protected **Delete now** action that can only shorten the retention window; it cannot delete videos with active Moodle references and Moodle cannot disable automatic remote cleanup.
+- Notifies the primary Moodle administrator when deletion is completed, scheduled, or queued for retry because the gateway is temporarily unavailable.
+- Adds an optional per-activity **Allow teachers to download this video** setting. Downloads require the new `mod/videoplayer:downloadvideo` capability, granted by default only to editing teachers and managers.
+- Teacher downloads remain proxied through Moodle using the existing short-lived WHMCS/Bunny authorization and byte-range proxy; provider URLs and credentials remain hidden and students receive no download action.
+- Backup/restore preserves the teacher-download setting safely and defaults it to disabled for older backups.
+- Gateway package version: `0.5.5`; Moodle build: `2026092701`.
+
 ## Elearning Stream 1.2.0-rc9-m45 — 2026-09-25
 
 - Repairs legacy activities created while Moodle cron did not execute the historical provider-bind task.
