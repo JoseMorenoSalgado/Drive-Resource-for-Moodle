@@ -26,7 +26,7 @@ function driveresource_gateway_config(): array
     return [
         'name' => 'Elearning Stream Gateway',
         'description' => 'Multi-tenant media gateway, quota control and provider credential boundary for Elearning Stream.',
-        'version' => '0.5.4',
+        'version' => '0.5.5',
         'author' => 'Elearning Cloud',
         'fields' => [
             'public_gateway_url' => [
@@ -237,7 +237,10 @@ function driveresource_gateway_activate(): array
                 $table->boolean('active')->default(true)->index();
                 $table->unsignedInteger('created_at');
                 $table->unsignedInteger('updated_at');
-                $table->unique(['service_id', 'site_hash', 'instance_id'], 'dr_asset_ref_unique');
+                $table->unique(
+                    ['service_id', 'site_hash', 'instance_id', 'video_id'],
+                    'dr_asset_ref_unique'
+                );
             });
         }
 
@@ -278,6 +281,7 @@ function driveresource_gateway_activate(): array
         driveresource_gateway_ensure_multitenant_schema();
         driveresource_gateway_ensure_provider_schema();
         driveresource_gateway_ensure_collection_schema();
+        driveresource_gateway_ensure_asset_reference_schema();
         driveresource_gateway_ensure_portal_schema();
         driveresource_gateway_ensure_audit_schema();
 
@@ -312,6 +316,9 @@ function driveresource_gateway_upgrade(array $vars): void
     }
     if (version_compare($installed, '0.5.3', '<')) {
         driveresource_gateway_ensure_collection_schema();
+    }
+    if (version_compare($installed, '0.5.5', '<')) {
+        driveresource_gateway_ensure_asset_reference_schema();
     }
 }
 
@@ -446,6 +453,39 @@ function driveresource_gateway_ensure_collection_schema(): void
             $table->string('video_collection_name', 191)->nullable();
         });
     }
+}
+
+/**
+ * Preserve one reference row per Moodle activity and provider video.
+ *
+ * Earlier gateway releases used one row per Moodle activity, which allowed a
+ * bind of a replacement video to overwrite the historical reference needed by
+ * a queued release task. Rebuilding the unique index with video_id keeps both
+ * transitions independently addressable and makes concurrent cron workers safe.
+ *
+ * @return void
+ */
+function driveresource_gateway_ensure_asset_reference_schema(): void
+{
+    $schema = Capsule::schema();
+    if (!$schema->hasTable('mod_driveresource_asset_refs')) {
+        return;
+    }
+
+    try {
+        $schema->table('mod_driveresource_asset_refs', static function (Blueprint $table): void {
+            $table->dropUnique('dr_asset_ref_unique');
+        });
+    } catch (Throwable $exception) {
+        // A partially upgraded installation may already have dropped the old index.
+    }
+
+    $schema->table('mod_driveresource_asset_refs', static function (Blueprint $table): void {
+        $table->unique(
+            ['service_id', 'site_hash', 'instance_id', 'video_id'],
+            'dr_asset_ref_unique'
+        );
+    });
 }
 
 /**
