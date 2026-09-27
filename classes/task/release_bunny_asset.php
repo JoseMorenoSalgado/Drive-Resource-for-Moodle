@@ -38,6 +38,16 @@ final class release_bunny_asset extends \core\task\adhoc_task {
             return;
         }
 
-        (new whmcs_gateway_client())->release_asset((string)$data->videoid, (int)$data->instanceid);
+        $result = (new whmcs_gateway_client())->release_asset((string)$data->videoid, (int)$data->instanceid);
+
+        global $CFG;
+        require_once($CFG->dirroot . '/mod/videoplayer/lib.php');
+        $instance = (object)[
+            'id' => (int)$data->instanceid,
+            'source' => \mod_videoplayer\local\provider\bunny_stream::SOURCE,
+            'providerassetid' => (string)$data->videoid,
+            'name' => (string)($data->title ?? ''),
+        ];
+        videoplayer_notify_admin_deletion($instance, $result, false);
     }
 }
