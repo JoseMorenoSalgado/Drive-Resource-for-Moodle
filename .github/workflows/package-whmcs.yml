@@ -32,9 +32,16 @@ jobs:
           grep -F "'version' => '0.5.5'" dist-whmcs/whmcs-root/modules/addons/driveresource_gateway/driveresource_gateway.php
 
           (
-            cd dist-whmcs
-            zip -qr elearning-stream-whmcs-0.5.5.zip whmcs-root
+            cd dist-whmcs/whmcs-root
+            zip -qr ../elearning-stream-whmcs-0.5.5.zip modules README-Drive-Resource-WHMCS.md
           )
+
+          unzip -Z1 dist-whmcs/elearning-stream-whmcs-0.5.5.zip | grep -q '^modules/addons/driveresource_gateway/'
+          unzip -Z1 dist-whmcs/elearning-stream-whmcs-0.5.5.zip | grep -q '^modules/servers/driveresource/'
+          if unzip -Z1 dist-whmcs/elearning-stream-whmcs-0.5.5.zip | grep -q '^whmcs-root/'; then
+            echo "::error::WHMCS package must extract directly into the WHMCS document root."
+            exit 1
+          fi
 
       - name: Upload WHMCS package
         uses: actions/upload-artifact@v4
