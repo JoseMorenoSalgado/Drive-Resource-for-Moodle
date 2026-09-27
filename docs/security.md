@@ -243,6 +243,9 @@ Audit entries may contain service id, actor id/type, old/new Moodle URL, provide
 
 ## Destructive media operations
 
+Moodle never deletes provider media inline with an activity callback. Activity deletion commits the Moodle database mutation first, then queues a release through the lifecycle service. WHMCS remains authoritative for reference counting, retention and the eventual provider DELETE. This ordering avoids releasing a remote reference when Moodle rolls back the local deletion.
+
+
 Deleting a Moodle activity does not grant Moodle provider credentials. Moodle sends only a signed service-scoped release request. The gateway verifies tenant ownership, removes only that activity reference, and deletes the provider asset only after the active-reference count reaches zero.
 
 Zero-day deletion uses a transient `deleting` state to prevent a concurrent rebind during the destructive provider request. Provider failures remain retryable and do not silently mark the asset as deleted.
