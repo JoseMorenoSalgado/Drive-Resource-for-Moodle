@@ -528,10 +528,69 @@ final class whmcs_gateway_client {
      * @return array Gateway status.
      */
     public function release_asset(string $videoid, int $instanceid): array {
-        return $this->post('/api/asset-release.php', [
+        $response = $this->post('/api/asset-release.php', [
             'videoid' => $videoid,
             'instanceid' => $instanceid,
         ]);
+
+        return [
+            'status' => clean_param((string)($response['status'] ?? ''), PARAM_ALPHANUMEXT),
+            'remainingrefs' => max(0, (int)($response['remainingrefs'] ?? 0)),
+            'deleteafter' => max(0, (int)($response['deleteafter'] ?? 0)),
+            'retentiondays' => max(0, min(365, (int)($response['retentiondays'] ?? 0))),
+        ];
+    }
+
+    /**
+     * Return the mandatory provider-deletion queue for this Moodle service.
+     *
+     * @return array{deletions:array,retentiondays:int,automatic:bool}
+     */
+    public function pending_deletions(): array {
+        $response = $this->post('/api/asset-deletions.php', []);
+        $items = [];
+        foreach ((array)($response['deletions'] ?? []) as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $videoid = strtolower(trim((string)($item['videoid'] ?? '')));
+            if (!preg_match('/^[a-f0-9-]{32,64}$/', $videoid)) {
+                continue;
+            }
+            $items[] = [
+                'videoid' => $videoid,
+                'title' => clean_param((string)($item['title'] ?? ''), PARAM_TEXT),
+                'status' => clean_param((string)($item['status'] ?? ''), PARAM_ALPHANUMEXT),
+                'deleteafter' => max(0, (int)($item['deleteafter'] ?? 0)),
+                'bytes' => max(0, (int)($item['bytes'] ?? 0)),
+            ];
+        }
+
+        return [
+            'deletions' => $items,
+            'retentiondays' => max(0, min(365, (int)($response['retentiondays'] ?? 0))),
+            'automatic' => !empty($response['automatic']),
+        ];
+    }
+
+    /**
+     * Permanently delete an already-unreferenced video immediately.
+     *
+     * @param string $videoid Provider video GUID.
+     * @return array Gateway status.
+     */
+    public function force_delete_asset(string $videoid): array {
+        $videoid = strtolower(trim($videoid));
+        if (!preg_match('/^[a-f0-9-]{32,64}$/', $videoid)) {
+            throw new moodle_exception('whmcsgatewayinvalidresponse', 'mod_videoplayer');
+        }
+
+        $response = $this->post('/api/asset-delete-now.php', ['videoid' => $videoid]);
+        return [
+            'status' => clean_param((string)($response['status'] ?? ''), PARAM_ALPHANUMEXT),
+            'remainingrefs' => max(0, (int)($response['remainingrefs'] ?? 0)),
+            'deleteafter' => max(0, (int)($response['deleteafter'] ?? 0)),
+        ];
     }
 
     /**
