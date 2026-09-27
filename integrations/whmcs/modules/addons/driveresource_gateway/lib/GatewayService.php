@@ -508,7 +508,12 @@ final class GatewayService
         $instanceId = (int) ($payload['instanceid'] ?? 0);
         $courseId = (int) ($payload['courseid'] ?? 0);
 
-        $upload = $this->requireUpload((int) $service->service_id, $uploadId, $videoId);
+        if ($instanceId <= 0) {
+            throw new GatewayException('Video is not ready to be bound to a Moodle activity.', 409);
+        }
+
+        $serviceId = (int) $service->service_id;
+        $upload = $this->requireUpload($serviceId, $uploadId, $videoId);
 
         // The browser may have finished the TUS transfer while the Moodle ->
         // WHMCS completion callback was interrupted. Recover server-side by
@@ -519,24 +524,41 @@ final class GatewayService
                 'videoid' => $videoId,
                 'filesize' => (int) $upload->source_size,
             ]);
-            $upload = $this->requireUpload((int) $service->service_id, $uploadId, $videoId);
         }
 
-        if ($instanceId <= 0 || !in_array((string) $upload->status, ['processing', 'ready', 'bound'], true)) {
-            throw new GatewayException('Video is not ready to be bound to a Moodle activity.', 409);
-        }
+        return Capsule::connection()->transaction(function () use (
+            $serviceId,
+            $siteUrl,
+            $uploadId,
+            $videoId,
+            $instanceId,
+            $courseId
+        ): array {
+            // Serialise bind/reconcile against release/deletion for this asset.
+            $upload = Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->where('upload_id', $uploadId)
+                ->where('video_id', $videoId)
+                ->lockForUpdate()
+                ->first();
 
-        $this->upsertReference((int) $service->service_id, $siteUrl, $videoId, $instanceId, $courseId);
-        Capsule::table('mod_driveresource_uploads')
-            ->where('upload_id', $uploadId)
-            ->update([
-                'bound_instance_id' => $instanceId,
-                'status' => ((string) $upload->status === 'ready') ? 'ready' : 'bound',
-                'delete_after' => null,
-                'updated_at' => time(),
-            ]);
+            if (!$upload || !in_array((string) $upload->status, ['processing', 'ready', 'bound'], true)) {
+                throw new GatewayException('Video is not ready to be bound to a Moodle activity.', 409);
+            }
 
-        return ['status' => 'bound'];
+            $this->upsertReference($serviceId, $siteUrl, $videoId, $instanceId, $courseId);
+            Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->where('upload_id', $uploadId)
+                ->update([
+                    'bound_instance_id' => $instanceId,
+                    'status' => ((string) $upload->status === 'ready') ? 'ready' : 'bound',
+                    'delete_after' => null,
+                    'updated_at' => time(),
+                ]);
+
+            return ['status' => 'bound'];
+        });
     }
 
     /**
@@ -558,8 +580,9 @@ final class GatewayService
             throw new GatewayException('Invalid restored asset reference.', 422);
         }
 
+        $serviceId = (int) $service->service_id;
         $owned = Capsule::table('mod_driveresource_uploads')
-            ->where('service_id', (int) $service->service_id)
+            ->where('service_id', $serviceId)
             ->where('video_id', $videoId)
             ->whereIn('status', ['processing', 'ready', 'bound'])
             ->first();
@@ -573,13 +596,35 @@ final class GatewayService
             throw new GatewayException('The restored video no longer exists in Elearning Stream.', 404);
         }
 
-        $this->upsertReference((int) $service->service_id, $siteUrl, $videoId, $instanceId, $courseId);
-        Capsule::table('mod_driveresource_uploads')
-            ->where('service_id', (int) $service->service_id)
-            ->where('video_id', $videoId)
-            ->update(['delete_after' => null, 'updated_at' => time()]);
+        return Capsule::connection()->transaction(function () use (
+            $serviceId,
+            $siteUrl,
+            $videoId,
+            $instanceId,
+            $courseId
+        ): array {
+            // Re-check ownership under the same asset lock used by release.
+            $upload = Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->where('video_id', $videoId)
+                ->whereIn('status', ['processing', 'ready', 'bound'])
+                ->lockForUpdate()
+                ->first();
+            if (!$upload) {
+                throw new GatewayException('The restored video is being released or no longer belongs to this service.', 409);
+            }
 
-        return ['status' => 'bound'];
+            $this->upsertReference($serviceId, $siteUrl, $videoId, $instanceId, $courseId);
+            Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->where('upload_id', (string) $upload->upload_id)
+                ->update([
+                    'delete_after' => null,
+                    'updated_at' => time(),
+                ]);
+
+            return ['status' => 'bound'];
+        });
     }
 
     /**
@@ -649,6 +694,7 @@ final class GatewayService
         $uploadId = '';
         $previousStatus = '';
         $remaining = 0;
+        $terminalStatus = '';
         $now = time();
 
         Capsule::connection()->transaction(function () use (
@@ -661,14 +707,48 @@ final class GatewayService
             &$deleteNow,
             &$uploadId,
             &$previousStatus,
-            &$remaining
+            &$remaining,
+            &$terminalStatus
         ): void {
-            Capsule::table('mod_driveresource_asset_refs')
+            // Always lock the provider asset before its references. Bind and
+            // restore use the same lock order, preventing bind/delete races.
+            $upload = Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->where('video_id', $videoId)
+                ->whereIn('status', ['processing', 'ready', 'bound', 'deleting'])
+                ->lockForUpdate()
+                ->first();
+
+            if (!$upload) {
+                $upload = Capsule::table('mod_driveresource_uploads')
+                    ->where('service_id', $serviceId)
+                    ->where('video_id', $videoId)
+                    ->where('status', 'deleted')
+                    ->lockForUpdate()
+                    ->first();
+            }
+
+            if (!$upload) {
+                throw new GatewayException('This service does not own the video.', 403);
+            }
+
+            $reference = Capsule::table('mod_driveresource_asset_refs')
                 ->where('service_id', $serviceId)
                 ->where('site_hash', $siteHash)
                 ->where('instance_id', $instanceId)
                 ->where('video_id', $videoId)
-                ->update(['active' => false, 'updated_at' => $now]);
+                ->lockForUpdate()
+                ->first();
+
+            if (!$reference) {
+                throw new GatewayException('This activity does not own the video.', 403);
+            }
+
+            if ((bool) $reference->active) {
+                Capsule::table('mod_driveresource_asset_refs')
+                    ->where('id', (int) $reference->id)
+                    ->update(['active' => false, 'updated_at' => $now]);
+            }
 
             $remaining = (int) Capsule::table('mod_driveresource_asset_refs')
                 ->where('service_id', $serviceId)
@@ -677,37 +757,38 @@ final class GatewayService
                 ->count();
 
             if ($remaining > 0) {
+                $terminalStatus = 'released';
                 return;
             }
 
-            $upload = Capsule::table('mod_driveresource_uploads')
-                ->where('service_id', $serviceId)
-                ->where('video_id', $videoId)
-                ->whereIn('status', ['processing', 'ready', 'bound'])
-                ->lockForUpdate()
-                ->first();
-
-            if (!$upload) {
+            $currentStatus = (string) $upload->status;
+            if ($currentStatus === 'deleted') {
+                $terminalStatus = 'deleted';
+                return;
+            }
+            if ($currentStatus === 'deleting') {
+                $terminalStatus = 'scheduled';
                 return;
             }
 
             if ($retentionDays > 0) {
                 Capsule::table('mod_driveresource_uploads')
+                    ->where('service_id', $serviceId)
                     ->where('upload_id', (string) $upload->upload_id)
                     ->update([
                         'delete_after' => $now + ($retentionDays * 86400),
                         'updated_at' => $now,
                     ]);
+                $terminalStatus = 'scheduled';
                 return;
             }
 
             $deleteNow = true;
             $uploadId = (string) $upload->upload_id;
-            $previousStatus = (string) $upload->status;
+            $previousStatus = $currentStatus;
 
-            // Lock the asset against a concurrent rebind while the provider
-            // deletion is in flight.
             Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
                 ->where('upload_id', $uploadId)
                 ->update([
                     'status' => 'deleting',
@@ -718,7 +799,7 @@ final class GatewayService
 
         if (!$deleteNow) {
             return [
-                'status' => $remaining > 0 ? 'released' : 'scheduled',
+                'status' => $terminalStatus !== '' ? $terminalStatus : 'scheduled',
                 'remainingrefs' => $remaining,
             ];
         }
@@ -1244,6 +1325,7 @@ final class GatewayService
             ->where('service_id', $serviceId)
             ->where('site_hash', $siteHash)
             ->where('instance_id', $instanceId)
+            ->where('video_id', $videoId)
             ->first();
 
         $values = [
