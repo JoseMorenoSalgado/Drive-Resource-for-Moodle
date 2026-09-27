@@ -310,7 +310,7 @@ function videoplayer_queue_bunny_release(stdClass $instance): void {
 function videoplayer_queue_bunny_rename(stdClass $instance): void {
     if (
         ($instance->source ?? '') !== bunny_stream::SOURCE
-        || !bunny_stream::is_valid_asset_id((string)($instance->providerassetid ?? '')))
+        || !bunny_stream::is_valid_asset_id((string)($instance->providerassetid ?? ''))
     ) {
         return;
     }

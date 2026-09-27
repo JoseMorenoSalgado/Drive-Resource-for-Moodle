@@ -6,7 +6,7 @@
 - Synchronises Moodle activity renames through the authenticated WHMCS gateway after validating service ownership and active binding.
 - Fixes desktop and mobile video controls, keyboard focus and seek feedback.
 - Checks queued Bunny binding against current Moodle activity state.
-- Corrects Moodle CodeSniffer formatting and required file header tags in the new activity tasks.
+- Corrects Moodle CodeSniffer formatting, required file header tags and PHP syntax in the new activity tasks.
 
 
 ## Elearning Stream 1.2.0-rc6-m45 — 2026-09-25
