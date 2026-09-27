@@ -37,7 +37,18 @@ final class bind_bunny_asset extends \core\task\adhoc_task {
             return;
         }
 
-        (new whmcs_gateway_client())->bind_asset(
+        // A queued bind can outlive an activity that was deleted or changed.
+        $instance = $DB->get_record('videoplayer', ['id' => (int)$data->instanceid],
+            'id, course, source, providerassetid, provideruploadid', IGNORE_MISSING);
+        if (!$instance || (int)$instance->course !== (int)$data->courseid
+                || (string)$instance->source !== \mod_videoplayer\local\provider\bunny_stream::SOURCE
+                || !hash_equals((string)$instance->providerassetid, (string)$data->videoid)
+                || !hash_equals((string)$instance->provideruploadid, (string)$data->uploadid)) {
+            return;
+        }
+
+        $gateway = new whmcs_gateway_client();
+        $gateway->bind_asset(
             (string)$data->uploadid,
             (string)$data->videoid,
             (int)$data->instanceid,
@@ -52,6 +63,11 @@ final class bind_bunny_asset extends \core\task\adhoc_task {
             'id, providerassetid, provideruploadid',
             IGNORE_MISSING
         );
+        if (!$instance || !hash_equals((string)$instance->providerassetid, (string)$data->videoid)) {
+            // The activity was deleted or repointed while the gateway request ran.
+            $gateway->release_asset((string)$data->videoid, (int)$data->instanceid);
+            return;
+        }
         if (
             $instance
             && hash_equals((string)$instance->providerassetid, (string)$data->videoid)

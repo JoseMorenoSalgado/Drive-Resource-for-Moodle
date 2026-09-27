@@ -11,6 +11,101 @@ use WHMCS\Module\Addon\Setting;
 final class Config
 {
     /**
+     * Branded customer-facing gateway URL.
+     *
+     * @return string
+     */
+    public static function publicGatewayUrl(): string
+    {
+        $value = rtrim(trim((string) Setting::getSettingValueForModule(
+            'driveresource_gateway',
+            'public_gateway_url'
+        )), '/');
+
+        $parts = $value !== '' ? parse_url($value) : false;
+        if (
+            !$parts
+            || strtolower((string) ($parts['scheme'] ?? '')) !== 'https'
+            || empty($parts['host'])
+            || !empty($parts['user'])
+            || !empty($parts['pass'])
+            || !empty($parts['query'])
+            || !empty($parts['fragment'])
+        ) {
+            throw new RuntimeException('Invalid public Elearning Stream Gateway URL.');
+        }
+
+        return $value;
+    }
+
+    /**
+     * Configured managed-video provider.
+     *
+     * @return string
+     */
+    public static function videoProvider(): string
+    {
+        $provider = strtolower(trim((string) Setting::getSettingValueForModule(
+            'driveresource_gateway',
+            'video_provider'
+        )));
+        return $provider !== '' ? $provider : 'elearningstream';
+    }
+
+    /**
+     * Configured object-storage provider family.
+     *
+     * @return string
+     */
+    public static function objectStorageProvider(): string
+    {
+        $provider = strtolower(trim((string) Setting::getSettingValueForModule(
+            'driveresource_gateway',
+            'object_storage_provider'
+        )));
+        return $provider !== '' ? $provider : 'disabled';
+    }
+
+    /**
+     * Whether the default S3-compatible protected-document profile is complete.
+     *
+     * This validates configuration presence only; provider connectivity belongs
+     * to the object-storage adapter before the PDF data plane is enabled.
+     *
+     * @return bool
+     */
+    public static function objectStorageConfigured(): bool
+    {
+        if (self::objectStorageProvider() === 'disabled') {
+            return false;
+        }
+
+        foreach ([
+            'object_storage_endpoint',
+            'object_storage_bucket',
+            'object_storage_access_key',
+            'object_storage_secret_key',
+        ] as $setting) {
+            if (trim((string) Setting::getSettingValueForModule(
+                'driveresource_gateway',
+                $setting
+            )) === '') {
+                return false;
+            }
+        }
+
+        $endpoint = trim((string) Setting::getSettingValueForModule(
+            'driveresource_gateway',
+            'object_storage_endpoint'
+        ));
+        $parts = parse_url($endpoint);
+
+        return is_array($parts)
+            && strtolower((string) ($parts['scheme'] ?? '')) === 'https'
+            && !empty($parts['host']);
+    }
+
+    /**
      * Get a required addon setting.
      *
      * @param string $name Setting key.
@@ -68,6 +163,68 @@ final class Config
         }
 
         return $hostname;
+    }
+
+    /**
+     * Customer-facing hostnames accepted when importing an existing video URL.
+     *
+     * These values are identifiers only; the gateway never fetches the pasted
+     * URL. Ownership is still verified against the configured Video Library.
+     *
+     * @return string[]
+     */
+    public static function publicVideoHosts(): array
+    {
+        $hosts = [
+            self::cdnHostname(),
+            'video.bunnycdn.com',
+            'iframe.mediadelivery.net',
+        ];
+
+        $raw = (string) (Setting::getSettingValueForModule(
+            'driveresource_gateway',
+            'bunny_public_aliases'
+        ) ?: '');
+
+        foreach (preg_split('/[\s,;]+/', $raw, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $candidate) {
+            $host = strtolower(rtrim(trim((string) $candidate), '.'));
+            if (
+                $host === ''
+                || strlen($host) > 253
+                || filter_var($host, FILTER_VALIDATE_IP) !== false
+                || !preg_match(
+                    '/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/',
+                    $host
+                )
+            ) {
+                throw new RuntimeException(
+                    'Invalid Elearning Stream public hostname alias: ' . $candidate
+                );
+            }
+            $hosts[] = $host;
+        }
+
+        return array_values(array_unique($hosts));
+    }
+
+    /**
+     * Whether a pasted video URL hostname is approved for import.
+     *
+     * @param string $host Candidate hostname.
+     * @return bool
+     */
+    public static function isAllowedPublicVideoHost(string $host): bool
+    {
+        $host = strtolower(rtrim(trim($host), '.'));
+        if ($host === '') {
+            return false;
+        }
+
+        if (in_array($host, self::publicVideoHosts(), true)) {
+            return true;
+        }
+
+        return str_ends_with($host, '.mediadelivery.net');
     }
 
     /**

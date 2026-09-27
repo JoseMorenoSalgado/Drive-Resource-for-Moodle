@@ -157,6 +157,7 @@ define(['core/ajax'], function(Ajax) {
         var recoveryAttempts = 0;
         var watchedRanges = parseRanges(root.dataset.watchedRanges || '[]', 0);
         var lastMediaTime = null;
+        var scrubbing = false;
 
         if (!video || !frame || !primary) {
             return;
@@ -239,8 +240,9 @@ define(['core/ajax'], function(Ajax) {
             if (durationNode) {
                 durationNode.textContent = formatTime(video.duration);
             }
-            if (seek && Number.isFinite(video.duration) && video.duration > 0) {
+            if (seek && !scrubbing && Number.isFinite(video.duration) && video.duration > 0) {
                 seek.value = String(Math.round((video.currentTime / video.duration) * 1000));
+                seek.style.setProperty('--seek-progress', (Number(seek.value) / 10) + '%');
             }
             if (progressLabel) {
                 progressLabel.textContent = Math.round(completionPercentage()) + '%';
@@ -488,10 +490,11 @@ define(['core/ajax'], function(Ajax) {
         frame.addEventListener('pointermove', showControls);
         frame.addEventListener('touchstart', showControls, {passive: true});
         frame.addEventListener('mouseleave', function() {
-            if (!video.paused) {
+            if (!video.paused && !frame.contains(document.activeElement)) {
                 frame.classList.add('controls-hidden');
             }
         });
+        frame.addEventListener('focusin', showControls);
 
         video.addEventListener('loadstart', function() {
             setLoading(true, true);
@@ -574,11 +577,17 @@ define(['core/ajax'], function(Ajax) {
                 if (!Number.isFinite(video.duration) || video.duration <= 0) {
                     return;
                 }
+                scrubbing = true;
+                seekControl.style.setProperty('--seek-progress', (Number(seekControl.value) / 10) + '%');
                 video.currentTime = (Number(seekControl.value) / 1000) * video.duration;
                 updateTime();
             });
             seekControl.addEventListener('change', function() {
+                scrubbing = false;
                 sendProgress(true);
+            });
+            seekControl.addEventListener('blur', function() {
+                scrubbing = false;
             });
         });
 
@@ -592,6 +601,7 @@ define(['core/ajax'], function(Ajax) {
             }
             if (volume) {
                 volume.value = String(video.muted ? 0 : video.volume);
+                volume.style.setProperty('--volume-progress', ((video.muted ? 0 : video.volume) * 100) + '%');
             }
         };
 
@@ -653,6 +663,9 @@ define(['core/ajax'], function(Ajax) {
         });
 
         frame.addEventListener('keydown', function(event) {
+            if (event.target !== frame && event.target !== video) {
+                return;
+            }
             var key = (event.key || '').toLowerCase();
             if (key === ' ' || key === 'k') {
                 event.preventDefault();

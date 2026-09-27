@@ -41,7 +41,7 @@ echo "Checking Moodle/Elearning Stream secret boundary..."
 if grep -RniE 'AccessKey:|bunny_api_key|bunny_token_key' classes amd db lib.php mod_form.php settings.php view.php templates; then
     fail "A Bunny management credential identifier leaked into Moodle runtime code."
 fi
-grep -q "Elearning Stream provider credentials remain exclusively in WHMCS" lang/en/videoplayer.php     || fail "Moodle secret-boundary language invariant is missing."
+grep -q "Provider credentials remain protected in the gateway" lang/en/videoplayer.php     || fail "Moodle secret-boundary language invariant is missing."
 grep -q "video\.bunnycdn\.com" classes/local/whmcs_gateway_client.php     || fail "Moodle no longer pins the TUS upload host."
 if grep -Rni '/library/' classes amd/src amd/build; then
     fail "Moodle runtime contains a Bunny management API path."

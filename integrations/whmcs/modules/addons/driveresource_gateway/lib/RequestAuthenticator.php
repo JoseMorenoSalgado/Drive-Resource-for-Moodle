@@ -35,18 +35,23 @@ final class RequestAuthenticator
         $nonce = strtolower($this->header('X-Drive-Resource-Nonce'));
         $signature = strtolower($this->header('X-Drive-Resource-Signature'));
         $site = $this->canonicalSite($this->header('X-Drive-Resource-Site'));
-        $authorization = $this->header('Authorization');
 
         if ($serviceId <= 0
             || !preg_match('/^[a-f0-9]{32}$/', $nonce)
-            || !preg_match('/^[a-f0-9]{64}$/', $signature)
-            || !preg_match('/^Bearer\s+(.+)$/i', $authorization, $tokenMatch)) {
+            || !preg_match('/^[a-f0-9]{64}$/', $signature)) {
             throw new GatewayException('Missing or invalid gateway authentication.', 401);
         }
 
-        $token = trim($tokenMatch[1]);
-        if (strlen($token) < 32 || strlen($token) > 256) {
-            throw new GatewayException('Invalid service token.', 401);
+        // Prefer the dedicated token header. Apache/FastCGI and some reverse
+        // proxy configurations can remove Authorization before PHP receives
+        // it. Keep Bearer as a backward-compatible fallback.
+        $token = strtolower(trim($this->header('X-Drive-Resource-Token')));
+        if (!preg_match('/^[a-f0-9]{64}$/', $token)) {
+            $authorization = $this->header('Authorization');
+            if (!preg_match('/^Bearer\s+([a-f0-9]{64})$/i', $authorization, $tokenMatch)) {
+                throw new GatewayException('Missing or invalid gateway authentication.', 401);
+            }
+            $token = strtolower($tokenMatch[1]);
         }
 
         $now = time();

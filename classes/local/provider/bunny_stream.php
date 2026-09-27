@@ -107,6 +107,57 @@ final class bunny_stream {
     }
 
     /**
+     * Extract a syntactically valid GUID from any HTTPS public video URL.
+     *
+     * This helper is intentionally hostname-neutral. WHMCS is the authority
+     * that validates the public hostname against configured aliases before the
+     * video is imported. Moodle never fetches or persists the pasted URL.
+     *
+     * @param string $url Candidate public video URL.
+     * @return string|null
+     */
+    public static function extract_candidate_asset_id_from_url(string $url): ?string {
+        $url = trim($url);
+        if ($url === '' || strlen($url) > 2048) {
+            return null;
+        }
+
+        $parts = parse_url($url);
+        if (
+            !$parts
+            || strtolower((string)($parts['scheme'] ?? '')) !== 'https'
+            || empty($parts['host'])
+            || !empty($parts['user'])
+            || !empty($parts['pass'])
+            || (isset($parts['port']) && (int)$parts['port'] !== 443)
+        ) {
+            return null;
+        }
+
+        $segments = array_values(array_filter(
+            explode('/', trim((string)($parts['path'] ?? ''), '/')),
+            static fn(string $segment): bool => $segment !== ''
+        ));
+
+        foreach (array_reverse($segments) as $segment) {
+            $candidate = rawurldecode($segment);
+            if (self::is_valid_asset_id($candidate)) {
+                return strtolower($candidate);
+            }
+        }
+
+        parse_str((string)($parts['query'] ?? ''), $query);
+        foreach (['videoid', 'videoId', 'guid'] as $key) {
+            $candidate = trim((string)($query[$key] ?? ''));
+            if (self::is_valid_asset_id($candidate)) {
+                return strtolower($candidate);
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Whether a pasted Elearning Stream URL contains a valid provider video id.
      *
      * @param string $url Pasted provider URL.

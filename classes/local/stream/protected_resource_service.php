@@ -22,6 +22,7 @@ use mod_videoplayer\local\http_range_proxy;
 use mod_videoplayer\local\plugin_config;
 use mod_videoplayer\local\protected_stream;
 use mod_videoplayer\local\resource\resource_descriptor;
+use mod_videoplayer\local\transfer_meter;
 use mod_videoplayer\local\whmcs_gateway_client;
 use mod_videoplayer\task\precache_pdf;
 
@@ -84,7 +85,10 @@ final class protected_resource_service {
                 $url,
                 $resource->filename(),
                 'video/mp4',
-                'ELEARNING_STREAM'
+                'ELEARNING_STREAM',
+                static function (int $bytes) use ($videoid): void {
+                    transfer_meter::record($videoid, $bytes);
+                }
             );
         }
 

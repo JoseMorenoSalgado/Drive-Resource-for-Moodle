@@ -589,5 +589,82 @@ function xmldb_videoplayer_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026092204, 'videoplayer');
     }
 
+    // Queue protected Elearning Stream transfer bytes for batched WHMCS reporting.
+    if ($oldversion < 2026092208) {
+        $transfertable = new xmldb_table('videoplayer_transfer_events');
+        if (!$dbman->table_exists($transfertable)) {
+            $transfertable->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+            $transfertable->add_field('serviceid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+            $transfertable->add_field('videoid', XMLDB_TYPE_CHAR, '64');
+            $transfertable->add_field('bytes', XMLDB_TYPE_INTEGER, '20', null, XMLDB_NOTNULL, null, '0');
+            $transfertable->add_field('periodkey', XMLDB_TYPE_CHAR, '7', null, XMLDB_NOTNULL, null, null);
+            $transfertable->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+
+            $transfertable->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+            $transfertable->add_index(
+                'service_period_idx',
+                XMLDB_INDEX_NOTUNIQUE,
+                ['serviceid', 'periodkey']
+            );
+            $transfertable->add_index('timecreated_idx', XMLDB_INDEX_NOTUNIQUE, ['timecreated']);
+
+            $dbman->create_table($transfertable);
+        }
+
+        upgrade_mod_savepoint(true, 2026092208, 'videoplayer');
+    }
+
+    // Custom Elearning Stream public URL aliases and gateway-side URL authority.
+    if ($oldversion < 2026092209) {
+        upgrade_mod_savepoint(true, 2026092209, 'videoplayer');
+    }
+
+    // New activities are video-first. Fresh installs already use the new
+    // default from install.xml. Keep this historical savepoint schema-neutral:
+    // changing an indexed field default without first removing the index causes
+    // ddl_dependency_exception on Moodle's XMLDB manager.
+    if ($oldversion < 2026092401) {
+        upgrade_mod_savepoint(true, 2026092401, 'videoplayer');
+    }
+
+    // Safely change the default for upgraded sites. Moodle treats indexes as
+    // field dependencies, so source_idx must be removed before changing the
+    // source default and recreated immediately afterwards.
+    if ($oldversion < 2026092501) {
+        $table = new xmldb_table('videoplayer');
+        if ($dbman->table_exists($table)) {
+            $sourcefield = new xmldb_field(
+                'source',
+                XMLDB_TYPE_CHAR,
+                '32',
+                null,
+                XMLDB_NOTNULL,
+                null,
+                'bunnystream',
+                'introformat'
+            );
+
+            if ($dbman->field_exists($table, $sourcefield)) {
+                $sourceindex = new xmldb_index(
+                    'source_idx',
+                    XMLDB_INDEX_NOTUNIQUE,
+                    ['source']
+                );
+
+                if ($dbman->index_exists($table, $sourceindex)) {
+                    $dbman->drop_index($table, $sourceindex);
+                }
+
+                $dbman->change_field_default($table, $sourcefield);
+
+                if (!$dbman->index_exists($table, $sourceindex)) {
+                    $dbman->add_index($table, $sourceindex);
+                }
+            }
+        }
+
+        upgrade_mod_savepoint(true, 2026092501, 'videoplayer');
+    }
+
     return true;
 }
