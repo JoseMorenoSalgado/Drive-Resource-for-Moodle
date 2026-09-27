@@ -23,6 +23,7 @@
         <FIELD NAME="type" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="auto"/>
         <FIELD NAME="displaymode" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="standard"/>
         <FIELD NAME="disabledownload" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1"/>
+        <FIELD NAME="allowteacherdownload" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0"/>
         <FIELD NAME="disablecontextmenu" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1"/>
         <FIELD NAME="enablewatermark" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0"/>
         <FIELD NAME="enablegamification" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0"/>
