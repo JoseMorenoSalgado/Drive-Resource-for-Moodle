@@ -247,6 +247,8 @@ Moodle never deletes provider media inline with an activity callback. Activity d
 
 Gateway 0.5.5 also requires the exact authenticated site/activity/video reference before release and serializes bind/restore/release on the upload row. A stale or fabricated instance id cannot trigger retention/deletion for an unrelated service-owned video, and a concurrent rebind cannot race a zero-retention provider DELETE.
 
+The only exception is a never-bound upload created by the same service: Moodle may present its opaque 32-hex upload reservation id. WHMCS validates that reservation against the exact service/video and requires `bound_instance_id = 0`; this closes the delete-before-first-bind orphan case without broadening destructive authorization.
+
 
 Deleting a Moodle activity does not grant Moodle provider credentials. Moodle sends only a signed service-scoped release request. The gateway verifies tenant ownership, removes only that activity reference, and deletes the provider asset only after the active-reference count reaches zero.
 
