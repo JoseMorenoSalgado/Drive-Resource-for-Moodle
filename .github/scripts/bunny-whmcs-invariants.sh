@@ -103,4 +103,38 @@ require_file "integrations/whmcs/modules/addons/driveresource_gateway/api/asset-
 grep -q 'renameAsset' integrations/whmcs/modules/addons/driveresource_gateway/api/asset-rename.php || fail "Rename gateway endpoint is missing."
 grep -q "where('active', true)" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php || fail "Rename reference authorization is missing."
 
+echo "Checking managed-video lifecycle serialization..."
+grep -q "'service_id', 'site_hash', 'instance_id', 'video_id'" \
+    integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php \
+    || fail "Asset references must remain unique per Moodle activity and provider video."
+
+python3 - <<'PY'
+from pathlib import Path
+
+path = Path("integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php")
+source = path.read_text()
+
+def method(name, next_name):
+    start = source.index(f"public function {name}")
+    end = source.index(f"public function {next_name}", start)
+    return source[start:end]
+
+bind = method("bindAsset", "reconcileAsset")
+reconcile = method("reconcileAsset", "renameAsset")
+release = method("releaseAsset", "recordTransfer")
+
+if "lockForUpdate()" not in bind:
+    raise SystemExit("bindAsset must lock the upload row before creating a reference")
+if "lockForUpdate()" not in reconcile:
+    raise SystemExit("reconcileAsset must lock the upload row before restoring a reference")
+if "lockForUpdate()" not in release:
+    raise SystemExit("releaseAsset must lock upload/reference rows before destructive transition")
+if "This activity does not own the video." not in release:
+    raise SystemExit("releaseAsset must reject unknown activity/video references")
+if "where('video_id', $videoId)" not in release:
+    raise SystemExit("releaseAsset must bind authorization to the exact video")
+
+print("Managed-video lifecycle serialization: PASS")
+PY
+
 echo "Elearning Stream/WHMCS integration invariants: PASS"
