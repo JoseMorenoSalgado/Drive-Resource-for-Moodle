@@ -137,6 +137,9 @@ final class bunny_asset_lifecycle {
         $task->set_custom_data([
             'instanceid' => (int)$instance->id,
             'videoid' => (string)$instance->providerassetid,
+            'uploadid' => bunny_stream::is_valid_upload_id((string)($instance->provideruploadid ?? ''))
+                ? (string)$instance->provideruploadid
+                : '',
         ]);
         manager::queue_adhoc_task($task, true);
     }
