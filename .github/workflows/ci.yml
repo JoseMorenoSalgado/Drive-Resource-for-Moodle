@@ -7,7 +7,7 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: drive-resource-${{ github.workflow }}-${{ github.ref }}
@@ -100,26 +100,6 @@ jobs:
         if: ${{ failure() && matrix.php == '8.3' && matrix.database == 'mariadb' }}
         working-directory: moodle
         run: npx grunt amd --root=mod/videoplayer
-
-      - name: Commit rebuilt AMD diagnostics
-        if: ${{ failure() && matrix.php == '8.3' && matrix.database == 'mariadb' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
-        env:
-          HEAD_REF: ${{ github.head_ref }}
-        run: |
-          cp moodle/mod/videoplayer/amd/build/nativevideo.min.js /tmp/nativevideo.min.js
-          cp moodle/mod/videoplayer/amd/build/nativevideo.min.js.map /tmp/nativevideo.min.js.map
-          git -C plugin fetch origin "$HEAD_REF"
-          git -C plugin checkout -B "$HEAD_REF" "origin/$HEAD_REF"
-          cp /tmp/nativevideo.min.js plugin/amd/build/nativevideo.min.js
-          cp /tmp/nativevideo.min.js.map plugin/amd/build/nativevideo.min.js.map
-          git -C plugin config user.name "github-actions[bot]"
-          git -C plugin config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git -C plugin add amd/build/nativevideo.min.js amd/build/nativevideo.min.js.map
-          if git -C plugin diff --cached --quiet; then
-            exit 0
-          fi
-          git -C plugin commit -m "Rebuild native video AMD bundle"
-          git -C plugin push origin "HEAD:$HEAD_REF"
 
       - name: Preserve generated AMD diagnostics
         if: ${{ failure() && matrix.php == '8.3' && matrix.database == 'mariadb' }}
