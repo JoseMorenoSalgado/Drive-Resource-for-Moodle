@@ -15,7 +15,7 @@ This compatibility package declares Moodle 4.5 only. Do not install it on Moodle
 
 ## Production connection model
 
-Install the matching **Elearning Stream Gateway 0.5.4** companion in WHMCS. In the addon configure **Public Gateway URL** to the branded HTTPS endpoint that customers will paste into Moodle; the recommended production value is:
+Install the matching **Elearning Stream Gateway 0.5.5** companion in WHMCS. In the addon configure **Public Gateway URL** to the branded HTTPS endpoint that customers will paste into Moodle; the recommended production value is:
 
 ```text
 https://stream.elearningcloud.io
@@ -103,6 +103,8 @@ Paste a normal supported Drive/Docs sharing URL into the activity. The learner m
 ## Post-upgrade validation
 
 For rc9, also create a disposable managed-video activity, rename it, then delete it and run cron. Confirm WHMCS receives the rename while the reference is active and receives the release only after Moodle has removed the activity row. With Retention Days = 0, the final unreferenced provider asset should then be deleted by the gateway.
+
+When upgrading the gateway from 0.5.4 or earlier, open/activate the addon so the 0.5.5 upgrade rebuilds `dr_asset_ref_unique` with `video_id`. Then test replacing the video in an existing activity before cron runs; the old asset must be released independently and the new asset must remain bound/playable.
 
 
 After installing rc19:
