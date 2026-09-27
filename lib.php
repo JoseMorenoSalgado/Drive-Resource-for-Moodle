@@ -440,8 +440,6 @@ function videoplayer_release_bunny_asset(stdClass $instance): ?array {
  * @return void
  */
 function videoplayer_notify_admin_deletion(stdClass $instance, array $result, bool $queued = false): void {
-    global $CFG;
-
     $status = clean_param((string)($result['status'] ?? ''), PARAM_ALPHANUMEXT);
     $remaining = max(0, (int)($result['remainingrefs'] ?? 0));
     if (!$queued && $remaining > 0) {
