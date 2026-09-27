@@ -583,13 +583,21 @@
 }
 
 .mod-videoplayer-seek {
-    background: linear-gradient(to right, var(--mod-videoplayer-accent) var(--seek-progress, 0%),
-        rgba(255, 255, 255, .3) var(--seek-progress, 0%));
+    background:
+        linear-gradient(
+            to right,
+            var(--mod-videoplayer-accent) var(--seek-progress, 0%),
+            rgba(255, 255, 255, .3) var(--seek-progress, 0%)
+        );
 }
 
 .mod-videoplayer-volume {
-    background: linear-gradient(to right, var(--mod-videoplayer-accent) var(--volume-progress, 100%),
-        rgba(255, 255, 255, .3) var(--volume-progress, 100%));
+    background:
+        linear-gradient(
+            to right,
+            var(--mod-videoplayer-accent) var(--volume-progress, 100%),
+            rgba(255, 255, 255, .3) var(--volume-progress, 100%)
+        );
 }
 
 .mod-videoplayer-seek::-webkit-slider-thumb,
