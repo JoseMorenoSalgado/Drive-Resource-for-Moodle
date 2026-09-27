@@ -172,6 +172,9 @@ Moodle 4.5 provides `get_suffix()` through the completion form trait. When addin
 
 ## Bunny Stream / WHMCS development rules
 
+Provider lifecycle decisions belong in `local/provider/bunny_asset_lifecycle.php`, not in `lib.php`. Keep Moodle callbacks focused on persistence and local file/cache work; add lifecycle transition tests whenever bind/release/rename rules change. Queue destructive release work only after the corresponding Moodle database mutation has committed.
+
+
 Managed video is intentionally split across two trust domains.
 
 Moodle code may know the WHMCS gateway URL, service ID, service token, Bunny video GUID and short-lived TUS upload signature. Moodle must never contain or persist a Bunny Stream management `AccessKey` or playback signing key.
