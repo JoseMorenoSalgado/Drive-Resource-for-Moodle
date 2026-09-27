@@ -38,12 +38,18 @@ final class bind_bunny_asset extends \core\task\adhoc_task {
         }
 
         // A queued bind can outlive an activity that was deleted or changed.
-        $instance = $DB->get_record('videoplayer', ['id' => (int)$data->instanceid],
-            'id, course, source, providerassetid, provideruploadid', IGNORE_MISSING);
-        if (!$instance || (int)$instance->course !== (int)$data->courseid
-                || (string)$instance->source !== \mod_videoplayer\local\provider\bunny_stream::SOURCE
-                || !hash_equals((string)$instance->providerassetid, (string)$data->videoid)
-                || !hash_equals((string)$instance->provideruploadid, (string)$data->uploadid)) {
+        $instance = $DB->get_record(
+            'videoplayer',
+            ['id' => (int)$data->instanceid],
+            'id, course, source, providerassetid, provideruploadid',
+            IGNORE_MISSING
+        );
+        if (
+            !$instance || (int)$instance->course !== (int)$data->courseid
+            || (string)$instance->source !== \mod_videoplayer\local\provider\bunny_stream::SOURCE
+            || !hash_equals((string)$instance->providerassetid, (string)$data->videoid)
+            || !hash_equals((string)$instance->provideruploadid, (string)$data->uploadid)
+        ) {
             return;
         }
 

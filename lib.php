@@ -308,8 +308,10 @@ function videoplayer_queue_bunny_release(stdClass $instance): void {
  * @return void
  */
 function videoplayer_queue_bunny_rename(stdClass $instance): void {
-    if (($instance->source ?? '') !== bunny_stream::SOURCE
-            || !bunny_stream::is_valid_asset_id((string)($instance->providerassetid ?? ''))) {
+    if (
+        ($instance->source ?? '') !== bunny_stream::SOURCE
+        || !bunny_stream::is_valid_asset_id((string)($instance->providerassetid ?? '')))
+    ) {
         return;
     }
 
@@ -404,8 +406,10 @@ function videoplayer_update_instance($data, $mform = null) {
         ) {
             videoplayer_queue_bunny_bind($data);
         }
-        if ($oldisbunny && $newisbunny && $oldasset === $newasset
-                && (string)$oldinstance->name !== (string)$data->name) {
+        if (
+            $oldisbunny && $newisbunny && $oldasset === $newasset
+            && (string)$oldinstance->name !== (string)$data->name
+        ) {
             videoplayer_queue_bunny_rename($data);
         }
     }

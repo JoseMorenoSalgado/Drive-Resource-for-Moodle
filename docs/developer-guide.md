@@ -363,3 +363,5 @@ For upgrades from Gateway < 0.5.3, use the WHMCS admin module command **Organize
 When editing `amd/src/nativevideo.js`, regenerate `amd/build/nativevideo.min.js` as a named Moodle AMD module. The seek control uses `--seek-progress` and the volume control uses `--volume-progress`; preserve keyboard focus and mobile controls when changing layout.
 
 Changing a bound activity name queues `rename_bunny_asset`. WHMCS endpoint `asset-rename.php` verifies service and site-scoped reference ownership. Deploy Gateway 0.5.4 before RC8.
+
+The Moodle code checker also validates task file boilerplate and PSR-12 layout for multiline calls and conditions; run it after editing the task classes.
