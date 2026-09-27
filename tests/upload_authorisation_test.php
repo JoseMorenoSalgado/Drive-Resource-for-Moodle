@@ -84,13 +84,15 @@ final class upload_authorisation_test extends \advanced_testcase {
      * Browser upload capabilities must target the exact approved HTTPS endpoint.
      */
     public function test_normalise_rejects_unsafe_endpoint_shapes(): void {
-        foreach ([
-            'https://user:pass@video.bunnycdn.com/tusupload',
-            'https://video.bunnycdn.com:8443/tusupload',
-            'https://video.bunnycdn.com/tusupload?redirect=1',
-            'https://video.bunnycdn.com/tusupload#fragment',
-            'https://video.bunnycdn.com.evil.example/tusupload',
-        ] as $endpoint) {
+        foreach (
+            [
+                'https://user:pass@video.bunnycdn.com/tusupload',
+                'https://video.bunnycdn.com:8443/tusupload',
+                'https://video.bunnycdn.com/tusupload?redirect=1',
+                'https://video.bunnycdn.com/tusupload#fragment',
+                'https://video.bunnycdn.com.evil.example/tusupload',
+            ] as $endpoint
+        ) {
             $response = $this->valid_response();
             $response['endpoint'] = $endpoint;
 
