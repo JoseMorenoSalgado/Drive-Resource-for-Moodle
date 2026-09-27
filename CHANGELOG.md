@@ -1,5 +1,12 @@
 # Changelog
 
+## Elearning Stream Gateway 0.5.5 — 2026-09-27
+
+- Serialises managed-video bind, restore and release operations on the WHMCS upload row to prevent bind/delete races across concurrent workers.
+- Requires an exact service/site/activity/video reference before a release can schedule or perform provider deletion.
+- Changes the asset-reference uniqueness contract to include `video_id`, preserving the old reference when one Moodle activity switches to another video.
+- Adds an idempotent WHMCS schema upgrade for the new reference index and CI invariants for lifecycle locking.
+
 ## Elearning Stream 1.2.0-rc9-m45 — 2026-09-27
 
 - Extracts managed-video bind/release/rename decisions from `lib.php` into a dedicated provider lifecycle service.
