@@ -115,6 +115,8 @@ final class bunny_asset_lifecycle_test extends \advanced_testcase {
 
         $task = $this->single_queued_task();
         $this->assertStringEndsWith('\\release_bunny_asset', $task->classname);
+        $data = json_decode($task->customdata, true);
+        $this->assertSame('0123456789abcdef0123456789abcdef', $data['uploadid']);
     }
 
     /**
