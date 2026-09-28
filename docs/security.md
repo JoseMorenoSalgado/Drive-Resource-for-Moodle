@@ -133,6 +133,8 @@ Moodle authenticates to the WHMCS media gateway using a service-scoped token. Ev
 
 The teacher browser receives only a short-lived Elearning Stream upload authorization scoped to a single library/video/expiration. It does not receive the provider management API key. The browser uploader uses `credentials: omit` for provider requests and validates that the TUS upload host is `video.bunnycdn.com`.
 
+RC12 adds drag/drop and richer progress/status rendering only. Dropped files are validated locally for basic video type/extension before Moodle requests a reservation; the server remains authoritative for size/type/capability/quota validation. No new secret or provider-management data is exposed in the DOM.
+
 ### Quota abuse controls
 
 WHMCS validates that the underlying product service is Active before authorizing an upload. Quota is reserved transactionally before the provider upload is created. Pending reservations are included in the projected usage calculation, preventing parallel uploads from independently consuming the same remaining allowance.
