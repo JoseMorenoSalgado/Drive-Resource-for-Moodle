@@ -26,7 +26,7 @@ function driveresource_gateway_config(): array
     return [
         'name' => 'Elearning Stream Gateway',
         'description' => 'Multi-tenant media gateway, quota control and provider credential boundary for Elearning Stream.',
-        'version' => '0.5.8',
+        'version' => '0.5.9',
         'author' => 'Elearning Cloud',
         'fields' => [
             'public_gateway_url' => [
@@ -210,7 +210,8 @@ function driveresource_gateway_activate(): array
             $schema->create('mod_driveresource_uploads', static function (Blueprint $table): void {
                 $table->char('upload_id', 32)->primary();
                 $table->unsignedInteger('service_id')->index();
-                $table->string('video_id', 64)->nullable()->index();
+                $table->string('video_id', 64)->nullable();
+                $table->unique('video_id', 'dr_upload_video_unique');
                 $table->string('filename', 255);
                 $table->string('display_name', 255)->nullable();
                 $table->unsignedBigInteger('source_size')->default(0);
@@ -283,6 +284,7 @@ function driveresource_gateway_activate(): array
         driveresource_gateway_ensure_provider_schema();
         driveresource_gateway_ensure_collection_schema();
         driveresource_gateway_ensure_asset_reference_schema();
+        driveresource_gateway_ensure_video_ownership_schema();
         driveresource_gateway_ensure_upload_display_name_schema();
         driveresource_gateway_ensure_portal_schema();
         driveresource_gateway_ensure_audit_schema();
@@ -325,6 +327,51 @@ function driveresource_gateway_upgrade(array $vars): void
     if (version_compare($installed, '0.5.8', '<')) {
         driveresource_gateway_ensure_upload_display_name_schema();
     }
+    if (version_compare($installed, '0.5.9', '<')) {
+        driveresource_gateway_ensure_video_ownership_schema();
+    }
+}
+
+/**
+ * Ensure one provider video can belong to only one WHMCS service.
+ *
+ * The provider GUID identifies one physical asset. Multiple Moodle activities
+ * may reference it through mod_driveresource_asset_refs, but ownership and
+ * accounting must remain singular at the upload/asset layer.
+ *
+ * @return void
+ */
+function driveresource_gateway_ensure_video_ownership_schema(): void
+{
+    $schema = Capsule::schema();
+    if (!$schema->hasTable('mod_driveresource_uploads')) {
+        return;
+    }
+
+    $indexes = Capsule::select(
+        "SHOW INDEX FROM mod_driveresource_uploads WHERE Key_name = ?",
+        ['dr_upload_video_unique']
+    );
+    if ($indexes !== []) {
+        return;
+    }
+
+    $duplicate = Capsule::table('mod_driveresource_uploads')
+        ->select('video_id')
+        ->whereNotNull('video_id')
+        ->groupBy('video_id')
+        ->havingRaw('COUNT(*) > 1')
+        ->first();
+    if ($duplicate) {
+        throw new RuntimeException(
+            'Elearning Stream Gateway detected duplicate provider video ownership. '
+                . 'Resolve duplicate mod_driveresource_uploads.video_id rows before upgrading to 0.5.9.'
+        );
+    }
+
+    $schema->table('mod_driveresource_uploads', static function (Blueprint $table): void {
+        $table->unique('video_id', 'dr_upload_video_unique');
+    });
 }
 
 /**
