@@ -6,7 +6,7 @@ Elearning Stream is a protected-video activity for Moodle. The historical Moodle
 
 - Product: **Elearning Stream**
 - Moodle component: `mod_videoplayer`
-- Release: **1.2.0-rc11-m45**
+- Release: **1.2.0-rc12-m45**
 - Target: Moodle **4.5 LTS**
 - PHP baseline: PHP 8.1+
 - Video runtime: native HTML5 Media API
@@ -56,6 +56,8 @@ The learner receives Moodle-owned protected URLs. Provider API keys and playback
 Gateway 0.5.7 performs a one-byte server-side Range probe of each newly signed MP4 playback URL and now requires a real `206 Partial Content` response with `Content-Range`. A CDN that only returns `200 OK` is rejected because playback may start but seeking is not production-safe.
 
 RC11 preserves the learner's requested seek position across signed-URL refresh/recovery, commits on touch `pointerup/change`, and refuses to silently fall back to second 0 after a failed seek. The learner video view is also simplified: resource-type, protection and percentage chips are no longer rendered above the player.
+
+RC12 redesigns the teacher upload experience as a responsive upload card with drag-and-drop, selected-file summary, upload progress in percent and transferred bytes, storage/quota feedback, explicit retry/error/completion states, and mobile-first actions. The secure TUS data plane and WHMCS credential boundary are unchanged.
 
 ## Video upload and playback
 
