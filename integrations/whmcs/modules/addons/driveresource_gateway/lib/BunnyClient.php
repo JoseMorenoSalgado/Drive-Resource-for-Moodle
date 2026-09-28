@@ -248,6 +248,7 @@ final class BunnyClient
             );
         }
 
+        $responseHeaders = [];
         curl_setopt_array($curl, [
             CURLOPT_RETURNTRANSFER => false,
             CURLOPT_FOLLOWLOCATION => false,
@@ -263,6 +264,17 @@ final class BunnyClient
                 'Accept: video/mp4,application/octet-stream;q=0.9,*/*;q=0.1',
                 'Accept-Encoding: identity',
             ],
+            CURLOPT_HEADERFUNCTION => static function ($curl, string $header) use (&$responseHeaders): int {
+                $length = strlen($header);
+                $trimmed = trim($header);
+                if (preg_match('/^Content-Range:\\s*(.+)$/i', $trimmed, $matches)) {
+                    $responseHeaders['content-range'] = trim($matches[1]);
+                } else if (preg_match('/^Accept-Ranges:\\s*(.+)$/i', $trimmed, $matches)) {
+                    $responseHeaders['accept-ranges'] = strtolower(trim($matches[1]));
+                }
+
+                return $length;
+            },
             CURLOPT_WRITEFUNCTION => static function ($curl, string $data): int {
                 return strlen($data);
             },
@@ -280,7 +292,14 @@ final class BunnyClient
             );
         }
 
-        if (in_array($status, [200, 206], true)) {
+        if ($status === 206) {
+            $contentRange = trim((string) ($responseHeaders['content-range'] ?? ''));
+            if (!preg_match('/^bytes\\s+0-0\\/\\d+$/i', $contentRange)) {
+                throw new RuntimeException(
+                    'Elearning Stream CDN returned HTTP 206 without a valid Content-Range for protected seeking.'
+                );
+            }
+
             if (
                 $contentType === ''
                 || str_starts_with($contentType, 'video/')
@@ -291,6 +310,13 @@ final class BunnyClient
 
             throw new RuntimeException(
                 'Elearning Stream CDN returned an unexpected playback content type.'
+            );
+        }
+
+        if ($status === 200) {
+            throw new RuntimeException(
+                'Elearning Stream CDN ignored the byte-range playback probe (HTTP 200). '
+                    . 'Enable Cache Slicing in the Bunny Pull Zone cache settings so uncached MP4 requests return HTTP 206.'
             );
         }
 
