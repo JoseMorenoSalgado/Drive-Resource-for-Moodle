@@ -826,6 +826,15 @@ function driveresource_AdminServicesTabFields(array $params): array
             : htmlspecialchars($translator->t('token_missing'), ENT_QUOTES, 'UTF-8'),
         $translator->t('card_storage') => htmlspecialchars($storage, ENT_QUOTES, 'UTF-8'),
         $translator->t('monthly_transfer') => htmlspecialchars($transfer, ENT_QUOTES, 'UTF-8'),
+        $translator->t('card_retention') => $service
+            ? htmlspecialchars(
+                (int) $service->retention_days === 0
+                    ? $translator->t('retention_immediate')
+                    : $translator->t('retention_days', ['days' => (int) $service->retention_days]),
+                ENT_QUOTES,
+                'UTF-8'
+            )
+            : '—',
     ];
 }
 
@@ -1016,7 +1025,15 @@ function driveresource_require_gateway(): void
     }
     if (!$schema->hasTable('mod_driveresource_usage_reports')) {
         throw new RuntimeException(
-            'Elearning Stream Gateway 0.5.3 usage schema is missing.'
+            'Elearning Stream Gateway usage schema is missing.'
+        );
+    }
+    if (
+        !$schema->hasTable('mod_driveresource_uploads')
+        || !$schema->hasColumn('mod_driveresource_uploads', 'display_name')
+    ) {
+        throw new RuntimeException(
+            'Elearning Stream Gateway 0.5.8+ upload schema upgrade is required.'
         );
     }
 }
