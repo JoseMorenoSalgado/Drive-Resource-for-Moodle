@@ -15,7 +15,7 @@ This compatibility package declares Moodle 4.5 only. Do not install it on Moodle
 
 ## Production connection model
 
-Install the matching **Elearning Stream Gateway 0.5.5** companion in WHMCS. In the addon configure **Public Gateway URL** to the branded HTTPS endpoint that customers will paste into Moodle; the recommended production value is:
+Install the matching **Elearning Stream Gateway 0.5.6** companion in WHMCS. In the addon configure **Public Gateway URL** to the branded HTTPS endpoint that customers will paste into Moodle; the recommended production value is:
 
 ```text
 https://stream.elearningcloud.io
@@ -108,7 +108,7 @@ When upgrading the gateway from 0.5.4 or earlier, open/activate the addon so the
 
 Also test creating a managed-video activity and deleting it immediately before cron processes the initial bind. After cron, the unbound reservation must be released/deleted according to retention policy without producing a persistent 403 release task.
 
-The 0.5.5 WHMCS ZIP must be extracted at the WHMCS document root and contains top-level `modules/addons/...` and `modules/servers/...`. If an archive shows an extra `whmcs-root/` parent directory, do not deploy that artifact.
+The 0.5.6 WHMCS ZIP must be extracted at the WHMCS document root and contains top-level `modules/addons/...` and `modules/servers/...`. If an archive shows an extra `whmcs-root/` parent directory, do not deploy that artifact.
 
 
 After installing rc19:
@@ -242,8 +242,9 @@ In the WHMCS Drive Resource Media Gateway configure the fields shown as:
 - **Elearning Stream Library ID**
 - **Elearning Stream API Key**
 - **Elearning Stream CDN Hostname**
-- **Elearning Stream Token Key**
+- **Elearning Stream Token Key** — use the Bunny **CDN and embed-view Token Authentication Key** for the Video Library/Pull Zone; do not use the Stream API key.
 - **Elearning Stream Playback TTL** (300 seconds recommended)
+- Bunny **Allow Direct Play** must be enabled for the protected progressive MP4 path.
 
 The provider video library must have MP4 fallback enabled. Videos that were encoded without an MP4 fallback cannot be delivered through the native HTML5 protected playback path until the provider generates that fallback.
 
