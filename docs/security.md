@@ -276,3 +276,6 @@ Video title updates use the signed Moodle-to-WHMCS gateway and require a matchin
 ## TUS authorization response integrity
 
 Gateway trust does not bypass Moodle-side validation of browser-exposed upload capabilities. Create and refresh responses are validated through one policy object. The allowed endpoint is HTTPS `video.bunnycdn.com/tusupload` on the standard TLS port, without URL credentials, query strings or fragments. Signatures and expiry windows are bounded, identifiers are format-checked, and refresh responses are rejected if the gateway returns a different upload reservation or video id than Moodle requested.
+
+
+Gateway 0.5.8 separates source filenames from display names. Provider/Moodle title synchronization writes only bounded plain-text titles and does not expose provider credentials or management URLs.
