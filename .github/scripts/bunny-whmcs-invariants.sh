@@ -102,6 +102,10 @@ echo "Checking direct-upload implementation..."
 grep -q "AuthorizationSignature" amd/src/bunnyupload.js     || fail "Bunny presigned TUS signature header is missing."
 grep -q "mod_videoplayer_refresh_bunny_upload" amd/src/bunnyupload.js     || fail "Long-running TUS authorization refresh is missing."
 grep -q "credentials: 'omit'" amd/src/bunnyupload.js     || fail "Direct Bunny upload must not send Moodle cookies cross-origin."
+grep -q "mod-videoplayer-bunny-dropzone" mod_form.php     || fail "Teacher upload dropzone is missing."
+grep -q "addEventListener('drop'" amd/src/bunnyupload.js     || fail "Drag-and-drop upload handling is missing."
+grep -q "mod-videoplayer-bunny-progress-bytes" mod_form.php     || fail "Byte-level upload progress UI is missing."
+grep -q "selectedFile" amd/src/bunnyupload.js     || fail "Selected-file upload state is missing."
 
 # Guard video title updates behind the authenticated WHMCS reference boundary.
 require_file "integrations/whmcs/modules/addons/driveresource_gateway/api/asset-rename.php"
