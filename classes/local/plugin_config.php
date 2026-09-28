@@ -76,15 +76,6 @@ final class plugin_config {
     }
 
     /**
-     * Whether the detected/selected resource type is shown.
-     *
-     * @return bool
-     */
-    public static function show_resource_type(): bool {
-        return (string)get_config('mod_videoplayer', 'showresourcetype') !== '0';
-    }
-
-    /**
      * Whether background PDF cache warming is enabled.
      *
      * @return bool
