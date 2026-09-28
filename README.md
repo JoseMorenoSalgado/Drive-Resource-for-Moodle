@@ -126,3 +126,6 @@ GNU GPL v3 or later for the Moodle plugin. Companion-module licensing is declare
 ### Gateway upload authorization integrity
 
 Direct TUS upload capabilities returned by the control plane are revalidated inside Moodle before they reach the teacher browser. Drive Resource requires the exact HTTPS Bunny upload host/path, standard TLS port, bounded expiration, strict identifiers and signature format. Refreshed capabilities must preserve the upload reservation and video identity originally requested by Moodle.
+
+
+Gateway 0.5.8 separates the original upload filename from the customer-facing video title. Moodle renames are reflected immediately in Bunny and in the WHMCS client portal, with daily provider reconciliation for legacy/stale rows.
