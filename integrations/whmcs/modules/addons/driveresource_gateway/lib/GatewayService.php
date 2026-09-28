@@ -478,6 +478,16 @@ final class GatewayService
         try {
             $playback = $this->streamClient($service)->playbackUrl($videoId);
         } catch (Throwable $exception) {
+            $message = trim($exception->getMessage());
+            if (
+                str_starts_with($message, 'Elearning Stream CDN ')
+                || str_starts_with($message, 'Elearning Stream MP4 ')
+                || str_starts_with($message, 'Elearning Stream did not report ')
+            ) {
+                $status = str_starts_with($message, 'Elearning Stream CDN ') ? 502 : 409;
+                throw new GatewayException($message, $status);
+            }
+
             throw new GatewayException(
                 'Elearning Stream playback is not ready for this video.',
                 409
