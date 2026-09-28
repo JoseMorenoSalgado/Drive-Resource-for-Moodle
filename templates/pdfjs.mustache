@@ -9,13 +9,7 @@
     Example context (json):
     {
         "type": "pdf",
-        "cmid": 42,
-        "showresourcetype": true,
-        "resourcetype": "PDF",
-        "completionpercent": 40,
-        "enablegamification": true,
-        "points": 10,
-        "totalpages": 12,
+        "cmid": 42,        "enablegamification": true,        "totalpages": 12,
         "initialpage": 3,
         "pdfurl": "/mod/videoplayer/protected.php?id=42",
         "title": "Protected PDF",
@@ -27,14 +21,6 @@
     }
 }}
 <div class="mod-videoplayer-container mod-videoplayer-pdfjs" data-resource-type="{{type}}" data-cmid="{{cmid}}">
-    <div class="mod-videoplayer-meta mb-2">
-        {{#showresourcetype}}<span class="mod-videoplayer-meta-item">{{resourcetype}}</span>{{/showresourcetype}}
-        <span class="mod-videoplayer-meta-item">{{#str}} protectedresource, mod_videoplayer {{/str}}</span>
-        <span class="mod-videoplayer-meta-item" data-region="pdfjs-progress">{{completionpercent}}%</span>
-        {{#enablegamification}}
-            <span class="mod-videoplayer-meta-item" data-region="pdfjs-points">{{points}} {{#str}} points, mod_videoplayer {{/str}}</span>
-        {{/enablegamification}}
-    </div>
 
     <div data-region="pdfjs-achievements" aria-live="polite"></div>
 
