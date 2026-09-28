@@ -85,6 +85,8 @@ grep -q "function authorizePlayback" integrations/whmcs/modules/addons/drivereso
 grep -q "function playbackUrl" integrations/whmcs/modules/addons/driveresource_gateway/lib/BunnyClient.php     || fail "Provider playback signer is missing."
 grep -q "hasMP4Fallback" integrations/whmcs/modules/addons/driveresource_gateway/lib/BunnyClient.php     || fail "MP4 fallback verification is missing."
 grep -q "HS256-" integrations/whmcs/modules/addons/driveresource_gateway/lib/BunnyClient.php     || fail "Playback token signing is missing."
+grep -q "assertPlaybackUrlAccessible" integrations/whmcs/modules/addons/driveresource_gateway/lib/BunnyClient.php     || fail "Signed playback preflight is missing."
+grep -q "CURLOPT_RANGE => '0-0'" integrations/whmcs/modules/addons/driveresource_gateway/lib/BunnyClient.php     || fail "Playback preflight must remain a bounded one-byte request."
 grep -q "function playback_url" classes/local/whmcs_gateway_client.php     || fail "Moodle playback authorization client is missing."
 grep -q "streamplayback" db/caches.php     || fail "Playback authorization cache definition is missing."
 grep -q "ELEARNING_STREAM" classes/local/stream/protected_resource_service.php     || fail "Elearning Stream is not proxied through protected.php."
