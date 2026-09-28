@@ -71,7 +71,11 @@ final class protected_resource_service {
             }
 
             try {
-                $url = (new whmcs_gateway_client())->playback_url($videoid, $forcerefresh);
+                $url = (new whmcs_gateway_client())->playback_url(
+                    $videoid,
+                    (int)$instance->id,
+                    $forcerefresh
+                );
             } catch (\Throwable $exception) {
                 debugging(
                     'Drive Resource Elearning Stream playback authorization failed: '
