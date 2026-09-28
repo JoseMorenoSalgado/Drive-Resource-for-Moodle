@@ -29,14 +29,14 @@ jobs:
           test -f dist-whmcs/whmcs-root/modules/addons/driveresource_gateway/driveresource_gateway.php
           test -f dist-whmcs/whmcs-root/modules/addons/driveresource_gateway/api/upload-authorize.php
           test -f dist-whmcs/whmcs-root/modules/servers/driveresource/driveresource.php
-          grep -F "'version' => '0.5.5'" dist-whmcs/whmcs-root/modules/addons/driveresource_gateway/driveresource_gateway.php
+          grep -F "'version' => '0.5.6'" dist-whmcs/whmcs-root/modules/addons/driveresource_gateway/driveresource_gateway.php
 
           (
             cd dist-whmcs/whmcs-root
-            zip -qr ../elearning-stream-whmcs-0.5.5.zip modules README-Drive-Resource-WHMCS.md
+            zip -qr ../elearning-stream-whmcs-0.5.6.zip modules README-Drive-Resource-WHMCS.md
           )
 
-          package_entries="$(unzip -Z1 dist-whmcs/elearning-stream-whmcs-0.5.5.zip)"
+          package_entries="$(unzip -Z1 dist-whmcs/elearning-stream-whmcs-0.5.6.zip)"
           grep -q '^modules/addons/driveresource_gateway/' <<<"$package_entries"
           grep -q '^modules/servers/driveresource/' <<<"$package_entries"
           if grep -q '^whmcs-root/' <<<"$package_entries"; then
@@ -47,7 +47,7 @@ jobs:
       - name: Upload WHMCS package
         uses: actions/upload-artifact@v4
         with:
-          name: elearning-stream-whmcs-0.5.5
-          path: dist-whmcs/elearning-stream-whmcs-0.5.5.zip
+          name: elearning-stream-whmcs-0.5.6
+          path: dist-whmcs/elearning-stream-whmcs-0.5.6.zip
           if-no-files-found: error
           retention-days: 30
