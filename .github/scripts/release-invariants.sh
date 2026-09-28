@@ -64,6 +64,11 @@ grep -q 'connection_aborted()' classes/local/http_range_proxy.php     || fail "H
 grep -q 'MAX_RECOVERY_ATTEMPTS' amd/src/nativevideo.js     || fail "Video recovery is no longer bounded."
 grep -q 'pendingSeekTarget' amd/src/nativevideo.js     || fail "Protected mobile seek no longer batches slider input before Range navigation."
 grep -q 'commitSeek' amd/src/nativevideo.js     || fail "Protected mobile seek commit logic is missing."
+grep -q 'desiredSeekPosition' amd/src/nativevideo.js     || fail "Protected seek recovery no longer preserves the requested second."
+grep -q "addEventListener('pointerup'" amd/src/nativevideo.js     || fail "Touch seek no longer commits on pointer release."
+if grep -q 'mod-videoplayer-meta' templates/video.mustache; then
+    fail "Learner video view must not render distracting metadata chips."
+fi
 grep -q "searchParams.set('refresh', '1')" amd/src/nativevideo.js     || fail "Video recovery no longer refreshes the protected signed stream."
 grep -q 'watchedranges' amd/src/nativevideo.js     || fail "Video completion no longer submits watched ranges."
 grep -q 'playback_url' classes/local/stream/protected_resource_service.php     || fail "Elearning Stream playback no longer resolves through WHMCS."
