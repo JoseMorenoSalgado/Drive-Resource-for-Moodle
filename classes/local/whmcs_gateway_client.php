@@ -115,8 +115,12 @@ final class whmcs_gateway_client {
         if (
             !$parts
             || strtolower((string)($parts['scheme'] ?? '')) !== 'https'
+            || empty($parts['host'])
             || !empty($parts['user'])
             || !empty($parts['pass'])
+            || (isset($parts['port']) && (int)$parts['port'] !== 443)
+            || isset($parts['query'])
+            || isset($parts['fragment'])
         ) {
             throw new moodle_exception('whmcsgatewayhttpsrequired', 'mod_videoplayer');
         }
