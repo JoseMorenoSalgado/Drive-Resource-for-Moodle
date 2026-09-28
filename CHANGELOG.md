@@ -1,5 +1,12 @@
 # Changelog
 
+## Elearning Stream Gateway 0.5.8 — 2026-09-28
+- Adds a nullable `display_name` column for provider assets while preserving the original source `filename`.
+- Synchronizes Moodle activity renames to both Bunny and the WHMCS client portal.
+- Initializes new uploads with the Moodle activity title when available.
+- Reconciles stale/existing WHMCS display names from Bunny during daily maintenance.
+- Keeps the original source filename unchanged for audit/troubleshooting purposes.
+
 ## 1.2.0-rc12-m45 — 2026-09-27
 - Replaces the basic file input with a responsive Elearning Stream upload card for teachers.
 - Adds drag-and-drop and tap-to-select without changing the secure browser-to-provider TUS transport.
