@@ -6,15 +6,10 @@
 
     Example context (json):
     {
-        "cmid": 42,
-        "resourcetype": "Video"
+        "cmid": 42
     }
 }}
 <div class="mod-videoplayer-container" data-resource-type="video" data-cmid="{{cmid}}">
-    <div class="mod-videoplayer-meta mb-2">
-        <span class="mod-videoplayer-meta-item">{{resourcetype}}</span>
-        <span class="mod-videoplayer-meta-item">{{#str}} sourcebunnystream, mod_videoplayer {{/str}}</span>
-    </div>
     <div class="alert alert-info" role="status">
         <strong>{{#str}} bunnyassetuploaded, mod_videoplayer {{/str}}</strong>
         <div>{{#str}} bunnyplaybackphasepending, mod_videoplayer {{/str}}</div>
