@@ -233,7 +233,7 @@ A reservation is created under a database lock before Bunny authorization is emi
 
 Activity callbacks no longer contain provider transition rules. `bunny_asset_lifecycle` owns create/update/delete reconciliation and translates persisted Moodle state into asynchronous bind, release and rename tasks. Delete releases are queued only after the Moodle database transaction commits, so a failed local deletion cannot prematurely release the remote reference.
 
-At the WHMCS boundary, each reference is keyed by service, Moodle site, activity instance **and video id**. Gateway 0.5.5 locks the upload row before bind, restore or release mutations. This common lock order prevents a zero-retention release from deleting an asset while another worker is binding/restoring it, while historical inactive references remain available for idempotent release retries.
+At the WHMCS boundary, each reference is keyed by service, Moodle site, activity instance **and video id**. Gateway 0.5.6 locks the upload row before bind, restore or release mutations. This common lock order prevents a zero-retention release from deleting an asset while another worker is binding/restoring it, while historical inactive references remain available for idempotent release retries.
 
 A short pre-bind window is handled separately: the Moodle release task carries the upload reservation id when it still exists. WHMCS may use that reservation as release proof only while `bound_instance_id = 0`; once an asset has been bound, the normal exact activity+video reference is mandatory.
 
@@ -286,6 +286,8 @@ Learner HTML5 player
 ```
 
 The browser-facing `<video>` source remains a Moodle URL. WHMCS verifies that the asset belongs to the requesting service and signs a short-lived MP4 fallback URL. Moodle caches the authorization briefly and forwards byte ranges through the existing protected proxy. A player recovery request with `refresh=1` invalidates the cached authorization before retrying.
+
+Before returning a fresh playback authorization, Gateway 0.5.6 probes byte `0-0` of the exact signed CDN URL. The probe uses the same server-side characteristics as Moodle (HTTPS, no browser referrer, no redirects), so wrong CDN/token configuration, disabled Direct Play, referrer restrictions, and missing MP4 objects fail at the control plane instead of surfacing only as a generic player error.
 
 
 ### Elearning Stream configuration boundary
