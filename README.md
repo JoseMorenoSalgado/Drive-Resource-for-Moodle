@@ -6,7 +6,7 @@ Elearning Stream is a protected-video activity for Moodle. The historical Moodle
 
 - Product: **Elearning Stream**
 - Moodle component: `mod_videoplayer`
-- Release: **1.2.0-rc10-m45**
+- Release: **1.2.0-rc11-m45**
 - Target: Moodle **4.5 LTS**
 - PHP baseline: PHP 8.1+
 - Video runtime: native HTML5 Media API
@@ -53,9 +53,9 @@ Every managed request is bound to the provisioned service. The gateway validates
 
 The learner receives Moodle-owned protected URLs. Provider API keys and playback signing keys stay in the gateway.
 
-Gateway 0.5.6 also performs a one-byte server-side probe of each newly signed MP4 playback URL. A processed Bunny video is therefore distinguished from CDN delivery misconfiguration before Moodle starts proxying bytes.
+Gateway 0.5.7 performs a one-byte server-side Range probe of each newly signed MP4 playback URL and now requires a real `206 Partial Content` response with `Content-Range`. A CDN that only returns `200 OK` is rejected because playback may start but seeking is not production-safe.
 
-RC10 improves protected playback on touch devices: dragging the timeline now previews the target position and commits a single seek when the learner releases the slider, avoiding overlapping Moodle `Range` requests. The timeline also has a larger mobile touch target and portrait videos are capped to a viewport-aware height.
+RC11 preserves the learner's requested seek position across signed-URL refresh/recovery, commits on touch `pointerup/change`, and refuses to silently fall back to second 0 after a failed seek. The learner video view is also simplified: resource-type, protection and percentage chips are no longer rendered above the player.
 
 ## Video upload and playback
 
@@ -88,7 +88,7 @@ Moodle meters protected transfer per service and reports idempotent usage batche
 
 Managed-video lifecycle transitions are coordinated by `classes/local/provider/bunny_asset_lifecycle.php`. Moodle callbacks persist local state first, then the lifecycle service queues idempotent WHMCS bind, release or rename tasks. Provider credentials and destructive provider calls remain outside Moodle.
 
-WHMCS Gateway 0.5.6 additionally serializes bind/restore/release transitions on the provider upload row and stores references per activity+video. This prevents a replacement bind from erasing the old reference before its release task runs and prevents deletion from racing a concurrent rebind.
+WHMCS Gateway 0.5.7 additionally serializes bind/restore/release transitions on the provider upload row and stores references per activity+video. This prevents a replacement bind from erasing the old reference before its release task runs and prevents deletion from racing a concurrent rebind.
 
 If an activity is deleted before its first bind task executes, Moodle forwards the original upload reservation id with the release task. WHMCS accepts that fallback only when the reservation belongs to the same service/video and has never been bound to another activity.
 
