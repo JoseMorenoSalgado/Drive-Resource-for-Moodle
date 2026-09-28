@@ -154,6 +154,8 @@ define(['core/ajax'], function(Ajax) {
         var restoredPosition = false;
         var pendingPosition = initialPosition;
         var resumeAfterReload = false;
+        var desiredSeekPosition = null;
+        var desiredSeekAutoplay = false;
         var recoveryAttempts = 0;
         var watchedRanges = parseRanges(root.dataset.watchedRanges || '[]', 0);
         var lastMediaTime = null;
@@ -405,8 +407,12 @@ define(['core/ajax'], function(Ajax) {
                 return;
             }
 
-            var position = Number.isFinite(video.currentTime) ? video.currentTime : 0;
-            var autoplay = !video.paused && !video.ended;
+            var position = Number.isFinite(desiredSeekPosition)
+                ? desiredSeekPosition
+                : (Number.isFinite(video.currentTime) ? video.currentTime : 0);
+            var autoplay = Number.isFinite(desiredSeekPosition)
+                ? desiredSeekAutoplay
+                : (!video.paused && !video.ended);
             recoveryAttempts += 1;
 
             if (!fallbackActive && recoveryAttempts === 1) {
@@ -437,8 +443,12 @@ define(['core/ajax'], function(Ajax) {
         };
 
         var tryFallback = function() {
-            var position = Number.isFinite(video.currentTime) ? video.currentTime : 0;
-            var autoplay = !video.paused && !video.ended;
+            var position = Number.isFinite(desiredSeekPosition)
+                ? desiredSeekPosition
+                : (Number.isFinite(video.currentTime) ? video.currentTime : 0);
+            var autoplay = Number.isFinite(desiredSeekPosition)
+                ? desiredSeekAutoplay
+                : (!video.paused && !video.ended);
 
             if (!fallbackActive && recoveryAttempts === 0) {
                 recoveryAttempts += 1;
@@ -509,15 +519,17 @@ define(['core/ajax'], function(Ajax) {
             setError(false);
             markOrientation();
             watchedRanges = mergeRanges(watchedRanges, video.duration);
-            var targetPosition = pendingPosition > 0 ? pendingPosition : initialPosition;
-            if (!restoredPosition && targetPosition > 0 && targetPosition < video.duration - RESUME_GUARD_SECONDS) {
-                try {
-                    video.currentTime = targetPosition;
-                } catch (error) {
-                    // Some engines reject seeking until seekable ranges exist.
+            var targetPosition = Number.isFinite(pendingPosition) ? pendingPosition : initialPosition;
+            if (!restoredPosition) {
+                if (targetPosition > 0 && targetPosition < video.duration - RESUME_GUARD_SECONDS) {
+                    try {
+                        video.currentTime = targetPosition;
+                    } catch (error) {
+                        // Some engines reject seeking until seekable ranges exist.
+                    }
                 }
                 restoredPosition = true;
-                pendingPosition = 0;
+                pendingPosition = null;
             }
             updateTime();
             updateBuffered();
@@ -570,7 +582,33 @@ define(['core/ajax'], function(Ajax) {
             lastMediaTime = null;
         });
         video.addEventListener('seeked', function() {
-            lastMediaTime = Number(video.currentTime) || 0;
+            var currentTime = Number(video.currentTime) || 0;
+            lastMediaTime = currentTime;
+
+            if (Number.isFinite(desiredSeekPosition)) {
+                var requestedPosition = desiredSeekPosition;
+                var tolerance = Math.max(1.5, Math.min(3, video.duration * 0.005));
+                if (Math.abs(currentTime - requestedPosition) > tolerance) {
+                    if (recoveryAttempts < MAX_RECOVERY_ATTEMPTS) {
+                        recoveryAttempts += 1;
+                        loadSource(
+                            recoveryUrl(primary, true),
+                            false,
+                            requestedPosition,
+                            desiredSeekAutoplay
+                        );
+                        return;
+                    }
+
+                    setLoading(false);
+                    setError(true);
+                    return;
+                }
+
+                desiredSeekPosition = null;
+                desiredSeekAutoplay = false;
+            }
+
             sendProgress(true);
         });
         video.addEventListener('progress', updateBuffered);
@@ -600,25 +638,32 @@ define(['core/ajax'], function(Ajax) {
         };
 
         var commitSeek = function(seekControl) {
-            var target = Number.isFinite(pendingSeekTarget)
-                ? pendingSeekTarget
-                : seekTargetSeconds(seekControl);
+            if (!scrubbing || !Number.isFinite(pendingSeekTarget)) {
+                return false;
+            }
 
+            var target = pendingSeekTarget;
             scrubbing = false;
             pendingSeekTarget = null;
-            if (target === null || !Number.isFinite(target)) {
+            if (!Number.isFinite(target)) {
                 updateTime();
                 return false;
             }
 
+            target = Math.max(0, Math.min(video.duration, target));
+            desiredSeekPosition = target;
+            desiredSeekAutoplay = !video.paused && !video.ended;
             clearStallTimer();
             lastMediaTime = null;
+
             try {
                 // Commit once when the learner releases the slider. Updating
                 // currentTime on every mobile input event starts overlapping
                 // protected Range requests and can make seeking appear stuck.
-                video.currentTime = Math.max(0, Math.min(video.duration, target));
+                video.currentTime = target;
             } catch (error) {
+                desiredSeekPosition = null;
+                desiredSeekAutoplay = false;
                 updateTime();
                 return false;
             }
@@ -637,13 +682,23 @@ define(['core/ajax'], function(Ajax) {
             seekControl.addEventListener('input', function() {
                 previewSeek(seekControl);
             });
+            seekControl.addEventListener('pointerup', function() {
+                if (commitSeek(seekControl)) {
+                    sendProgress(true);
+                }
+            });
             seekControl.addEventListener('change', function() {
                 if (commitSeek(seekControl)) {
                     sendProgress(true);
                 }
             });
+            seekControl.addEventListener('pointercancel', function() {
+                scrubbing = false;
+                pendingSeekTarget = null;
+                updateTime();
+            });
             seekControl.addEventListener('blur', function() {
-                if (scrubbing && Number.isFinite(pendingSeekTarget) && commitSeek(seekControl)) {
+                if (commitSeek(seekControl)) {
                     sendProgress(true);
                 } else {
                     scrubbing = false;
