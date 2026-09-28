@@ -270,6 +270,7 @@ function driveresource_ValidateMoodleConnection(array $params): string
         driveresource_require_gateway();
 
         $serviceId = (int) ($params['serviceid'] ?? 0);
+        driveresource_sync_service_policy($params);
         $service = Capsule::table('mod_driveresource_services')
             ->where('service_id', $serviceId)
             ->first();
@@ -787,6 +788,7 @@ function driveresource_MetricProvider(array $params): MetricsProvider
 function driveresource_AdminServicesTabFields(array $params): array
 {
     $serviceId = (int) ($params['serviceid'] ?? 0);
+    driveresource_sync_service_policy($params);
     $translator = Translator::fromParams($params);
     $gatewayUrl = driveresource_gateway_url_hint($params);
     $token = driveresource_service_token($params);
@@ -874,9 +876,75 @@ function driveresource_ClientArea(array $params): string
 {
     try {
         driveresource_require_gateway();
+        driveresource_sync_service_policy($params);
         return (new ClientPortal($params))->render();
     } catch (Throwable $exception) {
         return '<div class="alert alert-danger">Elearning Stream Gateway is unavailable.</div>';
+    }
+}
+
+/**
+ * Synchronise mutable commercial policy from the WHMCS product into the
+ * gateway tenant row.
+ *
+ * Existing services can otherwise retain historical module defaults after a
+ * code upgrade. Keeping this lightweight sync on normal service views makes
+ * quota/overage/retention behavior match the product configuration without
+ * rotating credentials or changing provider ownership.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return void
+ */
+function driveresource_sync_service_policy(array $params): void
+{
+    $serviceId = (int) ($params['serviceid'] ?? 0);
+    if ($serviceId <= 0 || !Capsule::schema()->hasTable('mod_driveresource_services')) {
+        return;
+    }
+
+    $service = Capsule::table('mod_driveresource_services')
+        ->where('service_id', $serviceId)
+        ->first();
+    if (!$service) {
+        return;
+    }
+
+    $retention = driveresource_retention_days($params);
+    $previousRetention = max(0, (int) ($service->retention_days ?? 0));
+    $now = time();
+
+    Capsule::table('mod_driveresource_services')
+        ->where('service_id', $serviceId)
+        ->update([
+            'quota_bytes' => driveresource_quota_bytes($params),
+            'overage_allowed' => driveresource_overage_allowed($params),
+            'retention_days' => $retention,
+            'updated_at' => $now,
+        ]);
+
+    if ($previousRetention > 0 && $retention === 0) {
+        $candidates = Capsule::table('mod_driveresource_uploads')
+            ->where('service_id', $serviceId)
+            ->whereNotNull('delete_after')
+            ->where('delete_after', '>', $now)
+            ->whereIn('status', ['processing', 'ready', 'bound', 'deleting'])
+            ->get();
+
+        foreach ($candidates as $upload) {
+            $references = (int) Capsule::table('mod_driveresource_asset_refs')
+                ->where('service_id', $serviceId)
+                ->where('video_id', (string) $upload->video_id)
+                ->where('active', true)
+                ->count();
+            if ($references === 0) {
+                Capsule::table('mod_driveresource_uploads')
+                    ->where('upload_id', (string) $upload->upload_id)
+                    ->update([
+                        'delete_after' => $now,
+                        'updated_at' => $now,
+                    ]);
+            }
+        }
     }
 }
 
