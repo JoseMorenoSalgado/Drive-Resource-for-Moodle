@@ -1171,3 +1171,326 @@
         font-size: .84rem;
     }
 }
+
+
+/* Teacher upload experience. */
+.mod-videoplayer-bunny-upload {
+    --mod-videoplayer-upload-accent: var(--primary, #0f6cbf);
+    --mod-videoplayer-upload-border: rgba(15, 23, 42, .14);
+    --mod-videoplayer-upload-muted: #6b7280;
+    max-width: 760px;
+    padding: 1.25rem;
+    border: 1px solid var(--mod-videoplayer-upload-border);
+    border-radius: 16px;
+    background: var(--white, #fff);
+    box-shadow: 0 10px 30px rgba(15, 23, 42, .06);
+}
+
+.mod-videoplayer-upload-header {
+    display: flex;
+    gap: .875rem;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.mod-videoplayer-upload-icon {
+    display: inline-flex;
+    flex: 0 0 42px;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--mod-videoplayer-upload-accent) 10%, transparent);
+}
+
+.mod-videoplayer-upload-header-icon,
+.mod-videoplayer-upload-icon .icon {
+    width: 22px;
+    height: 22px;
+    margin: 0;
+}
+
+.mod-videoplayer-upload-heading {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: .2rem;
+    min-width: 0;
+}
+
+.mod-videoplayer-upload-title {
+    color: var(--body-color, #212529);
+    font-size: 1rem;
+    line-height: 1.35;
+}
+
+.mod-videoplayer-upload-intro {
+    color: var(--mod-videoplayer-upload-muted);
+    font-size: .875rem;
+    line-height: 1.45;
+}
+
+.mod-videoplayer-upload-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 190px;
+    padding: 1.5rem;
+    border: 2px dashed rgba(15, 108, 191, .28);
+    border-radius: 14px;
+    background: rgba(15, 108, 191, .025);
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .18s ease, background-color .18s ease, transform .18s ease;
+}
+
+.mod-videoplayer-upload-dropzone:hover,
+.mod-videoplayer-upload-dropzone.is-dragging,
+.mod-videoplayer-upload-input:focus + .mod-videoplayer-upload-dropzone {
+    border-color: var(--mod-videoplayer-upload-accent);
+    background: rgba(15, 108, 191, .065);
+}
+
+.mod-videoplayer-upload-dropzone.is-dragging {
+    transform: translateY(-1px);
+}
+
+.mod-videoplayer-upload-dropzone.is-disabled {
+    opacity: .58;
+    pointer-events: none;
+}
+
+.mod-videoplayer-upload-drop-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    margin-bottom: .75rem;
+    border-radius: 50%;
+    background: var(--mod-videoplayer-upload-accent);
+}
+
+.mod-videoplayer-upload-drop-icon .icon {
+    width: 24px;
+    height: 24px;
+    margin: 0;
+    filter: brightness(0) invert(1);
+}
+
+.mod-videoplayer-upload-drop-title {
+    margin-bottom: .25rem;
+    color: var(--body-color, #212529);
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.mod-videoplayer-upload-drop-help {
+    color: var(--mod-videoplayer-upload-accent);
+    font-size: .9rem;
+    font-weight: 600;
+}
+
+.mod-videoplayer-upload-formats {
+    margin-top: .5rem;
+    color: var(--mod-videoplayer-upload-muted);
+    font-size: .78rem;
+}
+
+.mod-videoplayer-upload-file {
+    display: flex;
+    gap: .75rem;
+    align-items: center;
+    margin-top: 1rem;
+    padding: .875rem;
+    border: 1px solid var(--mod-videoplayer-upload-border);
+    border-radius: 12px;
+    background: rgba(15, 23, 42, .018);
+}
+
+.mod-videoplayer-upload-file-icon {
+    display: inline-flex;
+    flex: 0 0 38px;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: rgba(15, 108, 191, .08);
+}
+
+.mod-videoplayer-upload-file-icon .icon {
+    margin: 0;
+}
+
+.mod-videoplayer-upload-file-copy {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.mod-videoplayer-upload-file-label {
+    color: var(--mod-videoplayer-upload-muted);
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .035em;
+    text-transform: uppercase;
+}
+
+.mod-videoplayer-upload-file-name {
+    overflow: hidden;
+    color: var(--body-color, #212529);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mod-videoplayer-upload-file-size {
+    color: var(--mod-videoplayer-upload-muted);
+    font-size: .8rem;
+}
+
+.mod-videoplayer-upload-change {
+    flex: 0 0 auto;
+    margin: 0;
+    cursor: pointer;
+}
+
+.mod-videoplayer-upload-progress {
+    margin-top: 1rem;
+}
+
+.mod-videoplayer-upload-progress-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: .4rem;
+    font-size: .82rem;
+}
+
+.mod-videoplayer-upload-progress-label,
+.mod-videoplayer-upload-progress-bytes {
+    color: var(--mod-videoplayer-upload-muted);
+}
+
+.mod-videoplayer-upload-progress-track {
+    height: 9px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, .1);
+}
+
+.mod-videoplayer-upload-progress-bar {
+    height: 100%;
+    border-radius: inherit;
+    background: var(--mod-videoplayer-upload-accent);
+    transition: width .16s linear;
+}
+
+.mod-videoplayer-upload-progress-bytes {
+    display: block;
+    margin-top: .35rem;
+    font-size: .78rem;
+    text-align: right;
+}
+
+.mod-videoplayer-upload-feedback {
+    display: grid;
+    gap: .5rem;
+    margin-top: 1rem;
+}
+
+.mod-videoplayer-upload-status,
+.mod-videoplayer-upload-quota {
+    position: relative;
+    padding-left: 1.25rem;
+    color: var(--mod-videoplayer-upload-muted);
+    font-size: .84rem;
+    line-height: 1.45;
+}
+
+.mod-videoplayer-upload-status::before,
+.mod-videoplayer-upload-quota::before {
+    position: absolute;
+    top: .42em;
+    left: .15rem;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    content: "";
+}
+
+.mod-videoplayer-bunny-upload[data-state="ready"] .mod-videoplayer-upload-status,
+.mod-videoplayer-bunny-upload[data-state="uploading"] .mod-videoplayer-upload-status,
+.mod-videoplayer-bunny-upload[data-state="authorizing"] .mod-videoplayer-upload-status,
+.mod-videoplayer-bunny-upload[data-state="retrying"] .mod-videoplayer-upload-status {
+    color: var(--mod-videoplayer-upload-accent);
+}
+
+.mod-videoplayer-bunny-upload[data-state="complete"] .mod-videoplayer-upload-status {
+    color: #198754;
+}
+
+.mod-videoplayer-upload-status.is-error {
+    color: #dc3545;
+}
+
+.mod-videoplayer-upload-quota.is-warning {
+    color: #b45309;
+}
+
+.mod-videoplayer-upload-actions {
+    display: flex;
+    gap: .875rem;
+    align-items: center;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--mod-videoplayer-upload-border);
+}
+
+.mod-videoplayer-upload-start {
+    min-width: 150px;
+    border-radius: 9px;
+    font-weight: 600;
+}
+
+.mod-videoplayer-upload-secure {
+    color: var(--mod-videoplayer-upload-muted);
+    font-size: .78rem;
+    line-height: 1.4;
+}
+
+@media (max-width: 575.98px) {
+    .mod-videoplayer-bunny-upload {
+        padding: 1rem;
+        border-radius: 12px;
+        box-shadow: none;
+    }
+
+    .mod-videoplayer-upload-dropzone {
+        min-height: 165px;
+        padding: 1.15rem .85rem;
+    }
+
+    .mod-videoplayer-upload-file {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .mod-videoplayer-upload-change {
+        width: 100%;
+        margin-top: .25rem;
+    }
+
+    .mod-videoplayer-upload-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .mod-videoplayer-upload-start {
+        width: 100%;
+    }
+}
