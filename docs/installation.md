@@ -248,6 +248,8 @@ In the WHMCS Drive Resource Media Gateway configure the fields shown as:
 
 The provider video library must have MP4 fallback enabled. Videos that were encoded without an MP4 fallback cannot be delivered through the native HTML5 protected playback path until the provider generates that fallback.
 
+For Moodle `1.2.0-rc10-m45`, validate seeking on a physical touch device: drag the timeline well beyond the currently buffered position and release it. The player must issue one committed seek, continue from the requested position, and retain volume/speed controls. Also confirm portrait videos remain contained within the mobile viewport.
+
 Learners never receive the upstream CDN URL. Their browser requests `mod/videoplayer/protected.php`, which validates Moodle access and then proxies the authorized MP4 byte ranges.
 
 
