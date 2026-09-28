@@ -252,7 +252,7 @@ class mod_videoplayer_mod_form extends moodleform_mod {
             $mform->addElement(
                 'static',
                 'bunnyuploadpanel',
-                get_string('bunnyuploadlabel', 'mod_videoplayer'),
+                '',
                 $uploadhtml
             );
             $mform->hideIf('bunnyuploadpanel', 'streaminputmode', 'neq', 'upload');
