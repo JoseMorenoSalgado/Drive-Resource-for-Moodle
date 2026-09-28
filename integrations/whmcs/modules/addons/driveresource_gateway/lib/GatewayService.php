@@ -27,7 +27,11 @@ final class GatewayService
         $title = trim((string) ($payload['title'] ?? ''));
         $courseId = max(0, (int) ($payload['courseid'] ?? 0));
 
-        if ($filename === '' || strlen($filename) > 255 || $filesize <= 0 || $filesize > 1099511627776) {
+        if (
+            !$this->isSupportedVideoFilename($filename)
+            || $filesize <= 0
+            || $filesize > 1099511627776
+        ) {
             throw new GatewayException('Invalid video upload metadata.', 422);
         }
 
@@ -307,7 +311,7 @@ final class GatewayService
         $otherOwner = Capsule::table('mod_driveresource_uploads')
             ->where('video_id', $videoId)
             ->where('service_id', '<>', (int) $service->service_id)
-            ->whereIn('status', ['processing', 'ready', 'bound'])
+            ->whereIn('status', ['authorized', 'processing', 'ready', 'bound', 'deleting'])
             ->first();
         if ($otherOwner) {
             throw new GatewayException('This Elearning Stream video is already assigned to another service.', 403);
@@ -365,9 +369,16 @@ final class GatewayService
             $existing = Capsule::table('mod_driveresource_uploads')
                 ->where('service_id', (int) $service->service_id)
                 ->where('video_id', $videoId)
-                ->whereIn('status', ['processing', 'ready', 'bound'])
+                ->whereIn('status', ['authorized', 'processing', 'ready', 'bound', 'deleting'])
                 ->orderBy('created_at', 'asc')
                 ->first();
+
+            if ($existing && in_array((string)$existing->status, ['authorized', 'deleting'], true)) {
+                throw new GatewayException(
+                    'This Elearning Stream video is already in an active upload or deletion transition.',
+                    409
+                );
+            }
 
             if ($existing) {
                 return [
@@ -1345,6 +1356,27 @@ final class GatewayService
                 ->where('upload_id', $uploadId)
                 ->update(['status' => 'failed', 'updated_at' => time()]);
         });
+    }
+
+    /**
+     * Validate the source filename accepted by the managed-video data plane.
+     *
+     * @param string $filename Original upload filename.
+     * @return bool
+     */
+    private function isSupportedVideoFilename(string $filename): bool
+    {
+        $filename = basename(trim($filename));
+        if ($filename === '' || strlen($filename) > 255) {
+            return false;
+        }
+
+        $extension = strtolower((string) pathinfo($filename, PATHINFO_EXTENSION));
+        return in_array(
+            $extension,
+            ['mp4', 'mov', 'm4v', 'webm', 'mkv', 'avi', 'mpeg', 'mpg'],
+            true
+        );
     }
 
     /**
