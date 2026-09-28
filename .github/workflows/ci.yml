@@ -107,8 +107,8 @@ jobs:
         with:
           name: generated-amd-build
           path: |
-            moodle/mod/videoplayer/amd/build/nativevideo.min.js
-            moodle/mod/videoplayer/amd/build/nativevideo.min.js.map
+            moodle/mod/videoplayer/amd/build/*.min.js
+            moodle/mod/videoplayer/amd/build/*.min.js.map
           if-no-files-found: error
           retention-days: 3
 
