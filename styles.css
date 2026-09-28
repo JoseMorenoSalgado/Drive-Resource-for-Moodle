@@ -1174,6 +1174,10 @@
 
 
 /* Teacher upload experience. */
+.mod-videoplayer-bunny-upload [hidden] {
+    display: none !important;
+}
+
 .mod-videoplayer-bunny-upload {
     --mod-videoplayer-upload-accent: var(--primary, #0f6cbf);
     --mod-videoplayer-upload-border: rgba(15, 23, 42, .14);
@@ -1201,7 +1205,7 @@
     width: 42px;
     height: 42px;
     border-radius: 12px;
-    background: color-mix(in srgb, var(--mod-videoplayer-upload-accent) 10%, transparent);
+    background: rgba(15, 108, 191, .08);
 }
 
 .mod-videoplayer-upload-header-icon,
