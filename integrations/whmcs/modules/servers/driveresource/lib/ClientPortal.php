@@ -231,7 +231,9 @@ final class ClientPortal
                 $refsCount = $videoId !== '' ? (int) ($refCounts[$videoId] ?? 0) : 0;
                 $status = $this->statusLabel((string) $upload->status);
                 $html .= '<tr>';
-                $html .= '<td><strong>' . $this->e((string) $upload->filename) . '</strong>';
+                $displayName = trim((string) ($upload->display_name ?? ''));
+                $displayName = $displayName !== '' ? $displayName : (string) $upload->filename;
+                $html .= '<td><strong>' . $this->e($displayName) . '</strong>';
                 if ($videoId !== '') {
                     $html .= '<br><small class="text-muted">' . $this->e($videoId) . '</small>';
                 }
