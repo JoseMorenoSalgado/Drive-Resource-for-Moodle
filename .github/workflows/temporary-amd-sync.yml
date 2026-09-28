@@ -1,0 +1,52 @@
+name: Temporary AMD sync
+
+on:
+  push:
+    branches:
+      - refactor/stream-rc7-controls
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  sync:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: refactor/stream-rc7-controls
+          fetch-depth: 0
+
+      - name: Download Moodle-generated AMD artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/generated-amd
+          mkdir -p /tmp/generated-amd
+          gh run download 36381470585 \
+            --repo "${{ github.repository }}" \
+            --name generated-amd-build \
+            --dir /tmp/generated-amd
+          test -f /tmp/generated-amd/bunnyupload.min.js
+          test -f /tmp/generated-amd/bunnyupload.min.js.map
+
+      - name: Sync generated Bunny uploader bundle
+        run: |
+          set -euo pipefail
+          cp /tmp/generated-amd/bunnyupload.min.js amd/build/bunnyupload.min.js
+          cp /tmp/generated-amd/bunnyupload.min.js.map amd/build/bunnyupload.min.js.map
+
+          if git diff --quiet -- amd/build/bunnyupload.min.js amd/build/bunnyupload.min.js.map; then
+            echo "AMD bundle is already synchronized."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add amd/build/bunnyupload.min.js amd/build/bunnyupload.min.js.map
+          git commit -m "Rebuild Bunny upload AMD bundle for rc12"
+          git push origin HEAD:refactor/stream-rc7-controls
