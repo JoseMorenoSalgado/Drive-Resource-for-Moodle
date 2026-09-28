@@ -26,7 +26,7 @@ function driveresource_gateway_config(): array
     return [
         'name' => 'Elearning Stream Gateway',
         'description' => 'Multi-tenant media gateway, quota control and provider credential boundary for Elearning Stream.',
-        'version' => '0.5.6',
+        'version' => '0.5.7',
         'author' => 'Elearning Cloud',
         'fields' => [
             'public_gateway_url' => [
@@ -61,7 +61,7 @@ function driveresource_gateway_config(): array
                 'FriendlyName' => 'Elearning Stream CDN Hostname',
                 'Type' => 'text',
                 'Size' => '45',
-                'Description' => 'Provider CDN hostname used by Moodle protected playback. Example: vz-xxxxxxxx-xxx.b-cdn.net.',
+                'Description' => 'Provider CDN hostname used by Moodle protected playback. The Pull Zone must support byte ranges; enable Cache Slicing for uncached MP4 seeking. Example: vz-xxxxxxxx-xxx.b-cdn.net.',
             ],
             'bunny_public_aliases' => [
                 'FriendlyName' => 'Elearning Stream Public Aliases',
