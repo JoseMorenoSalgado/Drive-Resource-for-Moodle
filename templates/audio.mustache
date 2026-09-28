@@ -10,10 +10,7 @@
     {
         "type": "audio",
         "cmid": 42,
-        "playerstyle": "",
-        "showresourcetype": true,
-        "resourcetype": "Audio",
-        "initialposition": 0,
+        "playerstyle": "",        "initialposition": 0,
         "initialduration": 180,
         "initialtimespent": 0,
         "watchedranges": "[[0,12]]",
@@ -25,10 +22,6 @@
     }
 }}
 <div class="mod-videoplayer-container mod-videoplayer-audio" data-resource-type="{{type}}" data-cmid="{{cmid}}"{{#playerstyle}} style="{{playerstyle}}"{{/playerstyle}}>
-    <div class="mod-videoplayer-meta mb-2">
-        {{#showresourcetype}}<span class="mod-videoplayer-meta-item">{{resourcetype}}</span>{{/showresourcetype}}
-        <span class="mod-videoplayer-meta-item">{{#str}} protectedresource, mod_videoplayer {{/str}}</span>
-    </div>
 
     <div class="mod-videoplayer-audio-card js-native-audio"
          data-cmid="{{cmid}}"
