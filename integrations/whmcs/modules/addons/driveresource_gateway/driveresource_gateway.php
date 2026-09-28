@@ -497,12 +497,29 @@ function driveresource_gateway_ensure_asset_reference_schema(): void
         return;
     }
 
-    try {
+    // WHMCS officially runs on MySQL/MariaDB. Inspect the existing named index
+    // before changing it so addon activation/upgrade remains idempotent even
+    // after a partial deployment or a repeated activation.
+    $indexes = Capsule::select(
+        "SHOW INDEX FROM mod_driveresource_asset_refs WHERE Key_name = ?",
+        ['dr_asset_ref_unique']
+    );
+    $columns = [];
+    foreach ($indexes as $index) {
+        $columns[(int)($index->Seq_in_index ?? 0)] = (string)($index->Column_name ?? '');
+    }
+    ksort($columns);
+    $columns = array_values(array_filter($columns));
+
+    $expected = ['service_id', 'site_hash', 'instance_id', 'video_id'];
+    if ($columns === $expected) {
+        return;
+    }
+
+    if ($columns !== []) {
         $schema->table('mod_driveresource_asset_refs', static function (Blueprint $table): void {
             $table->dropUnique('dr_asset_ref_unique');
         });
-    } catch (Throwable $exception) {
-        // A partially upgraded installation may already have dropped the old index.
     }
 
     $schema->table('mod_driveresource_asset_refs', static function (Blueprint $table): void {
