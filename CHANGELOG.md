@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.0-rc10-m45 — 2026-09-27
+- Fixed protected-video seeking on touch devices by deferring `currentTime` mutation until the learner releases the timeline.
+- Prevents a drag gesture from starting overlapping Moodle/Bunny byte-range requests.
+- Enlarged the seek slider touch target and thumb for mobile accessibility.
+- Clears pending stall recovery when a deliberate seek begins so recovery does not fight the learner's navigation.
+- Caps portrait-video presentation to a viewport-aware height on mobile while preserving `object-fit: contain`.
+- Bumped Moodle build to `2026092704`.
+
 ## Elearning Stream Gateway 0.5.6 — 2026-09-27
 - Added a one-byte server-side probe of the exact signed MP4 URL before protected playback is authorized.
 - Distinguishes processed-video readiness from CDN authorization/delivery failures such as HTTP 401/403/404.
