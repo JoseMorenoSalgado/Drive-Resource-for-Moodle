@@ -37,6 +37,9 @@ final class bunny_stream {
     /** Provider states that may be persisted after a successful byte upload. */
     public const PERSISTABLE_STATUSES = ['uploaded', 'processing', 'ready'];
 
+    /** File extensions accepted by the managed-video ingestion path. */
+    public const UPLOAD_EXTENSIONS = ['mp4', 'mov', 'm4v', 'webm', 'mkv', 'avi', 'mpeg', 'mpg'];
+
     /**
      * Validate a provider video GUID without accepting arbitrary URLs.
      *
@@ -70,6 +73,7 @@ final class bunny_stream {
             || empty($parts['host'])
             || !empty($parts['user'])
             || !empty($parts['pass'])
+            || (isset($parts['port']) && (int)$parts['port'] !== 443)
         ) {
             return null;
         }
@@ -168,13 +172,35 @@ final class bunny_stream {
     }
 
     /**
+     * Validate a source filename accepted by the managed-video upload path.
+     *
+     * Browser MIME types are advisory. The filename extension is checked again
+     * server-side before WHMCS is asked to reserve provider capacity.
+     *
+     * @param string $filename Original source filename.
+     * @return bool
+     */
+    public static function is_supported_upload_filename(string $filename): bool {
+        $filename = basename(trim($filename));
+        if ($filename === '' || strlen($filename) > 255) {
+            return false;
+        }
+
+        $extension = strtolower((string)pathinfo($filename, PATHINFO_EXTENSION));
+        return in_array($extension, self::UPLOAD_EXTENSIONS, true);
+    }
+
+    /**
      * Validate a WHMCS upload reservation identifier.
+     *
+     * Reservations are generated as bin2hex(random_bytes(16)): exactly 32
+     * lowercase hexadecimal characters.
      *
      * @param string $value Upload reservation identifier.
      * @return bool
      */
     public static function is_valid_upload_id(string $value): bool {
-        return preg_match('/^[a-f0-9-]{20,64}$/i', trim($value)) === 1;
+        return preg_match('/^[a-f0-9]{32}$/', trim($value)) === 1;
     }
 
     /**
