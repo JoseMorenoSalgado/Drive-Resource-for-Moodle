@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.0-rc12-m45 — 2026-09-27
+- Replaces the basic file input with a responsive Elearning Stream upload card for teachers.
+- Adds drag-and-drop and tap-to-select without changing the secure browser-to-provider TUS transport.
+- Adds a selected-file summary with filename and human-readable size plus an explicit change-video action.
+- Adds upload progress with percentage and transferred/total bytes.
+- Separates upload status from storage/quota feedback and provides distinct ready, authorizing, uploading, retrying, complete and error states.
+- Improves mobile layout so the primary upload action is full-width and file details remain readable on narrow screens.
+- Adds client-side video-extension/MIME validation before requesting an upload reservation.
+- Keeps provider credentials and provider management URLs out of the Moodle teacher UI.
+- Bumps Moodle build to `2026092706`.
+
 ## 1.2.0-rc11-m45 — 2026-09-27
 - Preserves the exact learner-requested seek target across protected-stream refresh and recovery.
 - Commits touch seeking on `pointerup` with `change`/blur fallbacks and prevents duplicate commits.
