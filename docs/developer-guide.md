@@ -249,6 +249,8 @@ The WHMCS gateway is authoritative for service ownership and signs the provider 
 
 Do not remove the Gateway 0.5.6 playback preflight. It intentionally requests only byte `0-0` of the freshly signed URL and is cached indirectly by Moodle's short-lived playback authorization cache. Treat HTTP 401/403 as token/direct-play/referrer configuration failures and HTTP 404 as CDN hostname/fallback-path configuration failures.
 
+For the custom timeline, do not assign `video.currentTime` on every `input` event. Mobile sliders can emit dozens of events per drag, which causes overlapping protected `Range` requests. Keep `input` as a preview and commit the seek once on `change`/release.
+
 The internal `bunny_*` setting and class identifiers are retained for compatibility and are not customer-facing naming.
 
 
