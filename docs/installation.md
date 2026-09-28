@@ -15,7 +15,7 @@ This compatibility package declares Moodle 4.5 only. Do not install it on Moodle
 
 ## Production connection model
 
-Install the matching **Elearning Stream Gateway 0.5.6** companion in WHMCS. In the addon configure **Public Gateway URL** to the branded HTTPS endpoint that customers will paste into Moodle; the recommended production value is:
+Install the matching **Elearning Stream Gateway 0.5.7** companion in WHMCS. In the addon configure **Public Gateway URL** to the branded HTTPS endpoint that customers will paste into Moodle; the recommended production value is:
 
 ```text
 https://stream.elearningcloud.io
@@ -108,7 +108,7 @@ When upgrading the gateway from 0.5.4 or earlier, open/activate the addon so the
 
 Also test creating a managed-video activity and deleting it immediately before cron processes the initial bind. After cron, the unbound reservation must be released/deleted according to retention policy without producing a persistent 403 release task.
 
-The 0.5.6 WHMCS ZIP must be extracted at the WHMCS document root and contains top-level `modules/addons/...` and `modules/servers/...`. If an archive shows an extra `whmcs-root/` parent directory, do not deploy that artifact.
+The 0.5.7 WHMCS ZIP must be extracted at the WHMCS document root and contains top-level `modules/addons/...` and `modules/servers/...`. If an archive shows an extra `whmcs-root/` parent directory, do not deploy that artifact.
 
 
 After installing rc19:
@@ -245,10 +245,11 @@ In the WHMCS Drive Resource Media Gateway configure the fields shown as:
 - **Elearning Stream Token Key** — use the Bunny **CDN and embed-view Token Authentication Key** for the Video Library/Pull Zone; do not use the Stream API key.
 - **Elearning Stream Playback TTL** (300 seconds recommended)
 - Bunny **Allow Direct Play** must be enabled for the protected progressive MP4 path.
+- Bunny Pull Zone **Cache Slicing** must be enabled when required for uncached byte-range delivery; the Gateway 0.5.7 preflight requires `206 Partial Content` and a valid `Content-Range`.
 
 The provider video library must have MP4 fallback enabled. Videos that were encoded without an MP4 fallback cannot be delivered through the native HTML5 protected playback path until the provider generates that fallback.
 
-For Moodle `1.2.0-rc10-m45`, validate seeking on a physical touch device: drag the timeline well beyond the currently buffered position and release it. The player must issue one committed seek, continue from the requested position, and retain volume/speed controls. Also confirm portrait videos remain contained within the mobile viewport.
+For Moodle `1.2.0-rc11-m45`, validate seeking on a physical touch device: drag well beyond the currently buffered position and release it. The player must stay at the requested second even if the signed stream refreshes; it must never silently restart at 0. Also confirm the video view no longer shows the resource-type, protected-resource or percentage chips.
 
 Learners never receive the upstream CDN URL. Their browser requests `mod/videoplayer/protected.php`, which validates Moodle access and then proxies the authorized MP4 byte ranges.
 
