@@ -53,6 +53,8 @@ Every managed request is bound to the provisioned service. The gateway validates
 
 The learner receives Moodle-owned protected URLs. Provider API keys and playback signing keys stay in the gateway.
 
+Gateway 0.5.6 also performs a one-byte server-side probe of each newly signed MP4 playback URL. A processed Bunny video is therefore distinguished from CDN delivery misconfiguration before Moodle starts proxying bytes.
+
 ## Video upload and playback
 
 Upload flow:
@@ -84,7 +86,7 @@ Moodle meters protected transfer per service and reports idempotent usage batche
 
 Managed-video lifecycle transitions are coordinated by `classes/local/provider/bunny_asset_lifecycle.php`. Moodle callbacks persist local state first, then the lifecycle service queues idempotent WHMCS bind, release or rename tasks. Provider credentials and destructive provider calls remain outside Moodle.
 
-WHMCS Gateway 0.5.5 additionally serializes bind/restore/release transitions on the provider upload row and stores references per activity+video. This prevents a replacement bind from erasing the old reference before its release task runs and prevents deletion from racing a concurrent rebind.
+WHMCS Gateway 0.5.6 additionally serializes bind/restore/release transitions on the provider upload row and stores references per activity+video. This prevents a replacement bind from erasing the old reference before its release task runs and prevents deletion from racing a concurrent rebind.
 
 If an activity is deleted before its first bind task executes, Moodle forwards the original upload reservation id with the release task. WHMCS accepts that fallback only when the reservation belongs to the same service/video and has never been bound to another activity.
 
