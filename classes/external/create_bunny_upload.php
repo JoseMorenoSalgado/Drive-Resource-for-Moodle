@@ -20,6 +20,7 @@ use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_single_structure;
 use core_external\external_value;
+use mod_videoplayer\local\provider\bunny_stream;
 use mod_videoplayer\local\whmcs_gateway_client;
 
 /**
@@ -93,6 +94,9 @@ final class create_bunny_upload extends external_api {
 
         if ($params['filesize'] <= 0 || $params['filesize'] > 1099511627776) {
             throw new \moodle_exception('bunnyuploadinvalidsize', 'mod_videoplayer');
+        }
+        if (!bunny_stream::is_supported_upload_filename((string)$params['filename'])) {
+            throw new \moodle_exception('bunnyuploadinvalidtype', 'mod_videoplayer');
         }
 
         $mimetype = strtolower(trim($params['mimetype']));
