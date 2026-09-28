@@ -211,14 +211,107 @@ final class BunnyClient
             '='
         );
 
+        $url = 'https://' . Config::cdnHostname()
+            . $path
+            . '?token=' . rawurlencode($token)
+            . '&expires=' . $expires;
+
+        // Validate the exact URL that Moodle will proxy. This catches a wrong
+        // CDN hostname/token key, disabled Direct Play, referrer restrictions,
+        // or a missing MP4 object before the learner sees a generic player
+        // failure. Only one byte is requested and the URL never leaves WHMCS.
+        $this->assertPlaybackUrlAccessible($url);
+
         return [
-            'url' => 'https://' . Config::cdnHostname()
-                . $path
-                . '?token=' . rawurlencode($token)
-                . '&expires=' . $expires,
+            'url' => $url,
             'expires' => $expires,
             'resolution' => $resolution,
         ];
+    }
+
+    /**
+     * Verify that Bunny accepts the signed progressive MP4 URL.
+     *
+     * The probe intentionally mirrors Moodle's server-side request: no browser
+     * referrer is supplied, HTTPS is mandatory and redirects are rejected.
+     * Downloaded bytes are discarded and at most the first byte is requested.
+     *
+     * @param string $url Signed provider playback URL.
+     * @return void
+     */
+    private function assertPlaybackUrlAccessible(string $url): void
+    {
+        $curl = curl_init($url);
+        if ($curl === false) {
+            throw new RuntimeException(
+                'Elearning Stream CDN playback probe could not be initialized.'
+            );
+        }
+
+        curl_setopt_array($curl, [
+            CURLOPT_RETURNTRANSFER => false,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT => 15,
+            CURLOPT_NOSIGNAL => true,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
+            CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS,
+            CURLOPT_RANGE => '0-0',
+            CURLOPT_HTTPHEADER => [
+                'Accept: video/mp4,application/octet-stream;q=0.9,*/*;q=0.1',
+                'Accept-Encoding: identity',
+            ],
+            CURLOPT_WRITEFUNCTION => static function ($curl, string $data): int {
+                return strlen($data);
+            },
+        ]);
+
+        $result = curl_exec($curl);
+        $error = curl_error($curl);
+        $status = (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
+        $contentType = strtolower(trim((string) curl_getinfo($curl, CURLINFO_CONTENT_TYPE)));
+        curl_close($curl);
+
+        if ($result === false || $error !== '') {
+            throw new RuntimeException(
+                'Elearning Stream CDN playback probe could not connect.'
+            );
+        }
+
+        if (in_array($status, [200, 206], true)) {
+            if (
+                $contentType === ''
+                || str_starts_with($contentType, 'video/')
+                || str_starts_with($contentType, 'application/octet-stream')
+            ) {
+                return;
+            }
+
+            throw new RuntimeException(
+                'Elearning Stream CDN returned an unexpected playback content type.'
+            );
+        }
+
+        if (in_array($status, [401, 403], true)) {
+            throw new RuntimeException(
+                'Elearning Stream CDN rejected protected playback (HTTP '
+                    . $status
+                    . '). Verify the CDN hostname, CDN/embed token key, Direct Play, and referrer restrictions.'
+            );
+        }
+
+        if ($status === 404) {
+            throw new RuntimeException(
+                'Elearning Stream CDN could not locate the MP4 fallback (HTTP 404). '
+                    . 'Verify the CDN hostname, Direct Play, and the encoded fallback resolution.'
+            );
+        }
+
+        throw new RuntimeException(
+            'Elearning Stream CDN playback probe failed with HTTP ' . $status . '.'
+        );
     }
 
     /**
