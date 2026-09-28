@@ -441,3 +441,8 @@ Activity name edits enqueue a guarded rename task; WHMCS verifies both service o
 ## TUS authorization validation boundary
 
 The WHMCS/control-plane response is not passed through directly to JavaScript. `local/gateway/upload_authorisation` is the single Moodle-side validator for create and refresh capabilities. It validates identifier formats, library id, signature shape, expiration, the exact Bunny TUS HTTPS endpoint and, for refreshes, compares the returned reservation/video identifiers with the values Moodle requested.
+
+
+### Teacher upload presentation
+
+The rc12 upload card is UI-only over the existing TUS data plane. Drag/drop and progress rendering do not change provider credential or service authorization boundaries.
