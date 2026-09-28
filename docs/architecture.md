@@ -289,6 +289,8 @@ The browser-facing `<video>` source remains a Moodle URL. WHMCS verifies that th
 
 Before returning a fresh playback authorization, Gateway 0.5.6 probes byte `0-0` of the exact signed CDN URL. The probe uses the same server-side characteristics as Moodle (HTTPS, no browser referrer, no redirects), so wrong CDN/token configuration, disabled Direct Play, referrer restrictions, and missing MP4 objects fail at the control plane instead of surfacing only as a generic player error.
 
+On the learner side, timeline dragging is intentionally split into preview and commit phases. `input` updates only the visual target; `change` commits one `HTMLMediaElement.currentTime` mutation. This is important for protected progressive playback because every committed seek can generate a new HTTP byte-range request through Moodle.
+
 
 ### Elearning Stream configuration boundary
 
