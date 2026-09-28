@@ -7,25 +7,6 @@
     --mod-videoplayer-radius: 1.25rem;
 }
 
-.mod-videoplayer-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: .5rem .75rem;
-    color: var(--mod-videoplayer-muted);
-    font-size: .875rem;
-}
-
-.mod-videoplayer-meta-item {
-    display: inline-flex;
-    align-items: center;
-    line-height: 1.3;
-    border: 1px solid var(--mod-videoplayer-border);
-    border-radius: 999px;
-    padding: .35rem .75rem;
-    background: rgba(255, 255, 255, .85);
-}
-
 .mod-videoplayer-no-scroll {
     overflow: hidden;
     height: 100%;
@@ -299,15 +280,6 @@
     .mod-videoplayer-container {
         --mod-videoplayer-radius: .85rem;
         --mod-videoplayer-shadow: 0 10px 22px rgba(15, 23, 42, .10);
-    }
-
-    .mod-videoplayer-meta {
-        gap: .35rem;
-        font-size: .8rem;
-    }
-
-    .mod-videoplayer-meta-item {
-        padding: .28rem .55rem;
     }
 
     .mod-videoplayer-pdfjs-viewer {
@@ -1014,14 +986,6 @@
 
     .mod-videoplayer-container {
         --mod-videoplayer-radius: .9rem;
-    }
-
-    .mod-videoplayer-meta {
-        margin-bottom: .55rem;
-    }
-
-    .mod-videoplayer-meta-item {
-        box-shadow: none;
     }
 
     .mod-videoplayer-pdfjs-viewer {
