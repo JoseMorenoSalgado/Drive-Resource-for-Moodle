@@ -158,6 +158,7 @@ define(['core/ajax'], function(Ajax) {
         var watchedRanges = parseRanges(root.dataset.watchedRanges || '[]', 0);
         var lastMediaTime = null;
         var scrubbing = false;
+        var pendingSeekTarget = null;
 
         if (!video || !frame || !primary) {
             return;
@@ -235,7 +236,10 @@ define(['core/ajax'], function(Ajax) {
 
         var updateTime = function() {
             if (current) {
-                current.textContent = formatTime(video.currentTime);
+                var displayedTime = scrubbing && Number.isFinite(pendingSeekTarget)
+                    ? pendingSeekTarget
+                    : video.currentTime;
+                current.textContent = formatTime(displayedTime);
             }
             if (durationNode) {
                 durationNode.textContent = formatTime(video.duration);
@@ -562,6 +566,7 @@ define(['core/ajax'], function(Ajax) {
             updateTime();
         });
         video.addEventListener('seeking', function() {
+            clearStallTimer();
             lastMediaTime = null;
         });
         video.addEventListener('seeked', function() {
@@ -572,22 +577,79 @@ define(['core/ajax'], function(Ajax) {
         video.addEventListener('durationchange', updateTime);
         video.addEventListener('error', tryFallback);
 
-        [seek].filter(Boolean).forEach(function(seekControl) {
-            seekControl.addEventListener('input', function() {
-                if (!Number.isFinite(video.duration) || video.duration <= 0) {
-                    return;
-                }
-                scrubbing = true;
-                seekControl.style.setProperty('--seek-progress', (Number(seekControl.value) / 10) + '%');
-                video.currentTime = (Number(seekControl.value) / 1000) * video.duration;
+        var seekTargetSeconds = function(seekControl) {
+            if (!Number.isFinite(video.duration) || video.duration <= 0) {
+                return null;
+            }
+
+            var fraction = Math.max(0, Math.min(1, Number(seekControl.value) / 1000));
+            return fraction * video.duration;
+        };
+
+        var previewSeek = function(seekControl) {
+            var target = seekTargetSeconds(seekControl);
+            if (target === null) {
+                return;
+            }
+
+            scrubbing = true;
+            pendingSeekTarget = target;
+            seekControl.style.setProperty('--seek-progress', (Number(seekControl.value) / 10) + '%');
+            updateTime();
+            showControls();
+        };
+
+        var commitSeek = function(seekControl) {
+            var target = Number.isFinite(pendingSeekTarget)
+                ? pendingSeekTarget
+                : seekTargetSeconds(seekControl);
+
+            scrubbing = false;
+            pendingSeekTarget = null;
+            if (target === null || !Number.isFinite(target)) {
                 updateTime();
+                return false;
+            }
+
+            clearStallTimer();
+            lastMediaTime = null;
+            try {
+                // Commit once when the learner releases the slider. Updating
+                // currentTime on every mobile input event starts overlapping
+                // protected Range requests and can make seeking appear stuck.
+                video.currentTime = Math.max(0, Math.min(video.duration, target));
+            } catch (error) {
+                updateTime();
+                return false;
+            }
+
+            updateTime();
+            showControls();
+            return true;
+        };
+
+        [seek].filter(Boolean).forEach(function(seekControl) {
+            seekControl.addEventListener('pointerdown', function() {
+                scrubbing = true;
+                clearStallTimer();
+                showControls();
+            });
+            seekControl.addEventListener('input', function() {
+                previewSeek(seekControl);
             });
             seekControl.addEventListener('change', function() {
-                scrubbing = false;
-                sendProgress(true);
+                if (commitSeek(seekControl)) {
+                    sendProgress(true);
+                }
             });
             seekControl.addEventListener('blur', function() {
-                scrubbing = false;
+                if (scrubbing && Number.isFinite(pendingSeekTarget) && commitSeek(seekControl)) {
+                    sendProgress(true);
+                } else {
+                    scrubbing = false;
+                    pendingSeekTarget = null;
+                    updateTime();
+                }
             });
         });
 
