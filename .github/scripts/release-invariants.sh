@@ -62,6 +62,8 @@ grep -q "Accept-Ranges: bytes" classes/local/http_range_proxy.php     || fail "H
 grep -q 'CURLOPT_LOW_SPEED_LIMIT' classes/local/http_range_proxy.php     || fail "HTTP proxy no longer bounds effectively stalled upstream transfers."
 grep -q 'connection_aborted()' classes/local/http_range_proxy.php     || fail "HTTP proxy no longer stops abandoned browser range requests."
 grep -q 'MAX_RECOVERY_ATTEMPTS' amd/src/nativevideo.js     || fail "Video recovery is no longer bounded."
+grep -q 'pendingSeekTarget' amd/src/nativevideo.js     || fail "Protected mobile seek no longer batches slider input before Range navigation."
+grep -q 'commitSeek' amd/src/nativevideo.js     || fail "Protected mobile seek commit logic is missing."
 grep -q "searchParams.set('refresh', '1')" amd/src/nativevideo.js     || fail "Video recovery no longer refreshes the protected signed stream."
 grep -q 'watchedranges' amd/src/nativevideo.js     || fail "Video completion no longer submits watched ranges."
 grep -q 'playback_url' classes/local/stream/protected_resource_service.php     || fail "Elearning Stream playback no longer resolves through WHMCS."
