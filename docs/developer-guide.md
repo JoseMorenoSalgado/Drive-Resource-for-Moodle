@@ -393,3 +393,8 @@ The rc12 upload UI is rendered by `mod_form.php` and driven by `amd/src/bunnyupl
 - keep progress based on uploaded bytes, not timers;
 - preserve retry/resume and TUS authorization refresh behavior;
 - regenerate `amd/build/bunnyupload.min.js` after every source change.
+
+
+### WHMCS video names
+
+Do not overwrite `mod_driveresource_uploads.filename` when a Moodle activity is renamed. That field is source-file provenance. Use `display_name` for the customer-facing title, update it after a successful provider rename, and preserve the maintenance reconciliation path for eventual consistency.
