@@ -407,12 +407,14 @@ define(['core/ajax'], function(Ajax) {
                 return;
             }
 
-            var position = Number.isFinite(desiredSeekPosition)
-                ? desiredSeekPosition
-                : (Number.isFinite(video.currentTime) ? video.currentTime : 0);
-            var autoplay = Number.isFinite(desiredSeekPosition)
-                ? desiredSeekAutoplay
-                : (!video.paused && !video.ended);
+            var position = 0;
+            var autoplay = !video.paused && !video.ended;
+            if (Number.isFinite(desiredSeekPosition)) {
+                position = desiredSeekPosition;
+                autoplay = desiredSeekAutoplay;
+            } else if (Number.isFinite(video.currentTime)) {
+                position = video.currentTime;
+            }
             recoveryAttempts += 1;
 
             if (!fallbackActive && recoveryAttempts === 1) {
@@ -443,12 +445,14 @@ define(['core/ajax'], function(Ajax) {
         };
 
         var tryFallback = function() {
-            var position = Number.isFinite(desiredSeekPosition)
-                ? desiredSeekPosition
-                : (Number.isFinite(video.currentTime) ? video.currentTime : 0);
-            var autoplay = Number.isFinite(desiredSeekPosition)
-                ? desiredSeekAutoplay
-                : (!video.paused && !video.ended);
+            var position = 0;
+            var autoplay = !video.paused && !video.ended;
+            if (Number.isFinite(desiredSeekPosition)) {
+                position = desiredSeekPosition;
+                autoplay = desiredSeekAutoplay;
+            } else if (Number.isFinite(video.currentTime)) {
+                position = video.currentTime;
+            }
 
             if (!fallbackActive && recoveryAttempts === 0) {
                 recoveryAttempts += 1;
@@ -637,7 +641,7 @@ define(['core/ajax'], function(Ajax) {
             showControls();
         };
 
-        var commitSeek = function(seekControl) {
+        var commitSeek = function() {
             if (!scrubbing || !Number.isFinite(pendingSeekTarget)) {
                 return false;
             }
@@ -683,12 +687,12 @@ define(['core/ajax'], function(Ajax) {
                 previewSeek(seekControl);
             });
             seekControl.addEventListener('pointerup', function() {
-                if (commitSeek(seekControl)) {
+                if (commitSeek()) {
                     sendProgress(true);
                 }
             });
             seekControl.addEventListener('change', function() {
-                if (commitSeek(seekControl)) {
+                if (commitSeek()) {
                     sendProgress(true);
                 }
             });
@@ -698,7 +702,7 @@ define(['core/ajax'], function(Ajax) {
                 updateTime();
             });
             seekControl.addEventListener('blur', function() {
-                if (commitSeek(seekControl)) {
+                if (commitSeek()) {
                     sendProgress(true);
                 } else {
                     scrubbing = false;
