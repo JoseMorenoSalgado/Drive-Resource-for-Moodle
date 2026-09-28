@@ -164,6 +164,8 @@ The pasted Elearning Stream URL is never used as an upstream proxy target and is
 
 The provider CDN hostname and playback token key exist only in WHMCS. Moodle receives a short-lived signed MP4 URL over the authenticated service channel, validates that it is HTTPS and on the approved provider CDN, and never places that URL in learner-facing HTML.
 
+Gateway 0.5.6 validates the signed URL with a one-byte server-side range probe before returning it to Moodle. The probe never exposes the URL or token to the learner and rejects CDN responses that cannot serve the protected MP4.
+
 The browser requests Moodle `protected.php`; normal login, course, context and capability validation occurs before WHMCS authorization. The upstream URL then passes through the bounded Range/206 proxy. Lookalike CDN domains, credentials in URLs, non-HTTPS schemes and nonstandard ports are rejected.
 
 
@@ -245,7 +247,7 @@ Audit entries may contain service id, actor id/type, old/new Moodle URL, provide
 
 Moodle never deletes provider media inline with an activity callback. Activity deletion commits the Moodle database mutation first, then queues a release through the lifecycle service. WHMCS remains authoritative for reference counting, retention and the eventual provider DELETE. This ordering avoids releasing a remote reference when Moodle rolls back the local deletion.
 
-Gateway 0.5.5 also requires the exact authenticated site/activity/video reference before release and serializes bind/restore/release on the upload row. A stale or fabricated instance id cannot trigger retention/deletion for an unrelated service-owned video, and a concurrent rebind cannot race a zero-retention provider DELETE.
+Gateway 0.5.6 also requires the exact authenticated site/activity/video reference before release and serializes bind/restore/release on the upload row. A stale or fabricated instance id cannot trigger retention/deletion for an unrelated service-owned video, and a concurrent rebind cannot race a zero-retention provider DELETE.
 
 The only exception is a never-bound upload created by the same service: Moodle may present its opaque 32-hex upload reservation id. WHMCS validates that reservation against the exact service/video and requires `bound_instance_id = 0`; this closes the delete-before-first-bind orphan case without broadening destructive authorization.
 
