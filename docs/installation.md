@@ -422,3 +422,17 @@ RC8 requires WHMCS Gateway 0.5.4 before editing activity names. Run Moodle cron 
 ## Upload gateway verification
 
 After configuring Elearning Stream, test both a new direct upload and an interrupted/resumed upload. A valid deployment must return short-lived TUS capabilities for `https://video.bunnycdn.com/tusupload`; Moodle intentionally rejects alternate ports, URL credentials, query/fragment variants, malformed identifiers and refresh responses whose reservation/video identity changes.
+
+
+### Validate Moodle 1.2.0-rc12-m45 upload UI
+
+After upgrading and purging Moodle caches:
+
+1. Create or edit an Elearning Stream activity.
+2. Drag a supported video onto the upload area and confirm filename/size appear without starting the upload automatically.
+3. Repeat using tap/click file selection.
+4. Press **Upload video** and confirm the form is locked while progress advances with percentage and transferred bytes.
+5. Confirm storage/quota information appears separately from the operational status.
+6. Interrupt the connection once and verify the retry/resume message appears and the upload resumes.
+7. On completion, verify the activity can be saved and the video remains associated with the Moodle activity name.
+8. Test the same flow on a physical phone; the primary action must remain usable without horizontal scrolling.
