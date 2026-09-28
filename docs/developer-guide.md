@@ -247,6 +247,8 @@ Elearning Stream learner playback must remain behind `protected.php`. Do not ren
 
 The WHMCS gateway is authoritative for service ownership and signs the provider MP4 path. Moodle validates the returned HTTPS `*.b-cdn.net` URL, caches it only until near expiry, and passes it to `http_range_proxy`. Provider MP4 fallback is required for the native HTML5 path.
 
+Do not remove the Gateway 0.5.6 playback preflight. It intentionally requests only byte `0-0` of the freshly signed URL and is cached indirectly by Moodle's short-lived playback authorization cache. Treat HTTP 401/403 as token/direct-play/referrer configuration failures and HTTP 404 as CDN hostname/fallback-path configuration failures.
+
 The internal `bunny_*` setting and class identifiers are retained for compatibility and are not customer-facing naming.
 
 
