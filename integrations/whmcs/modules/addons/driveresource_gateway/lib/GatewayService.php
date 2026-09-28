@@ -39,6 +39,7 @@ final class GatewayService
             $service,
             $filesize,
             $filename,
+            $title,
             $courseId,
             $uploadId,
             $now,
@@ -68,6 +69,7 @@ final class GatewayService
                 'service_id' => (int) $locked->service_id,
                 'video_id' => null,
                 'filename' => $filename,
+                'display_name' => mb_substr($title !== '' ? $title : $filename, 0, 255),
                 'source_size' => $filesize,
                 'accounted_bytes' => 0,
                 'status' => 'reserved',
@@ -404,6 +406,7 @@ final class GatewayService
                 'service_id' => (int) $locked->service_id,
                 'video_id' => $videoId,
                 'filename' => $filename,
+                'display_name' => $filename,
                 'source_size' => $providerBytes,
                 'accounted_bytes' => $providerBytes,
                 'status' => $status,
@@ -673,7 +676,20 @@ final class GatewayService
             throw new GatewayException('This activity does not own the video.', 403);
         }
 
+        // Keep provider and WHMCS presentation state aligned. The provider
+        // rename is idempotent; if the database write fails, the Moodle adhoc
+        // task can safely retry the whole operation.
         $this->streamClient($service)->renameVideo($videoId, $title);
+
+        Capsule::table('mod_driveresource_uploads')
+            ->where('service_id', $serviceId)
+            ->where('video_id', $videoId)
+            ->whereIn('status', ['processing', 'ready', 'bound'])
+            ->update([
+                'display_name' => $title,
+                'updated_at' => time(),
+            ]);
+
         return ['status' => 'renamed'];
     }
 
