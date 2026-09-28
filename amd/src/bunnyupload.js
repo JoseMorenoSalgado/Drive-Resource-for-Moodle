@@ -392,7 +392,7 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
                 return;
             }
             startButton.disabled = uploadInProgress || !selectedFile;
-            if (!selectedFile && assetField.value) {
+            if (!selectedFile && assetField.value && root.dataset.state === 'idle') {
                 setState('complete');
                 setStatus(strings.existing || 'An Elearning Stream video is already linked.', false);
             }
