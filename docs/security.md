@@ -166,6 +166,8 @@ The provider CDN hostname and playback token key exist only in WHMCS. Moodle rec
 
 Gateway 0.5.6 validates the signed URL with a one-byte server-side range probe before returning it to Moodle. The probe never exposes the URL or token to the learner and rejects CDN responses that cannot serve the protected MP4.
 
+Timeline seeking remains inside the same Moodle-owned URL boundary. The browser never receives the Bunny CDN URL; a committed seek creates a normal `Range` request to `protected.php`, which re-applies login, capability, upstream allow-list and signed-playback controls.
+
 The browser requests Moodle `protected.php`; normal login, course, context and capability validation occurs before WHMCS authorization. The upstream URL then passes through the bounded Range/206 proxy. Lookalike CDN domains, credentials in URLs, non-HTTPS schemes and nonstandard ports are rejected.
 
 
