@@ -451,29 +451,39 @@ final class GatewayService
      * asset already accounted to the requesting service.
      *
      * @param object $service Authenticated service row.
+     * @param string $siteUrl Authenticated Moodle site.
      * @param array $payload Request body.
      * @return array
      */
-    public function authorizePlayback(object $service, array $payload): array
+    public function authorizePlayback(object $service, string $siteUrl, array $payload): array
     {
         $this->requireBackendCapability($service, BackendRegistry::CAP_PROTECTED_PLAYBACK);
         $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
-        if (!preg_match('/^[a-f0-9-]{32,64}$/i', $videoId)) {
-            throw new GatewayException('Invalid Elearning Stream video identifier.', 422);
+        $instanceId = (int) ($payload['instanceid'] ?? 0);
+        if (!preg_match('/^[a-f0-9-]{32,64}$/i', $videoId) || $instanceId <= 0) {
+            throw new GatewayException('Invalid Elearning Stream playback reference.', 422);
         }
 
         if ((string) ($service->status ?? '') !== 'active') {
             throw new GatewayException('Drive Resource service is not active.', 403);
         }
 
+        $serviceId = (int) $service->service_id;
         $owned = Capsule::table('mod_driveresource_uploads')
-            ->where('service_id', (int) $service->service_id)
+            ->where('service_id', $serviceId)
             ->where('video_id', $videoId)
             ->whereIn('status', ['processing', 'ready', 'bound'])
-            ->first();
-        if (!$owned) {
+            ->exists();
+        $referenced = Capsule::table('mod_driveresource_asset_refs')
+            ->where('service_id', $serviceId)
+            ->where('site_hash', hash('sha256', $siteUrl))
+            ->where('instance_id', $instanceId)
+            ->where('video_id', $videoId)
+            ->where('active', true)
+            ->exists();
+        if (!$owned || !$referenced) {
             throw new GatewayException(
-                'This Elearning Stream video does not belong to the requesting service.',
+                'This Moodle activity does not own an active playback reference.',
                 403
             );
         }
