@@ -436,3 +436,8 @@ After upgrading and purging Moodle caches:
 6. Interrupt the connection once and verify the retry/resume message appears and the upload resumes.
 7. On completion, verify the activity can be saved and the video remains associated with the Moodle activity name.
 8. Test the same flow on a physical phone; the primary action must remain usable without horizontal scrolling.
+
+
+### Gateway 0.5.8 title migration
+
+After installing Gateway 0.5.8 and allowing WHMCS to run the addon upgrade, verify that `mod_driveresource_uploads.display_name` exists. Existing rows safely fall back to the original filename until the next Moodle rename or WHMCS daily maintenance reconciliation updates the visible title from Bunny.
