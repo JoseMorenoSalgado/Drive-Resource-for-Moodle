@@ -26,7 +26,7 @@ function driveresource_gateway_config(): array
     return [
         'name' => 'Elearning Stream Gateway',
         'description' => 'Multi-tenant media gateway, quota control and provider credential boundary for Elearning Stream.',
-        'version' => '0.5.7',
+        'version' => '0.5.8',
         'author' => 'Elearning Cloud',
         'fields' => [
             'public_gateway_url' => [
@@ -212,6 +212,7 @@ function driveresource_gateway_activate(): array
                 $table->unsignedInteger('service_id')->index();
                 $table->string('video_id', 64)->nullable()->index();
                 $table->string('filename', 255);
+                $table->string('display_name', 255)->nullable();
                 $table->unsignedBigInteger('source_size')->default(0);
                 $table->unsignedBigInteger('accounted_bytes')->default(0);
                 $table->string('status', 32)->default('reserved')->index();
@@ -282,6 +283,7 @@ function driveresource_gateway_activate(): array
         driveresource_gateway_ensure_provider_schema();
         driveresource_gateway_ensure_collection_schema();
         driveresource_gateway_ensure_asset_reference_schema();
+        driveresource_gateway_ensure_upload_display_name_schema();
         driveresource_gateway_ensure_portal_schema();
         driveresource_gateway_ensure_audit_schema();
 
@@ -319,6 +321,29 @@ function driveresource_gateway_upgrade(array $vars): void
     }
     if (version_compare($installed, '0.5.5', '<')) {
         driveresource_gateway_ensure_asset_reference_schema();
+    }
+    if (version_compare($installed, '0.5.8', '<')) {
+        driveresource_gateway_ensure_upload_display_name_schema();
+    }
+}
+
+/**
+ * Preserve the provider/source filename while exposing the Moodle activity
+ * title separately in the WHMCS client portal.
+ *
+ * @return void
+ */
+function driveresource_gateway_ensure_upload_display_name_schema(): void
+{
+    $schema = Capsule::schema();
+    if (!$schema->hasTable('mod_driveresource_uploads')) {
+        return;
+    }
+
+    if (!$schema->hasColumn('mod_driveresource_uploads', 'display_name')) {
+        $schema->table('mod_driveresource_uploads', static function (Blueprint $table): void {
+            $table->string('display_name', 255)->nullable()->after('filename');
+        });
     }
 }
 
