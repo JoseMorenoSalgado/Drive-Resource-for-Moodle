@@ -55,6 +55,7 @@ final class ClientPortal
         $reservedBytes = max(0, (int) $service->reserved_bytes);
         $quotaBytes = max(1, (int) $service->quota_bytes);
         $storagePercent = min(999, (int) round(($usedBytes / $quotaBytes) * 100));
+        $retentionDays = max(0, (int) ($service->retention_days ?? 0));
 
         $videoPage = max(1, (int) ($_GET['drpage'] ?? 1));
         $videoTotal = (int) Capsule::table('mod_driveresource_uploads')
@@ -139,6 +140,13 @@ final class ClientPortal
             $this->translator->t('card_videos'),
             (string) $videoTotal,
             $this->translator->t('videos_meta')
+        );
+        $html .= $this->card(
+            $this->translator->t('card_retention'),
+            $retentionDays === 0
+                ? $this->translator->t('retention_immediate')
+                : $this->translator->t('retention_days', ['days' => $retentionDays]),
+            $this->translator->t('retention_meta')
         );
         $html .= '</div>';
 
@@ -240,11 +248,20 @@ final class ClientPortal
                 $html .= '</td>';
                 $html .= '<td>' . $status . '</td>';
                 $html .= '<td>' . $this->e($this->formatBytes((int) $upload->accounted_bytes)) . '</td>';
-                $html .= '<td>' . ($refsCount > 0
-                    ? '<span class="label label-info">'
-                        . $this->e($this->translator->t('in_use', ['count' => $refsCount])) . '</span>'
-                    : '<span class="label label-default">'
-                        . $this->e($this->translator->t('no_references')) . '</span>') . '</td>';
+                $deleteAfter = max(0, (int) ($upload->delete_after ?? 0));
+                if ($refsCount > 0) {
+                    $usage = '<span class="label label-info">'
+                        . $this->e($this->translator->t('in_use', ['count' => $refsCount])) . '</span>';
+                } else if ($deleteAfter > time()) {
+                    $usage = '<span class="label label-warning">'
+                        . $this->e($this->translator->t('deletion_scheduled', [
+                            'date' => date('Y-m-d H:i', $deleteAfter),
+                        ])) . '</span>';
+                } else {
+                    $usage = '<span class="label label-default">'
+                        . $this->e($this->translator->t('no_references')) . '</span>';
+                }
+                $html .= '<td>' . $usage . '</td>';
                 $html .= '<td>' . date('Y-m-d H:i', (int) $upload->created_at) . '</td>';
                 $html .= '<td class="text-right">';
                 if ($refsCount === 0 && $videoId !== '') {
@@ -498,7 +515,7 @@ final class ClientPortal
     private function styles(): string
     {
         return '<style>'
-            . '.dr-portal{margin-top:18px}.dr-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}'
+            . '.dr-portal{margin-top:18px}.dr-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:18px}'
             . '.dr-card{border:1px solid #e5e7eb;border-radius:10px;background:#fff;padding:16px;min-height:112px}'
             . '.dr-card-label{font-size:12px;color:#6b7280;margin-bottom:7px}.dr-card-value{font-size:22px;font-weight:600;line-height:1.25}'
             . '.dr-card-meta{font-size:12px;color:#6b7280;margin-top:7px;line-height:1.45}.dr-panel{border-radius:10px;overflow:hidden}'
