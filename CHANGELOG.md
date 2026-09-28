@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.2.0-rc11-m45 — 2026-09-27
+- Preserves the exact learner-requested seek target across protected-stream refresh and recovery.
+- Commits touch seeking on `pointerup` with `change`/blur fallbacks and prevents duplicate commits.
+- Detects a seek that unexpectedly lands far from the requested second and retries the signed protected source at the requested position instead of silently returning to 0.
+- Removes the learner-facing video metadata chips for resource type, protection label and completion percentage.
+- Removes the custom `touch-action` override from the native range input so mobile browsers retain their standard slider gesture handling.
+- Bumps Moodle build to `2026092705`.
+
+## Elearning Stream Gateway 0.5.7 — 2026-09-27
+- Requires the signed MP4 one-byte probe to return HTTP `206 Partial Content`.
+- Requires a valid `Content-Range: bytes 0-0/...` response before protected playback is authorized.
+- Rejects HTTP `200` range probes with an actionable Cache Slicing diagnostic because start-only playback is insufficient for reliable seeking.
+
 ## 1.2.0-rc10-m45 — 2026-09-27
 - Fixed protected-video seeking on touch devices by deferring `currentTime` mutation until the learner releases the timeline.
 - Prevents a drag gesture from starting overlapping Moodle/Bunny byte-range requests.
