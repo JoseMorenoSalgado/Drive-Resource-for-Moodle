@@ -39,7 +39,7 @@ class mod_videoplayer_mod_form extends moodleform_mod {
      * Define form fields.
      */
     public function definition() {
-        global $PAGE;
+        global $OUTPUT, $PAGE;
 
         $mform = $this->_form;
 
@@ -106,37 +106,147 @@ class mod_videoplayer_mod_form extends moodleform_mod {
                 'id' => 'mod-videoplayer-bunny-upload',
                 'data-state' => 'idle',
             ]);
-            $uploadhtml .= html_writer::tag('p', get_string('bunnyuploadintro', 'mod_videoplayer'), [
-                'class' => 'text-muted mb-2',
-            ]);
-            $uploadhtml .= html_writer::start_div('d-flex flex-column gap-2');
+
+            $uploadhtml .= html_writer::start_div('mod-videoplayer-upload-header');
+            $uploadhtml .= html_writer::div(
+                $OUTPUT->pix_icon('i/upload', '', 'core', ['class' => 'mod-videoplayer-upload-header-icon']),
+                'mod-videoplayer-upload-icon'
+            );
+            $uploadhtml .= html_writer::start_div('mod-videoplayer-upload-heading');
+            $uploadhtml .= html_writer::tag(
+                'strong',
+                get_string('bunnyuploadlabel', 'mod_videoplayer'),
+                ['class' => 'mod-videoplayer-upload-title']
+            );
+            $uploadhtml .= html_writer::tag(
+                'span',
+                get_string('bunnyuploadintro', 'mod_videoplayer'),
+                ['class' => 'mod-videoplayer-upload-intro']
+            );
+            $uploadhtml .= html_writer::end_div();
+            $uploadhtml .= html_writer::end_div();
+
             $uploadhtml .= html_writer::empty_tag('input', [
                 'type' => 'file',
                 'id' => 'mod-videoplayer-bunny-file',
-                'class' => 'form-control',
+                'class' => 'mod-videoplayer-upload-input sr-only',
                 'accept' => 'video/*,.mp4,.mov,.m4v,.webm,.mkv,.avi,.mpeg,.mpg',
             ]);
-            $uploadhtml .= html_writer::tag('button', get_string('bunnyuploadbutton', 'mod_videoplayer'), [
-                'type' => 'button',
-                'id' => 'mod-videoplayer-bunny-start',
-                'class' => 'btn btn-primary align-self-start',
-                'disabled' => 'disabled',
+
+            $uploadhtml .= html_writer::start_tag('label', [
+                'for' => 'mod-videoplayer-bunny-file',
+                'id' => 'mod-videoplayer-bunny-dropzone',
+                'class' => 'mod-videoplayer-upload-dropzone',
             ]);
-            $uploadhtml .= html_writer::div('', 'progress', [
-                'id' => 'mod-videoplayer-bunny-progress-wrap',
-                'style' => 'height: 0.75rem;',
+            $uploadhtml .= html_writer::div(
+                $OUTPUT->pix_icon('i/upload', '', 'core'),
+                'mod-videoplayer-upload-drop-icon'
+            );
+            $uploadhtml .= html_writer::tag(
+                'span',
+                get_string('bunnyuploaddroptitle', 'mod_videoplayer'),
+                ['class' => 'mod-videoplayer-upload-drop-title']
+            );
+            $uploadhtml .= html_writer::tag(
+                'span',
+                get_string('bunnyuploaddrophelp', 'mod_videoplayer'),
+                ['class' => 'mod-videoplayer-upload-drop-help']
+            );
+            $uploadhtml .= html_writer::tag(
+                'span',
+                get_string('bunnyuploadformats', 'mod_videoplayer'),
+                ['class' => 'mod-videoplayer-upload-formats']
+            );
+            $uploadhtml .= html_writer::end_tag('label');
+
+            $uploadhtml .= html_writer::start_div('mod-videoplayer-upload-file', [
+                'id' => 'mod-videoplayer-bunny-file-summary',
                 'hidden' => 'hidden',
             ]);
-            $uploadhtml .= html_writer::div('', 'small text-muted', [
+            $uploadhtml .= html_writer::div(
+                $OUTPUT->pix_icon('i/file', '', 'core'),
+                'mod-videoplayer-upload-file-icon'
+            );
+            $uploadhtml .= html_writer::start_div('mod-videoplayer-upload-file-copy');
+            $uploadhtml .= html_writer::tag(
+                'span',
+                get_string('bunnyuploadselected', 'mod_videoplayer'),
+                ['class' => 'mod-videoplayer-upload-file-label']
+            );
+            $uploadhtml .= html_writer::tag('strong', '', [
+                'id' => 'mod-videoplayer-bunny-file-name',
+                'class' => 'mod-videoplayer-upload-file-name',
+            ]);
+            $uploadhtml .= html_writer::tag('span', '', [
+                'id' => 'mod-videoplayer-bunny-file-size',
+                'class' => 'mod-videoplayer-upload-file-size',
+            ]);
+            $uploadhtml .= html_writer::end_div();
+            $uploadhtml .= html_writer::tag(
+                'label',
+                get_string('bunnyuploadchange', 'mod_videoplayer'),
+                [
+                    'for' => 'mod-videoplayer-bunny-file',
+                    'class' => 'btn btn-outline-secondary btn-sm mod-videoplayer-upload-change',
+                ]
+            );
+            $uploadhtml .= html_writer::end_div();
+
+            $uploadhtml .= html_writer::start_div('mod-videoplayer-upload-progress', [
+                'id' => 'mod-videoplayer-bunny-progress-section',
+                'hidden' => 'hidden',
+            ]);
+            $uploadhtml .= html_writer::start_div('mod-videoplayer-upload-progress-meta');
+            $uploadhtml .= html_writer::tag(
+                'span',
+                get_string('bunnyuploadprogress', 'mod_videoplayer'),
+                ['class' => 'mod-videoplayer-upload-progress-label']
+            );
+            $uploadhtml .= html_writer::tag('strong', '0%', [
+                'id' => 'mod-videoplayer-bunny-progress-percent',
+            ]);
+            $uploadhtml .= html_writer::end_div();
+            $uploadhtml .= html_writer::div('', 'progress mod-videoplayer-upload-progress-track', [
+                'id' => 'mod-videoplayer-bunny-progress-wrap',
+                'hidden' => 'hidden',
+            ]);
+            $uploadhtml .= html_writer::tag('span', '', [
+                'id' => 'mod-videoplayer-bunny-progress-bytes',
+                'class' => 'mod-videoplayer-upload-progress-bytes',
+            ]);
+            $uploadhtml .= html_writer::end_div();
+
+            $uploadhtml .= html_writer::start_div('mod-videoplayer-upload-feedback');
+            $uploadhtml .= html_writer::div('', 'mod-videoplayer-upload-status', [
                 'id' => 'mod-videoplayer-bunny-status',
                 'role' => 'status',
                 'aria-live' => 'polite',
             ]);
-            $uploadhtml .= html_writer::div('', 'small', [
+            $uploadhtml .= html_writer::div('', 'mod-videoplayer-upload-quota', [
                 'id' => 'mod-videoplayer-bunny-quota',
                 'aria-live' => 'polite',
+                'hidden' => 'hidden',
             ]);
             $uploadhtml .= html_writer::end_div();
+
+            $uploadhtml .= html_writer::start_div('mod-videoplayer-upload-actions');
+            $uploadhtml .= html_writer::tag(
+                'button',
+                get_string('bunnyuploadbutton', 'mod_videoplayer'),
+                [
+                    'type' => 'button',
+                    'id' => 'mod-videoplayer-bunny-start',
+                    'class' => 'btn btn-primary mod-videoplayer-upload-start',
+                    'disabled' => 'disabled',
+                ]
+            );
+            $uploadhtml .= html_writer::tag(
+                'span',
+                get_string('bunnyuploadsecure', 'mod_videoplayer'),
+                ['class' => 'mod-videoplayer-upload-secure']
+            );
+            $uploadhtml .= html_writer::end_div();
+
             $uploadhtml .= html_writer::end_div();
 
             $mform->addElement(
