@@ -30,8 +30,29 @@ final class reconcile_bunny_asset extends \core\task\adhoc_task {
      * Execute the reconciliation request.
      */
     public function execute(): void {
+        global $DB;
+
         $data = $this->get_custom_data();
         if (empty($data->instanceid) || empty($data->courseid) || empty($data->videoid)) {
+            return;
+        }
+
+        // A restore reconciliation can outlive the restored activity if an
+        // administrator deletes it, changes its source, or replaces the asset
+        // before cron executes. Never create a remote reference for stale
+        // Moodle state.
+        $instance = $DB->get_record(
+            'videoplayer',
+            ['id' => (int)$data->instanceid],
+            'id, course, source, providerassetid',
+            IGNORE_MISSING
+        );
+        if (
+            !$instance
+            || (int)$instance->course !== (int)$data->courseid
+            || (string)$instance->source !== \mod_videoplayer\local\provider\bunny_stream::SOURCE
+            || !hash_equals((string)$instance->providerassetid, (string)$data->videoid)
+        ) {
             return;
         }
 
