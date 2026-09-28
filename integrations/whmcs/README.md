@@ -58,6 +58,12 @@ Enable MP4 fallback in the provider video library. Drive Resource uses that prog
 
 Recommended **Elearning Stream Playback TTL**: 300 seconds. Moodle caches the authorization briefly and requests a fresh one when the player explicitly performs stall recovery.
 
+## Gateway 0.5.6
+
+Protected playback now performs a one-byte server-side probe of the exact signed MP4 URL before WHMCS authorizes Moodle to proxy it. This distinguishes a processed video from CDN delivery failures such as an incorrect CDN hostname/token key, disabled Direct Play, referrer restrictions or a missing MP4 object.
+
+For **Elearning Stream Token Key**, use the **CDN and embed-view Token Authentication Key** associated with the Bunny Video Library/Pull Zone. Do **not** paste the Stream API key into this field.
+
 ## Gateway 0.5.5
 
 Managed-video references are now stored per Moodle activity **and provider video**, so replacing a video cannot overwrite the historical reference needed to release the previous asset. Bind/restore/release operations serialize on the upload row, and release rejects unknown activity/video pairs before retention or provider deletion is evaluated.
