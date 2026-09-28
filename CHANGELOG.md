@@ -1,5 +1,11 @@
 # Changelog
 
+## Elearning Stream Gateway 0.5.6 — 2026-09-27
+- Added a one-byte server-side probe of the exact signed MP4 URL before protected playback is authorized.
+- Distinguishes processed-video readiness from CDN authorization/delivery failures such as HTTP 401/403/404.
+- Clarifies that **Elearning Stream Token Key** is the Bunny CDN/embed-view Token Authentication Key, not the Stream API key.
+- Keeps the provider URL and signing key server-side; learner-facing playback remains Moodle-owned through `protected.php`.
+
 ## Elearning Stream Gateway 0.5.5 — 2026-09-27
 
 - Serialises managed-video bind, restore and release operations on the WHMCS upload row to prevent bind/delete races across concurrent workers.
