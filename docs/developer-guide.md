@@ -380,3 +380,16 @@ The Moodle code checker also validates task file boilerplate and PSR-12 layout f
 ## Gateway TUS response contract
 
 Do not duplicate TUS capability parsing inside external functions or `whmcs_gateway_client`. Route create/refresh responses through `local/gateway/upload_authorisation::normalise()`. A refresh is identity-preserving: the returned `uploadid` and `videoid` must match the requested identifiers. Any future provider adapter that changes the browser upload endpoint requires an explicit validator change plus PHPUnit and security-documentation updates.
+
+
+### Teacher upload UX
+
+The rc12 upload UI is rendered by `mod_form.php` and driven by `amd/src/bunnyupload.js`. Preserve these invariants when changing it:
+
+- file selection and drag/drop must converge on the same validation path;
+- do not start a provider upload until the teacher explicitly presses the upload button;
+- keep Moodle form submit buttons disabled while an upload is in progress;
+- never render Bunny API keys, provider management URLs, TUS signatures or WHMCS service tokens;
+- keep progress based on uploaded bytes, not timers;
+- preserve retry/resume and TUS authorization refresh behavior;
+- regenerate `amd/build/bunnyupload.min.js` after every source change.
