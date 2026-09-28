@@ -265,17 +265,18 @@ final class whmcs_gateway_client {
      * The returned URL must never be rendered into a learner template.
      *
      * @param string $videoid Provider video GUID.
+     * @param int $instanceid Moodle activity instance id.
      * @param bool $forcerefresh Ignore cached authorization.
      * @return string Validated provider playback URL.
      */
-    public function playback_url(string $videoid, bool $forcerefresh = false): string {
+    public function playback_url(string $videoid, int $instanceid, bool $forcerefresh = false): string {
         $videoid = strtolower(trim($videoid));
-        if (!preg_match('/^[a-f0-9-]{32,64}$/', $videoid)) {
+        if (!preg_match('/^[a-f0-9-]{32,64}$/', $videoid) || $instanceid <= 0) {
             throw new moodle_exception('whmcsgatewayinvalidresponse', 'mod_videoplayer');
         }
 
         $cache = \cache::make('mod_videoplayer', 'streamplayback');
-        $cachekey = sha1($this->serviceid . '|' . $videoid);
+        $cachekey = sha1($this->serviceid . '|' . $instanceid . '|' . $videoid);
         if ($forcerefresh) {
             $cache->delete($cachekey);
         } else {
@@ -292,6 +293,7 @@ final class whmcs_gateway_client {
 
         $response = $this->post('/api/playback-authorize.php', [
             'videoid' => $videoid,
+            'instanceid' => $instanceid,
         ]);
         $url = trim((string)($response['url'] ?? ''));
         $returnedvideoid = strtolower(trim((string)($response['videoid'] ?? '')));
