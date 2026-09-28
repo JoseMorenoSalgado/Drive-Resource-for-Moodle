@@ -100,11 +100,6 @@ final class resource_view implements \renderable, \templatable {
         }
         $isguest = isguestuser();
 
-        $typestringkey = 'type' . $type;
-        $typestring = get_string_manager()->string_exists($typestringkey, 'mod_videoplayer')
-            ? get_string($typestringkey, 'mod_videoplayer')
-            : get_string('typefile', 'mod_videoplayer');
-
         $playerstyle = '';
         if (plugin_config::player_color_mode() === 'custom') {
             $playerstyle = '--mod-videoplayer-player-color: ' . plugin_config::player_color() . ';';
@@ -129,9 +124,7 @@ final class resource_view implements \renderable, \templatable {
             'type' => $type,
             'cmid' => $cmid,
             'title' => format_string($instance->name, true, ['context' => $this->activity->context()]),
-            'showresourcetype' => plugin_config::show_resource_type(),
             'trackprogress' => !$isguest && plugin_config::tracking_enabled(),
-            'resourcetype' => get_string('resourcetype', 'mod_videoplayer') . ': ' . $typestring,
             'protectedurl' => $protectedurl ? $protectedurl->out(false) : '',
             'pdfurl' => $protectedurl ? $protectedurl->out(false) : '',
             'videourl' => $primaryvideourl,
