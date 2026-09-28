@@ -6,7 +6,7 @@ Elearning Stream is a protected-video activity for Moodle. The historical Moodle
 
 - Product: **Elearning Stream**
 - Moodle component: `mod_videoplayer`
-- Release: **1.2.0-rc9-m45**
+- Release: **1.2.0-rc10-m45**
 - Target: Moodle **4.5 LTS**
 - PHP baseline: PHP 8.1+
 - Video runtime: native HTML5 Media API
@@ -54,6 +54,8 @@ Every managed request is bound to the provisioned service. The gateway validates
 The learner receives Moodle-owned protected URLs. Provider API keys and playback signing keys stay in the gateway.
 
 Gateway 0.5.6 also performs a one-byte server-side probe of each newly signed MP4 playback URL. A processed Bunny video is therefore distinguished from CDN delivery misconfiguration before Moodle starts proxying bytes.
+
+RC10 improves protected playback on touch devices: dragging the timeline now previews the target position and commits a single seek when the learner releases the slider, avoiding overlapping Moodle `Range` requests. The timeline also has a larger mobile touch target and portrait videos are capped to a viewport-aware height.
 
 ## Video upload and playback
 
