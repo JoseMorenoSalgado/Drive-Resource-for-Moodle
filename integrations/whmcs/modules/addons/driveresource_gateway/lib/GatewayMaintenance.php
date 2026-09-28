@@ -36,12 +36,92 @@ final class GatewayMaintenance
      */
     public function run(): void
     {
+        $this->syncServicePoliciesFromProducts();
         $this->expireAbandonedUploads();
         $this->syncProviderStorage();
         $this->deleteExpiredOrphans();
         $this->purgeNonces();
         $this->purgeUsageReports();
         $this->purgeAuditEvents();
+    }
+
+    /**
+     * Synchronise mutable policy from WHMCS products into gateway services.
+     *
+     * This repairs legacy tenants that retained historical module defaults
+     * after a code upgrade. The WHMCS product remains authoritative for quota,
+     * overage and retention. If retention is reduced to zero, already-orphaned
+     * assets are made eligible for deletion in this same maintenance run.
+     *
+     * @return void
+     */
+    private function syncServicePoliciesFromProducts(): void
+    {
+        if (
+            !Capsule::schema()->hasTable('tblhosting')
+            || !Capsule::schema()->hasTable('tblproducts')
+            || !Capsule::schema()->hasTable('mod_driveresource_services')
+        ) {
+            return;
+        }
+
+        $rows = Capsule::table('mod_driveresource_services as s')
+            ->join('tblhosting as h', 'h.id', '=', 's.service_id')
+            ->join('tblproducts as p', 'p.id', '=', 'h.packageid')
+            ->where('p.servertype', 'driveresource')
+            ->select([
+                's.service_id',
+                's.retention_days',
+                'p.configoption1',
+                'p.configoption2',
+                'p.configoption3',
+            ])
+            ->limit(1000)
+            ->get();
+
+        $now = time();
+        foreach ($rows as $row) {
+            $quotaGb = max(0.1, min(100000.0, (float) ($row->configoption1 ?: 7)));
+            $retention = max(0, min(365, (int) ($row->configoption3 ?? 0)));
+            $overageAllowed = strtolower((string) ($row->configoption2 ?? 'on')) === 'on';
+            $previousRetention = max(0, (int) ($row->retention_days ?? 0));
+
+            Capsule::table('mod_driveresource_services')
+                ->where('service_id', (int) $row->service_id)
+                ->update([
+                    'quota_bytes' => (int) round($quotaGb * 1000000000),
+                    'overage_allowed' => $overageAllowed,
+                    'retention_days' => $retention,
+                    'updated_at' => $now,
+                ]);
+
+            if ($previousRetention <= 0 || $retention !== 0) {
+                continue;
+            }
+
+            $uploads = Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', (int) $row->service_id)
+                ->whereNotNull('delete_after')
+                ->where('delete_after', '>', $now)
+                ->whereIn('status', ['processing', 'ready', 'bound', 'deleting'])
+                ->get();
+
+            foreach ($uploads as $upload) {
+                $references = (int) Capsule::table('mod_driveresource_asset_refs')
+                    ->where('service_id', (int) $row->service_id)
+                    ->where('video_id', (string) $upload->video_id)
+                    ->where('active', true)
+                    ->count();
+                if ($references === 0) {
+                    Capsule::table('mod_driveresource_uploads')
+                        ->where('upload_id', (string) $upload->upload_id)
+                        ->update([
+                            'delete_after' => $now,
+                            'updated_at' => $now,
+                        ]);
+                }
+            }
+        }
     }
 
     /**
