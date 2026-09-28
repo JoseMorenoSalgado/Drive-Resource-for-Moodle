@@ -41,7 +41,7 @@ final class bind_bunny_asset extends \core\task\adhoc_task {
         $instance = $DB->get_record(
             'videoplayer',
             ['id' => (int)$data->instanceid],
-            'id, course, source, providerassetid, provideruploadid',
+            'id, course, source, providerassetid, provideruploadid, name',
             IGNORE_MISSING
         );
         if (
@@ -59,6 +59,16 @@ final class bind_bunny_asset extends \core\task\adhoc_task {
             (string)$data->videoid,
             (int)$data->instanceid,
             (int)$data->courseid
+        );
+
+        // Binding establishes the exact activity reference required by the
+        // rename endpoint. Synchronise the Moodle activity title immediately
+        // after a successful bind so imported/replaced videos cannot retain a
+        // provider/source filename as their customer-facing title.
+        $gateway->rename_asset(
+            (string)$data->videoid,
+            (int)$data->instanceid,
+            (string)$instance->name
         );
 
         // The reservation ID is needed only until WHMCS confirms the durable
