@@ -446,3 +446,8 @@ The WHMCS/control-plane response is not passed through directly to JavaScript. `
 ### Teacher upload presentation
 
 The rc12 upload card is UI-only over the existing TUS data plane. Drag/drop and progress rendering do not change provider credential or service authorization boundaries.
+
+
+### Video display-name ownership
+
+Gateway 0.5.8 keeps two distinct names for a managed video: `filename` is the immutable source filename captured at upload/import, while `display_name` is the user-facing activity title. Rename operations first update the provider and then persist `display_name` in WHMCS. Daily provider maintenance reconciles `display_name` from Bunny to repair stale records without destroying source-file provenance.
