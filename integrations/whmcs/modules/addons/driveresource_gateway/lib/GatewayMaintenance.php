@@ -152,14 +152,20 @@ final class GatewayMaintenance
             $nextStatus = $providerStatus === 4
                 ? ((string) $row->status === 'bound' ? 'bound' : 'ready')
                 : (string) $row->status;
+            $providerTitle = mb_substr(trim((string) ($video['title'] ?? '')), 0, 255);
+
+            $update = [
+                'accounted_bytes' => $storageBytes,
+                'status' => $nextStatus,
+                'updated_at' => time(),
+            ];
+            if ($providerTitle !== '') {
+                $update['display_name'] = $providerTitle;
+            }
 
             Capsule::table('mod_driveresource_uploads')
                 ->where('upload_id', (string) $row->upload_id)
-                ->update([
-                    'accounted_bytes' => $storageBytes,
-                    'status' => $nextStatus,
-                    'updated_at' => time(),
-                ]);
+                ->update($update);
             $affected[(int) $row->service_id] = true;
         }
 
