@@ -1175,7 +1175,7 @@
 
 /* Teacher upload experience. */
 .mod-videoplayer-bunny-upload [hidden] {
-    display: none !important;
+    display: none;
 }
 
 .mod-videoplayer-bunny-upload {
