@@ -229,17 +229,20 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
         var progressBar = null;
         var strings = config.strings || {};
 
-        if (
-            !form
-            || !source
-            || !fileInput
-            || !dropzone
-            || !startButton
-            || !assetField
-            || !uploadField
-            || !sizeField
-            || !statusField
-        ) {
+        var requiredNodes = [
+            form,
+            source,
+            fileInput,
+            dropzone,
+            startButton,
+            assetField,
+            uploadField,
+            sizeField,
+            statusField
+        ];
+        if (requiredNodes.some(function(node) {
+            return !node;
+        })) {
             return;
         }
 
