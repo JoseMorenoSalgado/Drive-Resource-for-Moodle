@@ -69,7 +69,7 @@ final class upload_authorisation {
         $now = time();
 
         if (
-            !preg_match('/^[a-f0-9-]{20,64}$/i', $uploadid)
+            !preg_match('/^[a-f0-9]{32}$/', $uploadid)
             || !preg_match('/^[a-f0-9-]{32,64}$/i', $videoid)
             || !preg_match('/^\d{1,20}$/', $libraryid)
             || !preg_match('/^[a-f0-9]{64}$/', $signature)
