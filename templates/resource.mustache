@@ -11,18 +11,11 @@
     {
         "type": "file",
         "cmid": 42,
-        "disablecontextmenu": true,
-        "showresourcetype": true,
-        "resourcetype": "File",
-        "title": "Protected course resource",
+        "disablecontextmenu": true,        "title": "Protected course resource",
         "protectedurl": "/mod/videoplayer/protected.php?id=42"
     }
 }}
 <div class="mod-videoplayer-container" data-resource-type="{{type}}" data-cmid="{{cmid}}" data-protected-ui data-disable-context-menu="{{#disablecontextmenu}}1{{/disablecontextmenu}}{{^disablecontextmenu}}0{{/disablecontextmenu}}">
-    <div class="mod-videoplayer-meta mb-2">
-        {{#showresourcetype}}<span class="mod-videoplayer-meta-item">{{resourcetype}}</span>{{/showresourcetype}}
-        <span class="mod-videoplayer-meta-item">{{#str}} protectedresource, mod_videoplayer {{/str}}</span>
-    </div>
 
     <div class="mod-videoplayer-generic-card">
         <h3 class="h5 mb-2">{{title}}</h3>
