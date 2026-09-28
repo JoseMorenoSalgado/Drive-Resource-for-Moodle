@@ -50,13 +50,6 @@ if ($ADMIN->fulltree) {
         PARAM_INT
     ));
 
-    $settings->add(new admin_setting_configcheckbox(
-        'mod_videoplayer/showresourcetype',
-        get_string('setting_showresourcetype', 'mod_videoplayer'),
-        get_string('setting_showresourcetype_desc', 'mod_videoplayer'),
-        1
-    ));
-
     $settings->add(new admin_setting_configselect(
         'mod_videoplayer/playercolormode',
         get_string('setting_playercolormode', 'mod_videoplayer'),
