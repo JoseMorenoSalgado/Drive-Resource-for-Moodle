@@ -26,7 +26,7 @@ function driveresource_gateway_config(): array
     return [
         'name' => 'Elearning Stream Gateway',
         'description' => 'Multi-tenant media gateway, quota control and provider credential boundary for Elearning Stream.',
-        'version' => '0.5.5',
+        'version' => '0.5.6',
         'author' => 'Elearning Cloud',
         'fields' => [
             'public_gateway_url' => [
@@ -74,7 +74,7 @@ function driveresource_gateway_config(): array
                 'FriendlyName' => 'Elearning Stream Token Key',
                 'Type' => 'password',
                 'Size' => '45',
-                'Description' => 'Server-side playback signing key. Never copied to Moodle.',
+                'Description' => 'CDN and embed-view Token Authentication Key for the Bunny Video Library/Pull Zone. Do not use the Stream API key. Server-side only; never copied to Moodle.',
             ],
             'playback_ttl' => [
                 'FriendlyName' => 'Elearning Stream Playback TTL',
