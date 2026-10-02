@@ -127,6 +127,7 @@ Before production:
 
 - Moodle CI must pass on the supported PHP/database matrix;
 - the WHMCS integration/security gate must pass;
+- Gateway CI must execute the production `CommercialMigrationPolicy` against representative active, suspended and incomplete 0.5.9 → 0.6.0 legacy migration scenarios;
 - direct upload, seek, Range/206, rename, replace and delete must be tested end-to-end;
 - wallet recharge must be tested with paid, refunded and unpaid invoices;
 - FREE/PAYG limits must be tested with multiple Moodle installations;
