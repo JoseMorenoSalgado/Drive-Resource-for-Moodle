@@ -16,19 +16,20 @@
 
 namespace mod_videoplayer\task;
 
-
-use mod_videoplayer\local\protected_stream;
-
 /**
- * Scheduled task that removes expired protected PDF cache files.
+ * Compatibility no-op for obsolete scheduled PDF-cache rows.
+ *
+ * This class remains for one compatibility cycle so an upgraded site can
+ * safely consume stale task metadata. It is no longer registered in tasks.php.
  *
  * @package    mod_videoplayer
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @deprecated since Elearning Stream 1.3.0-rc4
  */
-class cleanup_pdf_cache extends \core\task\scheduled_task {
+final class cleanup_pdf_cache extends \core\task\scheduled_task {
     /**
-     * Return the task name.
+     * Return the compatibility task name.
      *
      * @return string
      */
@@ -37,11 +38,14 @@ class cleanup_pdf_cache extends \core\task\scheduled_task {
     }
 
     /**
-     * Execute the cache cleanup task.
+     * Consume obsolete invocations without performing work.
      *
      * @return void
      */
     public function execute(): void {
-        protected_stream::cleanup_pdf_cache();
+        debugging(
+            'Elearning Stream skipped an obsolete PDF-cache cleanup task.',
+            DEBUG_DEVELOPER
+        );
     }
 }
