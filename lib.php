@@ -117,20 +117,6 @@ function videoplayer_get_coursemodule_info($coursemodule) {
 }
 
 /**
- * Legacy no-op retained for callback compatibility.
- *
- * Remote-provider PDF caching was removed from the Elearning Stream
- * runtime. Moodle-local PDFs are already stored by the File API and do not
- * require an upstream precache task.
- *
- * @param int $instanceid Activity instance id.
- * @return void
- */
-function videoplayer_queue_pdf_precache(int $instanceid): void {
-    unset($instanceid);
-}
-
-/**
  * Normalise form data before persistence.
  *
  * @param stdClass $data Submitted instance data.
@@ -138,26 +124,17 @@ function videoplayer_queue_pdf_precache(int $instanceid): void {
  */
 function videoplayer_normalise_instance_data(stdClass $data): stdClass {
     $allowedsources = [bunny_stream::SOURCE, resource_compatibility::SOURCE_LOCALPDF];
-    $source = clean_param($data->source ?? bunny_stream::SOURCE, PARAM_ALPHANUMEXT);
-    $data->source = in_array($source, $allowedsources, true) ? $source : bunny_stream::SOURCE;
-
-    $allowedtypes = array_merge([resource_compatibility::TYPE_AUTO], resource_compatibility::RESOURCE_TYPES);
-    $type = clean_param($data->type ?? resource_compatibility::TYPE_AUTO, PARAM_ALPHANUMEXT);
-    $data->type = in_array($type, $allowedtypes, true) ? $type : resource_compatibility::TYPE_AUTO;
+    $source = clean_param((string)($data->source ?? bunny_stream::SOURCE), PARAM_ALPHANUMEXT);
+    $data->source = in_array($source, $allowedsources, true)
+        ? $source
+        : bunny_stream::SOURCE;
 
     if ($data->source === resource_compatibility::SOURCE_LOCALPDF) {
-        $data->type = 'pdf';
-        $data->videourl = '';
         $data->providerassetid = null;
         $data->provideruploadid = null;
         $data->providerfilesize = 0;
         $data->providerstatus = null;
-        $data->displaymode = 'standard';
-        $data->disabledownload = 1;
-    } else if ($data->source === bunny_stream::SOURCE) {
-        $data->type = 'video';
-        $data->videourl = '';
-
+    } else {
         $streammode = clean_param((string)($data->streaminputmode ?? 'upload'), PARAM_ALPHA);
         if ($streammode === 'url') {
             $streamurl = trim((string)($data->streamurl ?? ''));
@@ -177,33 +154,42 @@ function videoplayer_normalise_instance_data(stdClass $data): stdClass {
             $data->providerassetid = trim((string)($data->providerassetid ?? ''));
             $data->provideruploadid = trim((string)($data->provideruploadid ?? ''));
             $data->providerfilesize = max(0, (int)($data->providerfilesize ?? 0));
-            $data->providerstatus = bunny_stream::normalise_status((string)($data->providerstatus ?? ''));
+            $data->providerstatus = bunny_stream::normalise_status(
+                (string)($data->providerstatus ?? '')
+            );
         }
-
-        unset($data->streaminputmode, $data->streamurl);
-        $data->displaymode = 'standard';
-        $data->disabledownload = 1;
-    } else {
-        $data->videourl = trim((string)($data->videourl ?? ''));
-        $data->providerassetid = null;
-        $data->provideruploadid = null;
-        $data->providerfilesize = 0;
-        $data->providerstatus = null;
-        $data->displaymode = 'standard';
     }
 
-    // These controls exist only in the Moodle form. Never persist a pasted
-    // provider URL or the UI mode in the activity table.
     unset($data->streaminputmode, $data->streamurl);
 
-    // Direct-download UI is not supported by the protected-only architecture.
-    // Keep the legacy database field pinned for backup/restore compatibility.
-    $data->disabledownload = 1;
+    // Ignore fields from historical forms/backups which are no longer part of
+    // the production activity schema.
+    foreach ([
+        'videourl',
+        'type',
+        'displaymode',
+        'disabledownload',
+        'enablegamification',
+        'pointsperpage',
+        'video',
+        'endscreentext',
+        'displayasstartscreen',
+        'starttime',
+        'endtime',
+        'grade',
+        'displayoptions',
+        'posterimage',
+        'extendedcompletion',
+    ] as $obsoletefield) {
+        unset($data->{$obsoletefield});
+    }
+
     $data->disablecontextmenu = empty($data->disablecontextmenu) ? 0 : 1;
     $data->enablewatermark = empty($data->enablewatermark) ? 0 : 1;
-    $data->enablegamification = empty($data->enablegamification) ? 0 : 1;
-    $data->pointsperpage = max(0, min(100, (int)($data->pointsperpage ?? 1)));
-    $data->completionpercentage = max(1, min(100, (int)($data->completionpercentage ?? 80)));
+    $data->completionpercentage = max(
+        1,
+        min(100, (int)($data->completionpercentage ?? 80))
+    );
 
     return $data;
 }
@@ -255,22 +241,9 @@ function videoplayer_add_instance($data, $mform = null) {
     $id = (int)$DB->insert_record('videoplayer', $data);
     $data->id = $id;
     videoplayer_save_localpdf_file($data);
-    videoplayer_queue_pdf_precache($id);
     (new bunny_asset_lifecycle())->after_create($data);
 
     return $id;
-}
-
-/**
- * Legacy no-op retained for upgrade compatibility.
- *
- * Remote-provider PDF proxy caching is no longer part of Elearning Stream.
- *
- * @param stdClass $instance Persisted activity instance.
- * @return void
- */
-function videoplayer_invalidate_instance_pdf_cache(stdClass $instance): void {
-    unset($instance);
 }
 
 /**
@@ -290,10 +263,7 @@ function videoplayer_update_instance($data, $mform = null) {
 
     $result = $DB->update_record('videoplayer', $data);
     if ($result) {
-        videoplayer_invalidate_instance_pdf_cache($oldinstance);
-        videoplayer_invalidate_instance_pdf_cache($data);
         videoplayer_save_localpdf_file($data);
-        videoplayer_queue_pdf_precache($data->id);
         (new bunny_asset_lifecycle())->after_update($oldinstance, $data);
     }
 
@@ -318,7 +288,6 @@ function videoplayer_delete_instance($id) {
     $contextid = $cm ? context_module::instance($cm->id)->id : 0;
 
     $transaction = $DB->start_delegated_transaction();
-    $DB->delete_records('videoplayer_rewards', ['videoplayerid' => $instance->id]);
     $DB->delete_records('videoplayer_views', ['videoplayerid' => $instance->id]);
     $DB->delete_records('videoplayer', ['id' => $instance->id]);
     $transaction->allow_commit();
@@ -327,7 +296,6 @@ function videoplayer_delete_instance($id) {
         get_file_storage()->delete_area_files($contextid, 'mod_videoplayer', VIDEOPLAYER_LOCALPDF_FILEAREA);
     }
 
-    videoplayer_invalidate_instance_pdf_cache($instance);
     (new bunny_asset_lifecycle())->after_delete($instance);
 
     return true;
