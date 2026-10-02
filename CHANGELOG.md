@@ -14,6 +14,7 @@
 - Adds prepaid rates of US$0.03/GB-month storage and US$0.12/GB transfer above the included allowances.
 - Adds WHMCS invoice-backed wallet recharges; balance is credited only by `InvoicePaid` and reversed idempotently on refunded/unpaid transitions.
 - Serializes wallet mutations by commercial-account row before checking the idempotency ledger, preventing concurrent duplicate hooks from both observing an empty ledger; reused keys with a different service, type or amount now fail closed.
+- Versions recharge settlements so `Paid → Unpaid → Paid` can safely debit and re-credit the same invoice without reusing an old ledger key; fully `Refunded` recharge orders remain terminal and require a new recharge.
 - Freezes activation credit to the amount persisted on the account so a retried `CreateAccount` cannot mint a different amount after configuration changes.
 - Converts the USD wallet recharge value into the client’s WHMCS invoice currency at invoice creation, freezes the exact invoice amount/currency, and verifies both before `InvoicePaid` can credit the wallet.
 - Adds executable CI behavior tests for activation, FREE→PAYG promotion, debt preservation, refund downgrade and exact money parsing.
