@@ -63,7 +63,7 @@ Security requirements:
 - connection repair and token rotation cannot grant activation credit;
 - insufficient PAYG provider cost is preserved as wallet debt rather than discarded.
 
-Do not trust a browser-provided price, balance, plan or charge.
+Do not trust a browser-provided price, balance, plan or charge. Invoice totals and service-line amounts are parsed as exact integer micro-units; floating-point money comparisons are prohibited in activation and wallet settlement paths.
 
 ## SSRF and upstream policy
 
