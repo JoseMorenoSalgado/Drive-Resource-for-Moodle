@@ -91,7 +91,7 @@ The customer chooses a recharge amount in the Elearning Stream portal. WHMCS cre
 
 No credit is granted at invoice creation. The wallet is credited only when WHMCS marks the invoice Paid. The wallet remains denominated in USD; if the WHMCS client uses another configured currency, Gateway 0.6 converts the USD recharge at invoice creation, stores the exact converted amount/currency, and requires the paid invoice to match those frozen values. PayPal or any other configured WHMCS gateway therefore remains outside plugin billing logic.
 
-A refund or marking the invoice Unpaid reverses the associated wallet recharge idempotently. Ensure USD exists in **Configuration → Payments → Currencies**, because it is the Elearning Stream wallet/accounting currency even when customers are billed in another WHMCS currency.
+A refund or marking the invoice Unpaid reverses the associated wallet recharge idempotently. If an Unpaid invoice is later paid again, Gateway 0.6 creates a new settlement version and restores the recharge once; a fully Refunded recharge remains terminal and requires a new recharge invoice. Ensure USD exists in **Configuration → Payments → Currencies**, because it is the Elearning Stream wallet/accounting currency even when customers are billed in another WHMCS currency.
 
 ## Cron
 
