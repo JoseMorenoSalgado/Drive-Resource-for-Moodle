@@ -26,7 +26,7 @@ function driveresource_gateway_config(): array
     return [
         'name' => 'Elearning Stream Gateway',
         'description' => 'Multi-tenant media gateway, quota control and provider credential boundary for Elearning Stream.',
-        'version' => '0.5.9',
+        'version' => '0.6.0',
         'author' => 'Elearning Cloud',
         'fields' => [
             'public_gateway_url' => [
@@ -103,6 +103,62 @@ function driveresource_gateway_config(): array
                 'Size' => '10',
                 'Default' => '24',
                 'Description' => 'Hours to retain a completed upload that was never saved into a Moodle activity.',
+            ],
+            'free_storage_gb' => [
+                'FriendlyName' => 'Free Storage GB',
+                'Type' => 'text',
+                'Size' => '10',
+                'Default' => '7',
+                'Description' => 'Video storage included with every activated account before PAYG storage applies.',
+            ],
+            'free_transfer_gb' => [
+                'FriendlyName' => 'Free Monthly Transfer GB',
+                'Type' => 'text',
+                'Size' => '10',
+                'Default' => '20',
+                'Description' => 'Monthly video transfer included with every activated account before PAYG transfer applies.',
+            ],
+            'activation_credit_usd' => [
+                'FriendlyName' => 'Activation Credit USD',
+                'Type' => 'text',
+                'Size' => '10',
+                'Default' => '1',
+                'Description' => 'Credit granted once after WHMCS provisions the paid account activation.',
+            ],
+            'minimum_recharge_usd' => [
+                'FriendlyName' => 'Minimum PAYG Recharge USD',
+                'Type' => 'text',
+                'Size' => '10',
+                'Default' => '10',
+                'Description' => 'Minimum wallet recharge that upgrades a FREE account to PAYG.',
+            ],
+            'storage_rate_usd_per_gb' => [
+                'FriendlyName' => 'PAYG Storage USD / GB-month',
+                'Type' => 'text',
+                'Size' => '10',
+                'Default' => '0.03',
+                'Description' => 'Customer rate for storage above the free allowance.',
+            ],
+            'transfer_rate_usd_per_gb' => [
+                'FriendlyName' => 'PAYG Transfer USD / GB',
+                'Type' => 'text',
+                'Size' => '10',
+                'Default' => '0.12',
+                'Description' => 'Customer rate for transfer above the monthly free allowance.',
+            ],
+            'free_installation_limit' => [
+                'FriendlyName' => 'FREE Moodle Installations',
+                'Type' => 'text',
+                'Size' => '10',
+                'Default' => '1',
+                'Description' => 'Maximum active Moodle installations on FREE.',
+            ],
+            'paid_installation_limit' => [
+                'FriendlyName' => 'PAYG Moodle Installations',
+                'Type' => 'text',
+                'Size' => '10',
+                'Default' => '0',
+                'Description' => 'Maximum active Moodle installations on PAYG. Use 0 for unlimited.',
             ],
             'object_storage_provider' => [
                 'FriendlyName' => 'Protected PDF / Object Storage Provider',
@@ -288,6 +344,7 @@ function driveresource_gateway_activate(): array
         driveresource_gateway_ensure_upload_display_name_schema();
         driveresource_gateway_ensure_portal_schema();
         driveresource_gateway_ensure_audit_schema();
+        driveresource_gateway_ensure_commercial_account_schema();
 
         return ['status' => 'success', 'description' => 'Elearning Stream Gateway activated.'];
     } catch (Throwable $exception) {
@@ -329,6 +386,9 @@ function driveresource_gateway_upgrade(array $vars): void
     }
     if (version_compare($installed, '0.5.9', '<')) {
         driveresource_gateway_ensure_video_ownership_schema();
+    }
+    if (version_compare($installed, '0.6.0', '<')) {
+        driveresource_gateway_ensure_commercial_account_schema();
     }
 }
 
@@ -655,6 +715,186 @@ function driveresource_gateway_ensure_audit_schema(): void
         $table->text('metadata_json')->nullable();
         $table->unsignedInteger('created_at')->index();
     });
+}
+
+/**
+ * Ensure account, Moodle-installation, wallet and daily-usage persistence.
+ *
+ * Version 0.6.0 changes the commercial ownership boundary from one WHMCS
+ * service per Moodle site to one WHMCS service per Elearning Stream account.
+ * Existing service rows remain as aggregate compatibility records while site
+ * credentials move into mod_driveresource_installations.
+ *
+ * Existing tenants are backfilled as legacy accounts so an upgrade cannot
+ * unexpectedly block active customers. Newly provisioned services are created
+ * as FREE accounts by the provisioning module.
+ *
+ * @return void
+ */
+function driveresource_gateway_ensure_commercial_account_schema(): void
+{
+    $schema = Capsule::schema();
+
+    if (!$schema->hasTable('mod_driveresource_accounts')) {
+        $schema->create('mod_driveresource_accounts', static function (Blueprint $table): void {
+            $table->unsignedInteger('service_id')->primary();
+            $table->unsignedInteger('client_id')->nullable()->index();
+            $table->string('billing_mode', 16)->default('free')->index();
+            $table->boolean('activation_verified')->default(false)->index();
+            $table->bigInteger('activation_amount_microusd')->default(1000000);
+            $table->bigInteger('balance_microusd')->default(0);
+            $table->unsignedBigInteger('free_storage_bytes')->default(7000000000);
+            $table->unsignedBigInteger('free_transfer_bytes')->default(20000000000);
+            $table->unsignedBigInteger('storage_rate_microusd_per_gb')->default(30000);
+            $table->unsignedBigInteger('transfer_rate_microusd_per_gb')->default(120000);
+            $table->unsignedBigInteger('minimum_recharge_microusd')->default(10000000);
+            $table->unsignedInteger('free_installation_limit')->default(1);
+            $table->unsignedInteger('paid_installation_limit')->default(0);
+            $table->string('status', 24)->default('active')->index();
+            $table->unsignedInteger('grace_until')->nullable()->index();
+            $table->unsignedInteger('paid_at')->nullable();
+            $table->unsignedInteger('created_at');
+            $table->unsignedInteger('updated_at');
+        });
+    }
+
+    if (!$schema->hasTable('mod_driveresource_installations')) {
+        $schema->create('mod_driveresource_installations', static function (Blueprint $table): void {
+            $table->bigIncrements('id');
+            $table->unsignedInteger('service_id')->index();
+            $table->string('label', 191)->nullable();
+            $table->string('site_url', 512);
+            $table->char('site_hash', 64);
+            $table->char('token_hash', 64);
+            $table->string('status', 16)->default('active')->index();
+            $table->boolean('is_primary')->default(false)->index();
+            $table->string('connection_status', 16)->default('pending')->index();
+            $table->unsignedInteger('connection_checked_at')->nullable();
+            $table->string('connection_message', 255)->nullable();
+            $table->unsignedInteger('last_seen_at')->nullable()->index();
+            $table->unsignedInteger('created_at');
+            $table->unsignedInteger('updated_at');
+            $table->unique(['service_id', 'site_hash'], 'dr_installation_site_unique');
+            $table->unique(['service_id', 'token_hash'], 'dr_installation_token_unique');
+        });
+    }
+
+    if (!$schema->hasTable('mod_driveresource_wallet_ledger')) {
+        $schema->create('mod_driveresource_wallet_ledger', static function (Blueprint $table): void {
+            $table->bigIncrements('id');
+            $table->unsignedInteger('service_id')->index();
+            $table->string('entry_type', 32)->index();
+            $table->bigInteger('amount_microusd');
+            $table->bigInteger('balance_after_microusd');
+            $table->char('currency', 3)->default('USD');
+            $table->char('idempotency_key', 64)->unique();
+            $table->string('external_ref', 191)->nullable()->index();
+            $table->text('metadata_json')->nullable();
+            $table->unsignedInteger('created_at')->index();
+        });
+    }
+
+    if (!$schema->hasTable('mod_driveresource_usage_daily')) {
+        $schema->create('mod_driveresource_usage_daily', static function (Blueprint $table): void {
+            $table->bigIncrements('id');
+            $table->unsignedInteger('service_id')->index();
+            $table->char('usage_date', 10);
+            $table->unsignedBigInteger('storage_bytes')->default(0);
+            $table->unsignedBigInteger('transfer_bytes')->default(0);
+            $table->unsignedBigInteger('billable_storage_bytes')->default(0);
+            $table->unsignedBigInteger('billable_transfer_bytes')->default(0);
+            $table->unsignedBigInteger('charge_microusd')->default(0);
+            $table->unsignedInteger('created_at');
+            $table->unsignedInteger('updated_at');
+            $table->unique(['service_id', 'usage_date'], 'dr_usage_daily_unique');
+        });
+    }
+
+    if (
+        $schema->hasTable('mod_driveresource_uploads')
+        && !$schema->hasColumn('mod_driveresource_uploads', 'installation_id')
+    ) {
+        $schema->table('mod_driveresource_uploads', static function (Blueprint $table): void {
+            $table->unsignedBigInteger('installation_id')->nullable()->index();
+        });
+    }
+
+    if (
+        $schema->hasTable('mod_driveresource_usage_reports')
+        && !$schema->hasColumn('mod_driveresource_usage_reports', 'installation_id')
+    ) {
+        $schema->table('mod_driveresource_usage_reports', static function (Blueprint $table): void {
+            $table->unsignedBigInteger('installation_id')->nullable()->index();
+        });
+    }
+
+    if (!$schema->hasTable('mod_driveresource_services')) {
+        return;
+    }
+
+    $now = time();
+    $services = Capsule::table('mod_driveresource_services')->get();
+    foreach ($services as $service) {
+        $serviceId = (int) $service->service_id;
+        $clientId = Capsule::table('tblhosting')
+            ->where('id', $serviceId)
+            ->value('userid');
+
+        Capsule::table('mod_driveresource_accounts')->updateOrInsert(
+            ['service_id' => $serviceId],
+            [
+                'client_id' => $clientId !== null ? (int) $clientId : null,
+                // Preserve existing commercial behavior until explicitly
+                // migrated to the new prepaid PAYG contract.
+                'billing_mode' => 'legacy',
+                'activation_verified' => true,
+                'free_storage_bytes' => max(0, (int) ($service->quota_bytes ?? 7000000000)),
+                'free_transfer_bytes' => 20000000000,
+                'storage_rate_microusd_per_gb' => 30000,
+                'transfer_rate_microusd_per_gb' => 120000,
+                'minimum_recharge_microusd' => 10000000,
+                'free_installation_limit' => 1,
+                'paid_installation_limit' => 0,
+                'status' => (string) ($service->status ?? 'active') === 'active'
+                    ? 'active'
+                    : 'suspended',
+                'updated_at' => $now,
+                'created_at' => (int) ($service->created_at ?? $now),
+            ]
+        );
+
+        $siteUrl = trim((string) ($service->site_url ?? ''));
+        $siteHash = trim((string) ($service->site_hash ?? ''));
+        $tokenHash = trim((string) ($service->token_hash ?? ''));
+        if ($siteUrl === '' || $siteHash === '' || $tokenHash === '') {
+            continue;
+        }
+
+        $existing = Capsule::table('mod_driveresource_installations')
+            ->where('service_id', $serviceId)
+            ->where('site_hash', $siteHash)
+            ->first();
+
+        if (!$existing) {
+            Capsule::table('mod_driveresource_installations')->insert([
+                'service_id' => $serviceId,
+                'label' => 'Primary Moodle',
+                'site_url' => $siteUrl,
+                'site_hash' => $siteHash,
+                'token_hash' => $tokenHash,
+                'status' => (string) ($service->status ?? 'active') === 'active'
+                    ? 'active'
+                    : 'suspended',
+                'is_primary' => true,
+                'connection_status' => (string) ($service->connection_status ?? 'pending'),
+                'connection_checked_at' => $service->connection_checked_at ?? null,
+                'connection_message' => $service->connection_message ?? null,
+                'last_seen_at' => null,
+                'created_at' => (int) ($service->created_at ?? $now),
+                'updated_at' => $now,
+            ]);
+        }
+    }
 }
 
 /**
