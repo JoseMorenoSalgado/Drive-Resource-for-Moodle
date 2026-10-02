@@ -76,7 +76,9 @@ Never use floating-point values as stored money.
 - lock the commercial-account row before consulting the idempotency ledger so concurrent repeats serialize correctly;
 - an existing idempotency key must match the same service, entry type and signed amount;
 - invoice creation does not credit a wallet;
-- `InvoicePaid` is the credit authority only after the invoice client, currency and frozen converted total are verified;
+- `InvoicePaid` is the recharge-credit authority only after the invoice client, currency and frozen converted total are verified;
+- commercial activation requires the service order's invoice to be Paid and to contain a `Hosting` line whose related id is the same WHMCS service;
+- never treat `CreateAccount` invocation alone as proof that the activation fee was paid;
 - wallet accounting is USD-denominated even when the WHMCS client invoice uses another configured currency;
 - refund/unpaid hooks reverse the entitlement;
 - every recharge settlement uses `settlement_version`; a Paid-after-Unpaid event must create a new versioned credit key rather than reuse a previously reversed ledger key;
