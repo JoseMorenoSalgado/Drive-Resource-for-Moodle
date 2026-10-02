@@ -28,6 +28,7 @@ The future document/PDF product path must use the independent protected object-s
 ```text
 classes/local/access/        Moodle authorization context
 classes/local/resource/      normalized resource descriptor
+classes/local/resource_compatibility.php  provider-neutral persisted-type compatibility
 classes/local/stream/        protected delivery and upstream policy
 classes/local/provider/      managed-video lifecycle
 classes/local/gateway/       gateway DTO/authorization validation
@@ -58,6 +59,7 @@ Every Moodle -> gateway request must validate:
 - HMAC over timestamp, nonce and raw body hash;
 - active WHMCS service;
 - active installation;
+- verified commercial activation for non-legacy accounts;
 - account state.
 
 Nonce insertion is the replay barrier and must remain transactional enough to reject duplicate requests.
@@ -154,3 +156,7 @@ Before merge:
 - multiple PAYG Moodle authentication;
 - Backup & Restore;
 - Privacy API.
+
+## Commercial invariants
+
+Only `driveresource_CreateAccount()` may call the shared provisioning path with activation eligibility. `ProvisionMoodleConnection` and token rotation must pass `false`, so repair operations cannot mint the US$1 activation credit. PAYG provider cost is ledgered in full even when it drives the wallet below zero; future recharges clear debt before overage can resume. `.github/scripts/commercial-wallet-invariants.py` makes these rules release-blocking.
