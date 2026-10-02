@@ -2,7 +2,7 @@
 
 ## Supported platform
 
-For **Elearning Stream 1.3.0-rc2-m45**:
+For **Elearning Stream 1.3.0-rc3-m45**:
 
 - Moodle 4.5 LTS;
 - PHP 8.1+;
@@ -89,9 +89,9 @@ Secondary installations are created in the WHMCS customer portal after PAYG is a
 
 The customer chooses a recharge amount in the Elearning Stream portal. WHMCS creates a normal invoice using the service's payment method.
 
-No credit is granted at invoice creation. The wallet is credited only when WHMCS marks the invoice Paid. PayPal or any other configured WHMCS gateway therefore remains outside plugin billing logic.
+No credit is granted at invoice creation. The wallet is credited only when WHMCS marks the invoice Paid. The wallet remains denominated in USD; if the WHMCS client uses another configured currency, Gateway 0.6 converts the USD recharge at invoice creation, stores the exact converted amount/currency, and requires the paid invoice to match those frozen values. PayPal or any other configured WHMCS gateway therefore remains outside plugin billing logic.
 
-A refund or marking the invoice Unpaid reverses the associated wallet recharge idempotently.
+A refund or marking the invoice Unpaid reverses the associated wallet recharge idempotently. Ensure USD exists in **Configuration → Payments → Currencies**, because it is the Elearning Stream wallet/accounting currency even when customers are billed in another WHMCS currency.
 
 ## Cron
 
