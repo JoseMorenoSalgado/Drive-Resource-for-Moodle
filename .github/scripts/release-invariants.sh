@@ -88,8 +88,15 @@ if grep -A12 "new xmldb_field('watchedranges'" db/upgrade.php | grep -q "'durati
 fi
 
 echo "Checking resource compatibility boundary..."
-grep -q "no longer parses, resolves or generates Google" classes/local/drive.php \
-    || fail "Historical resource helper no longer documents the retired provider boundary."
+require_file "classes/local/resource_compatibility.php"
+grep -q "class resource_compatibility" classes/local/resource_compatibility.php \
+    || fail "Provider-neutral resource compatibility helper is missing."
+grep -q "@deprecated since Elearning Stream 1.3" classes/local/drive.php \
+    || fail "Historical drive helper must remain a deprecated compatibility shim."
+if grep -RniE 'use mod_videoplayer\\local\\drive;|drive::' \
+    lib.php mod_form.php index.php view.php protected.php classes backup/moodle2; then
+    fail "Active Moodle runtime still depends on the historical drive helper."
+fi
 grep -q "fail closed" classes/local/resource/resource_descriptor.php \
     || fail "Legacy remote resources must fail closed."
 
