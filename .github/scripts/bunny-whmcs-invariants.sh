@@ -24,6 +24,8 @@ require_file "amd/build/bunnyupload.min.js"
 require_file "integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php"
 require_file "integrations/whmcs/modules/addons/driveresource_gateway/lib/RequestAuthenticator.php"
 require_file "integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php"
+require_file "integrations/whmcs/modules/addons/driveresource_gateway/lib/CommercialAccount.php"
+require_file "integrations/whmcs/modules/addons/driveresource_gateway/lib/WalletService.php"
 require_file "integrations/whmcs/modules/addons/driveresource_gateway/api/asset-import.php"
 require_file "integrations/whmcs/modules/addons/driveresource_gateway/api/playback-authorize.php"
 require_file "integrations/whmcs/modules/servers/driveresource/driveresource.php"
@@ -54,11 +56,21 @@ grep -q "'AccessKey: '" integrations/whmcs/modules/addons/driveresource_gateway/
 grep -q 'hash_hmac' integrations/whmcs/modules/addons/driveresource_gateway/lib/RequestAuthenticator.php     || fail "Moodle-to-WHMCS HMAC verification is missing."
 grep -q 'mod_driveresource_nonces' integrations/whmcs/modules/addons/driveresource_gateway/lib/RequestAuthenticator.php     || fail "Replay nonce protection is missing."
 
-echo "Checking quota and overage controls..."
+echo "Checking account, FREE/PAYG and wallet controls..."
 grep -q 'reserved_bytes' integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "Concurrent upload reservation accounting is missing."
-grep -q 'overage_allowed' integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "WHMCS plan overage policy is missing."
-grep -q "'video_storage_gb'" integrations/whmcs/modules/servers/driveresource/lib/MetricsProvider.php     || fail "WHMCS storage usage metric is missing."
-grep -q 'TYPE_SNAPSHOT' integrations/whmcs/modules/servers/driveresource/lib/MetricsProvider.php     || fail "Storage usage must remain a snapshot metric."
+grep -q 'CommercialAccount::uploadPolicy' integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "Upload authorization is not using the commercial account policy."
+grep -q "MODE_FREE = 'free'" integrations/whmcs/modules/addons/driveresource_gateway/lib/CommercialAccount.php     || fail "FREE mode is missing."
+grep -q "MODE_PAYG = 'payg'" integrations/whmcs/modules/addons/driveresource_gateway/lib/CommercialAccount.php     || fail "PAYG mode is missing."
+grep -q 'balance_microusd' integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "Wallet balance schema is missing."
+grep -q 'mod_driveresource_installations' integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "Multi-Moodle installation schema is missing."
+grep -q 'mod_driveresource_wallet_orders' integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "Wallet recharge order schema is missing."
+grep -q "add_hook('InvoicePaid'" integrations/whmcs/modules/addons/driveresource_gateway/hooks.php     || fail "Paid invoice wallet credit hook is missing."
+grep -q "add_hook('InvoiceRefunded'" integrations/whmcs/modules/addons/driveresource_gateway/hooks.php     || fail "Refund wallet reversal hook is missing."
+grep -q "add_hook('InvoiceUnpaid'" integrations/whmcs/modules/addons/driveresource_gateway/hooks.php     || fail "Unpaid wallet reversal hook is missing."
+grep -q 'minimum_recharge_microusd' integrations/whmcs/modules/addons/driveresource_gateway/lib/WalletService.php     || fail "PAYG promotion threshold is missing."
+grep -q 'settleDailyStorageUsage' integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayMaintenance.php     || fail "Daily PAYG storage settlement is missing."
+grep -q "'video_storage_gb'" integrations/whmcs/modules/servers/driveresource/lib/MetricsProvider.php     || fail "WHMCS storage observability metric is missing."
+grep -q 'TYPE_SNAPSHOT' integrations/whmcs/modules/servers/driveresource/lib/MetricsProvider.php     || fail "Storage metric must remain a snapshot metric."
 
 echo "Checking backup/restore reservation policy..."
 if grep -q "'provideruploadid'" backup/moodle2/backup_videoplayer_stepslib.php; then
@@ -79,6 +91,16 @@ grep -q "function importAsset" integrations/whmcs/modules/addons/driveresource_g
 grep -q "already assigned to another service" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "Cross-service ownership protection is missing."
 grep -q "sourcebunnystream.*Elearning Stream" lang/en/videoplayer.php     || fail "Elearning Stream branding is missing from Moodle."
 grep -q "sourcebunnystream.*Elearning Stream" lang/es/videoplayer.php     || fail "Elearning Stream Spanish branding is missing from Moodle."
+
+echo "Checking retired Google provider boundary..."
+if grep -RniE 'drive\.google\.com|docs\.google\.com|googleusercontent\.com|googlevideo\.com|content-workspacevideo-pa\.googleapis\.com' \
+    classes amd/src templates mod_form.php lib.php protected.php view.php; then
+    fail "Moodle runtime still contains a Google upstream host."
+fi
+grep -q "b-cdn.net" classes/local/stream/upstream_url_policy.php     || fail "Provider CDN SSRF allow-list entry is missing."
+if grep -q "google" classes/local/stream/upstream_url_policy.php; then
+    fail "Retired Google hosts reappeared in the upstream allow-list."
+fi
 
 echo "Checking protected Elearning Stream playback..."
 grep -q "function authorizePlayback" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "WHMCS playback authorization is missing."
