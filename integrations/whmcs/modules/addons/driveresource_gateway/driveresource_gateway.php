@@ -919,6 +919,124 @@ function driveresource_gateway_ensure_commercial_account_schema(): void
             ]);
         }
     }
+
+
+    driveresource_gateway_assert_commercial_schema();
+}
+
+/**
+ * Assert that the 0.6 commercial migration completed atomically enough for
+ * provisioning and billing to run safely.
+ *
+ * @return void
+ */
+function driveresource_gateway_assert_commercial_schema(): void
+{
+    $schema = Capsule::schema();
+    $required = [
+        'mod_driveresource_accounts' => [
+            'service_id',
+            'client_id',
+            'billing_mode',
+            'activation_verified',
+            'activation_amount_microusd',
+            'balance_microusd',
+            'free_storage_bytes',
+            'free_transfer_bytes',
+            'storage_rate_microusd_per_gb',
+            'transfer_rate_microusd_per_gb',
+            'minimum_recharge_microusd',
+            'free_installation_limit',
+            'paid_installation_limit',
+            'status',
+            'created_at',
+            'updated_at',
+        ],
+        'mod_driveresource_installations' => [
+            'id',
+            'service_id',
+            'site_url',
+            'site_hash',
+            'token_hash',
+            'status',
+            'is_primary',
+            'created_at',
+            'updated_at',
+        ],
+        'mod_driveresource_wallet_ledger' => [
+            'id',
+            'service_id',
+            'entry_type',
+            'amount_microusd',
+            'balance_after_microusd',
+            'idempotency_key',
+            'created_at',
+        ],
+        'mod_driveresource_wallet_orders' => [
+            'id',
+            'service_id',
+            'client_id',
+            'invoice_id',
+            'amount_microusd',
+            'status',
+            'created_at',
+            'updated_at',
+        ],
+        'mod_driveresource_usage_daily' => [
+            'id',
+            'service_id',
+            'usage_date',
+            'storage_bytes',
+            'transfer_bytes',
+            'billable_storage_bytes',
+            'billable_transfer_bytes',
+            'charge_microusd',
+            'created_at',
+            'updated_at',
+        ],
+    ];
+
+    foreach ($required as $table => $columns) {
+        if (!$schema->hasTable($table)) {
+            throw new RuntimeException('Elearning Stream 0.6 migration is missing table ' . $table . '.');
+        }
+        foreach ($columns as $column) {
+            if (!$schema->hasColumn($table, $column)) {
+                throw new RuntimeException(
+                    'Elearning Stream 0.6 migration is missing column ' . $table . '.' . $column . '.'
+                );
+            }
+        }
+    }
+
+    foreach ([
+        'mod_driveresource_uploads' => 'installation_id',
+        'mod_driveresource_usage_reports' => 'installation_id',
+    ] as $table => $column) {
+        if (!$schema->hasTable($table) || !$schema->hasColumn($table, $column)) {
+            throw new RuntimeException(
+                'Elearning Stream 0.6 migration is missing installation ownership on ' . $table . '.'
+            );
+        }
+    }
+
+    $missingAccounts = (int) Capsule::table('mod_driveresource_services as s')
+        ->leftJoin(
+            'mod_driveresource_accounts as a',
+            'a.service_id',
+            '=',
+            's.service_id'
+        )
+        ->whereNull('a.service_id')
+        ->count();
+
+    if ($missingAccounts > 0) {
+        throw new RuntimeException(
+            'Elearning Stream 0.6 migration left '
+                . $missingAccounts
+                . ' service(s) without a commercial account.'
+        );
+    }
 }
 
 /**
