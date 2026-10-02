@@ -348,7 +348,12 @@ final class Config
      */
     public static function activationCreditMicrousd(): int
     {
-        return self::usdSettingMicrousd('activation_credit_usd', '1');
+        $amount = self::usdSettingMicrousd('activation_credit_usd', '1');
+        if ($amount <= 0) {
+            throw new RuntimeException('Elearning Stream activation credit must be greater than zero.');
+        }
+
+        return $amount;
     }
 
     /**
