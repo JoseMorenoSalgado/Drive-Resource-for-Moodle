@@ -72,7 +72,7 @@ Redirects are resolved hop-by-hop and revalidated against the same allow-list.
 
 ## Retired provider isolation
 
-Historical `googledrive` database values may remain for upgrade diagnostics. They are not executable provider configurations.
+Historical `googledrive` database values may remain for upgrade diagnostics. They are not executable provider configurations. No provider-specific `drive` helper class is shipped in the production runtime; compatibility handling is centralized in `resource_compatibility` and fails closed.
 
 The production runtime must not:
 
