@@ -864,6 +864,9 @@ function driveresource_gateway_ensure_commercial_account_schema(): void
         return;
     }
 
+    require_once __DIR__ . '/lib/CommercialAccount.php';
+    require_once __DIR__ . '/lib/CommercialMigrationPolicy.php';
+
     $now = time();
     $services = Capsule::table('mod_driveresource_services')->get();
     foreach ($services as $service) {
@@ -877,65 +880,31 @@ function driveresource_gateway_ensure_commercial_account_schema(): void
             ->first();
 
         if (!$account) {
-            Capsule::table('mod_driveresource_accounts')->insert([
-                'service_id' => $serviceId,
-                'client_id' => $clientId !== null ? (int) $clientId : null,
-                // Preserve existing commercial behavior until explicitly
-                // migrated to the new prepaid PAYG contract.
-                'billing_mode' => 'legacy',
-                'activation_verified' => true,
-                'activation_amount_microusd' => 0,
-                'balance_microusd' => 0,
-                'free_storage_bytes' => max(0, (int) ($service->quota_bytes ?? 7000000000)),
-                'free_transfer_bytes' => 20000000000,
-                'storage_rate_microusd_per_gb' => 30000,
-                'transfer_rate_microusd_per_gb' => 120000,
-                'minimum_recharge_microusd' => 10000000,
-                'free_installation_limit' => 1,
-                'paid_installation_limit' => 0,
-                'status' => (string) ($service->status ?? 'active') === 'active'
-                    ? 'active'
-                    : 'suspended',
-                'grace_until' => null,
-                'paid_at' => null,
-                'updated_at' => $now,
-                'created_at' => (int) ($service->created_at ?? $now),
-            ]);
+            $accountValues = \WHMCS\Module\Addon\DriveresourceGateway\CommercialMigrationPolicy::legacyAccountValues(
+                $service,
+                $clientId !== null ? (int) $clientId : null,
+                $now
+            );
+            Capsule::table('mod_driveresource_accounts')->insert($accountValues);
         }
 
-        $siteUrl = trim((string) ($service->site_url ?? ''));
-        $siteHash = trim((string) ($service->site_hash ?? ''));
-        $tokenHash = trim((string) ($service->token_hash ?? ''));
-        if ($siteUrl === '' || $siteHash === '' || $tokenHash === '') {
+        $installationValues = \WHMCS\Module\Addon\DriveresourceGateway\CommercialMigrationPolicy::primaryInstallationValues(
+            $service,
+            $now
+        );
+        if ($installationValues === null) {
             continue;
         }
 
         $existing = Capsule::table('mod_driveresource_installations')
             ->where('service_id', $serviceId)
-            ->where('site_hash', $siteHash)
+            ->where('site_hash', (string) $installationValues['site_hash'])
             ->first();
 
         if (!$existing) {
-            Capsule::table('mod_driveresource_installations')->insert([
-                'service_id' => $serviceId,
-                'label' => 'Primary Moodle',
-                'site_url' => $siteUrl,
-                'site_hash' => $siteHash,
-                'token_hash' => $tokenHash,
-                'status' => (string) ($service->status ?? 'active') === 'active'
-                    ? 'active'
-                    : 'suspended',
-                'is_primary' => true,
-                'connection_status' => (string) ($service->connection_status ?? 'pending'),
-                'connection_checked_at' => $service->connection_checked_at ?? null,
-                'connection_message' => $service->connection_message ?? null,
-                'last_seen_at' => null,
-                'created_at' => (int) ($service->created_at ?? $now),
-                'updated_at' => $now,
-            ]);
+            Capsule::table('mod_driveresource_installations')->insert($installationValues);
         }
     }
-
 
     driveresource_gateway_assert_commercial_schema();
 }
