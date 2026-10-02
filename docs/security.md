@@ -86,6 +86,12 @@ The production runtime must not:
 
 Legacy remote activities fail closed until migrated to Elearning Stream.
 
+## Reduced attack surface
+
+The rc4 Moodle runtime removed unreachable audio/image/generic presentation code, hidden gamification, remote PDF caching/downloading and obsolete activity configuration fields. Local PDF delivery has no outbound network capability; managed-video HTTP access is confined to the dedicated allow-listed Range proxy.
+
+Future course-format code must never receive gateway tokens, provider asset ids or signed playback URLs.
+
 ## Response hardening
 
 Protected responses reconstruct safe headers and preserve:
