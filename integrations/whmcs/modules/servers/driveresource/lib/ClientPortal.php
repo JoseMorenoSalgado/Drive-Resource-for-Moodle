@@ -703,7 +703,12 @@ final class ClientPortal
      */
     private function formatMoney(int $microusd): string
     {
-        $prefix = $microusd < 0 ? '-US
+        $sign = $microusd < 0 ? '-' : '';
+        $currency = 'US' . chr(36);
+
+        return $sign . $currency . number_format(abs($microusd) / 1000000, 2, '.', ',');
+    }
+
     /**
      * Human-readable decimal byte amount.
      *
