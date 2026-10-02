@@ -1,6 +1,6 @@
 # Changelog
 
-## Elearning Stream 1.3.0-rc3-m45 + Gateway 0.6.0 — 2026-10-02
+## Elearning Stream 1.3.0-rc4-m45 + Gateway 0.6.0 — 2026-10-02
 
 - Renames the commercial/customer-facing Moodle product to **Elearning Stream** while retaining `mod_videoplayer` only as the Moodle compatibility component.
 - Removes Google Drive from the active runtime: new/editable production activities use Elearning Stream, protected delivery no longer resolves Google URLs, and the upstream proxy no longer accepts Google hosts.
@@ -36,7 +36,16 @@
 - Adds daily storage settlement and idempotent transfer charging using integer micro-USD accounting.
 - Adds secondary Moodle creation, one-time token display, token rotation and safe revocation.
 - Enforces FREE installation limits during authentication so a refund/downgrade cannot retain excess Moodle access.
-- Bumps Moodle build to `2026100202` / `1.3.0-rc3-m45`; gateway remains `0.6.0`.
+- Removes unreachable audio, image, generic-file and placeholder presentation modules/templates from the Moodle runtime.
+- Removes hidden gamification execution, reward events/table, points fields and related Privacy/Backup payloads.
+- Reduces the activity XMLDB schema to fields used by managed video, historical local PDF, progress/completion and provider lifecycle; upgraded sites remove retired columns idempotently at savepoint `2026100203`.
+- Keeps old PDF-cache task classes only as compatibility no-ops while removing them from scheduled runtime work.
+- Reduces local protected delivery to Moodle File API PDF streaming with byte ranges; remote HTTP delivery remains exclusively in the hardened managed-video proxy.
+- Narrows `resource_compatibility` to persisted migration source keys only.
+- Adds Moodle-standard `thirdpartylibs/pdfjs/readme_moodle.txt` and updates bundled PDF.js metadata.
+- Defines a separate future `format_elearningstream` integration contract based on Moodle modinfo/completion APIs with no direct plugin-table coupling.
+- Adds Marketplace readiness documentation and release invariants preventing dead runtime features from returning.
+- Bumps Moodle build to `2026100203` / `1.3.0-rc4-m45`; gateway remains `0.6.0`.
 
 ## Elearning Stream Gateway 0.5.8 — 2026-09-28
 - Adds a nullable `display_name` column for provider assets while preserving the original source `filename`.
