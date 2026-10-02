@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Core callbacks for Drive Resource.
+ * Core callbacks for Elearning Stream.
  *
  * @package    mod_videoplayer
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
@@ -24,7 +24,6 @@
 
 
 use mod_videoplayer\local\drive;
-use mod_videoplayer\local\protected_stream;
 use mod_videoplayer\local\provider\bunny_asset_lifecycle;
 use mod_videoplayer\local\provider\bunny_stream;
 use mod_videoplayer\local\whmcs_gateway_client;
@@ -118,28 +117,17 @@ function videoplayer_get_coursemodule_info($coursemodule) {
 }
 
 /**
- * Queue PDF precache only for Google Drive resources that can become PDF.
+ * Legacy no-op retained for callback compatibility.
+ *
+ * Remote Google-backed PDF caching was removed from the Elearning Stream
+ * runtime. Moodle-local PDFs are already stored by the File API and do not
+ * require an upstream precache task.
  *
  * @param int $instanceid Activity instance id.
  * @return void
  */
 function videoplayer_queue_pdf_precache(int $instanceid): void {
-    global $DB;
-
-    $instance = $DB->get_record('videoplayer', ['id' => $instanceid], 'id, source, type, videourl', IGNORE_MISSING);
-    if (!$instance || ($instance->source ?? drive::SOURCE_GOOGLEDRIVE) !== drive::SOURCE_GOOGLEDRIVE) {
-        return;
-    }
-
-    $type = drive::resolve_record_type($instance);
-    if (!drive::is_pdf_type($type)) {
-        return;
-    }
-
-    $task = new \mod_videoplayer\task\precache_pdf();
-    $task->set_component('mod_videoplayer');
-    $task->set_custom_data(['instanceid' => $instanceid]);
-    \core\task\manager::queue_adhoc_task($task, true);
+    unset($instanceid);
 }
 
 /**
@@ -149,7 +137,7 @@ function videoplayer_queue_pdf_precache(int $instanceid): void {
  * @return stdClass
  */
 function videoplayer_normalise_instance_data(stdClass $data): stdClass {
-    $allowedsources = [drive::SOURCE_GOOGLEDRIVE, bunny_stream::SOURCE, drive::SOURCE_LOCALPDF];
+    $allowedsources = [bunny_stream::SOURCE, drive::SOURCE_LOCALPDF];
     $source = clean_param($data->source ?? bunny_stream::SOURCE, PARAM_ALPHANUMEXT);
     $data->source = in_array($source, $allowedsources, true) ? $source : bunny_stream::SOURCE;
 
@@ -228,7 +216,7 @@ function videoplayer_normalise_instance_data(stdClass $data): stdClass {
  */
 function videoplayer_save_localpdf_file(stdClass $data): void {
     if (
-        ($data->source ?? drive::SOURCE_GOOGLEDRIVE) !== drive::SOURCE_LOCALPDF
+        ($data->source ?? bunny_stream::SOURCE) !== drive::SOURCE_LOCALPDF
             || empty($data->localpdffile)
             || empty($data->coursemodule)
     ) {
@@ -274,22 +262,15 @@ function videoplayer_add_instance($data, $mform = null) {
 }
 
 /**
- * Invalidate the cached PDF representation for one persisted Drive resource.
+ * Legacy no-op retained for upgrade compatibility.
+ *
+ * Google-backed PDF proxy caching is no longer part of Elearning Stream.
  *
  * @param stdClass $instance Persisted activity instance.
  * @return void
  */
 function videoplayer_invalidate_instance_pdf_cache(stdClass $instance): void {
-    if (($instance->source ?? drive::SOURCE_GOOGLEDRIVE) !== drive::SOURCE_GOOGLEDRIVE) {
-        return;
-    }
-
-    $url = trim((string)($instance->videourl ?? ''));
-    $fileid = drive::extract_file_id($url);
-    $type = drive::resolve_record_type($instance);
-    if ($fileid && drive::is_pdf_type($type)) {
-        protected_stream::invalidate_pdf_cache($fileid, $type);
-    }
+    unset($instance);
 }
 
 /**
