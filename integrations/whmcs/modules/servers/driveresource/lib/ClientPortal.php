@@ -63,7 +63,7 @@ final class ClientPortal
             ? (int) $account->free_storage_bytes
             : (int) $service->quota_bytes);
         $freeTransferBytes = max(0, $account ? (int) $account->free_transfer_bytes : 0);
-        $walletBalance = $account ? max(0, (int) $account->balance_microusd) : 0;
+        $walletBalance = $account ? (int) $account->balance_microusd : 0;
         $storagePercent = min(999, (int) round(($usedBytes / $quotaBytes) * 100));
 
         $installations = Capsule::schema()->hasTable('mod_driveresource_installations')
@@ -703,7 +703,120 @@ final class ClientPortal
      */
     private function formatMoney(int $microusd): string
     {
-        return 'US$' . number_format(max(0, $microusd) / 1000000, 2, '.', ',');
+        $prefix = $microusd < 0 ? '-US
+    /**
+     * Human-readable decimal byte amount.
+     *
+     * @param int $bytes Bytes.
+     * @return string
+     */
+    private function formatBytes(int $bytes): string
+    {
+        $bytes = max(0, $bytes);
+        if ($bytes >= 1000000000000) {
+            return number_format($bytes / 1000000000000, 2) . ' TB';
+        }
+        if ($bytes >= 1000000000) {
+            return number_format($bytes / 1000000000, 2) . ' GB';
+        }
+        if ($bytes >= 1000000) {
+            return number_format($bytes / 1000000, 2) . ' MB';
+        }
+
+        return number_format($bytes / 1000, 2) . ' KB';
+    }
+
+    /**
+     * Scoped UI styles.
+     *
+     * @return string
+     */
+    private function styles(): string
+    {
+        return '<style>'
+            . '.dr-portal{margin-top:18px}.dr-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:18px}'
+            . '.dr-card{border:1px solid #e5e7eb;border-radius:10px;background:#fff;padding:16px;min-height:112px}'
+            . '.dr-card-label{font-size:12px;color:#6b7280;margin-bottom:7px}.dr-card-value{font-size:22px;font-weight:600;line-height:1.25}'
+            . '.dr-card-meta{font-size:12px;color:#6b7280;margin-top:7px;line-height:1.45}.dr-panel{border-radius:10px;overflow:hidden}'
+            . '.dr-actions{margin-top:12px}.dr-table td{vertical-align:middle!important}'
+            . '.dr-wallet-balance{font-size:30px;font-weight:700;line-height:38px}.dr-secret p{margin:8px 0 14px}'
+            . '.dr-installation-add{border-top:1px solid #eee}'
+            . '@media(max-width:991px){.dr-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}'
+            . '@media(max-width:575px){.dr-grid{grid-template-columns:1fr}.dr-card-value{font-size:20px}}'
+            . '</style>';
+    }
+
+    /**
+     * HTML escape.
+     *
+     * @param string $value Value.
+     * @return string
+     */
+    private function e(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+
+
+}
+ : 'US
+    /**
+     * Human-readable decimal byte amount.
+     *
+     * @param int $bytes Bytes.
+     * @return string
+     */
+    private function formatBytes(int $bytes): string
+    {
+        $bytes = max(0, $bytes);
+        if ($bytes >= 1000000000000) {
+            return number_format($bytes / 1000000000000, 2) . ' TB';
+        }
+        if ($bytes >= 1000000000) {
+            return number_format($bytes / 1000000000, 2) . ' GB';
+        }
+        if ($bytes >= 1000000) {
+            return number_format($bytes / 1000000, 2) . ' MB';
+        }
+
+        return number_format($bytes / 1000, 2) . ' KB';
+    }
+
+    /**
+     * Scoped UI styles.
+     *
+     * @return string
+     */
+    private function styles(): string
+    {
+        return '<style>'
+            . '.dr-portal{margin-top:18px}.dr-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:18px}'
+            . '.dr-card{border:1px solid #e5e7eb;border-radius:10px;background:#fff;padding:16px;min-height:112px}'
+            . '.dr-card-label{font-size:12px;color:#6b7280;margin-bottom:7px}.dr-card-value{font-size:22px;font-weight:600;line-height:1.25}'
+            . '.dr-card-meta{font-size:12px;color:#6b7280;margin-top:7px;line-height:1.45}.dr-panel{border-radius:10px;overflow:hidden}'
+            . '.dr-actions{margin-top:12px}.dr-table td{vertical-align:middle!important}'
+            . '.dr-wallet-balance{font-size:30px;font-weight:700;line-height:38px}.dr-secret p{margin:8px 0 14px}'
+            . '.dr-installation-add{border-top:1px solid #eee}'
+            . '@media(max-width:991px){.dr-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}'
+            . '@media(max-width:575px){.dr-grid{grid-template-columns:1fr}.dr-card-value{font-size:20px}}'
+            . '</style>';
+    }
+
+    /**
+     * HTML escape.
+     *
+     * @param string $value Value.
+     * @return string
+     */
+    private function e(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+
+
+}
+;
+        return $prefix . number_format(abs($microusd) / 1000000, 2, '.', ',');
     }
 
     /**
