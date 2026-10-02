@@ -55,6 +55,7 @@ Security requirements:
 - recharge invoice creation grants no balance;
 - wallet credit occurs only after `InvoicePaid` and only when the paid invoice currency and total equal the values frozen on the recharge order;
 - refund/unpaid events reverse the recharge;
+- recharge settlement versions bind every credit/reversal pair to one exact Paid cycle, preventing both duplicate hooks and stale reversal-key reuse;
 - wallet/account rows are locked during balance mutation;
 - FREE/PAYG limits are enforced server-side;
 - account downgrade is rechecked at authentication time;
