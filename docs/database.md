@@ -101,6 +101,4 @@ Redacted control-plane audit events.
 
 Gateway 0.6 migration postconditions are checked before the commercial control plane is considered usable: all commercial tables and critical columns must exist, upload/usage rows must support installation attribution, and every compatibility service row must have a commercial account row. Existing services are inserted as `legacy` with zero fabricated activation credit.
 
-
-
 Schema upgrades must be idempotent and must never reset an existing account's billing mode, wallet balance, installation limits or paid status. Pre-0.6.0 services are created as `legacy` only when no account row exists.
