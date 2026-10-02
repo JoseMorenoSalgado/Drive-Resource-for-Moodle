@@ -16,7 +16,7 @@
 
 namespace mod_videoplayer\local\stream;
 
-use mod_videoplayer\local\drive;
+use mod_videoplayer\local\resource_compatibility;
 use mod_videoplayer\local\http_range_proxy;
 use mod_videoplayer\local\protected_stream;
 use mod_videoplayer\local\resource\resource_descriptor;
@@ -53,7 +53,7 @@ final class protected_resource_service {
             throw new \moodle_exception('protectedresourceunavailable', 'mod_videoplayer');
         }
 
-        if ($resource->source() === drive::SOURCE_LOCALPDF) {
+        if ($resource->source() === resource_compatibility::SOURCE_LOCALPDF) {
             $file = $resource->local_file();
             if (!$file) {
                 throw new \moodle_exception('protectedresourceunavailable', 'mod_videoplayer');
