@@ -50,14 +50,9 @@ final class WalletService
             $externalRef,
             $metadata
         ): int {
-            $existing = Capsule::table('mod_driveresource_wallet_ledger')
-                ->where('idempotency_key', $idempotencyKey)
-                ->lockForUpdate()
-                ->first();
-            if ($existing) {
-                return (int) $existing->balance_after_microusd;
-            }
-
+            // Serialize every mutation for one commercial account before
+            // checking the global idempotency ledger. Two identical hook
+            // requests can therefore never both observe a missing entry.
             $account = Capsule::table('mod_driveresource_accounts')
                 ->where('service_id', $serviceId)
                 ->lockForUpdate()
@@ -66,36 +61,38 @@ final class WalletService
                 throw new RuntimeException('Elearning Stream commercial account was not found.');
             }
 
-            $balance = (int) $account->balance_microusd + $amountMicrousd;
-            $mode = (string) $account->billing_mode;
-            $status = (string) $account->status;
-
-            if (
-                $entryType === 'recharge'
-                && $amountMicrousd >= (int) $account->minimum_recharge_microusd
-            ) {
-                $mode = CommercialAccount::MODE_PAYG;
-                if ($balance > 0 && in_array($status, [
-                    CommercialAccount::STATUS_UPLOAD_RESTRICTED,
-                    CommercialAccount::STATUS_GRACE_PERIOD,
-                    CommercialAccount::STATUS_LOW_BALANCE,
-                ], true)) {
-                    $status = CommercialAccount::STATUS_ACTIVE;
-                } else if ($balance <= 0) {
-                    $status = CommercialAccount::STATUS_UPLOAD_RESTRICTED;
-                }
+            $existing = Capsule::table('mod_driveresource_wallet_ledger')
+                ->where('idempotency_key', $idempotencyKey)
+                ->first();
+            if ($existing) {
+                return $this->validatedExistingBalance(
+                    $existing,
+                    $serviceId,
+                    $entryType,
+                    $amountMicrousd
+                );
             }
 
             $now = time();
+            $state = CommercialPolicy::afterCredit(
+                (int) $account->balance_microusd,
+                (string) $account->billing_mode,
+                (string) $account->status,
+                !empty($account->paid_at) ? (int) $account->paid_at : null,
+                $amountMicrousd,
+                $entryType,
+                (int) $account->minimum_recharge_microusd,
+                $now
+            );
+            $balance = $state['balance'];
+
             Capsule::table('mod_driveresource_accounts')
                 ->where('service_id', $serviceId)
                 ->update([
                     'balance_microusd' => $balance,
-                    'billing_mode' => $mode,
-                    'status' => $status,
-                    'paid_at' => $mode === CommercialAccount::MODE_PAYG
-                        ? ($account->paid_at ?: $now)
-                        : $account->paid_at,
+                    'billing_mode' => $state['mode'],
+                    'status' => $state['status'],
+                    'paid_at' => $state['paidat'],
                     'updated_at' => $now,
                 ]);
 
@@ -148,14 +145,6 @@ final class WalletService
             $idempotencyKey,
             $metadata
         ): int {
-            $existing = Capsule::table('mod_driveresource_wallet_ledger')
-                ->where('idempotency_key', $idempotencyKey)
-                ->lockForUpdate()
-                ->first();
-            if ($existing) {
-                return (int) $existing->balance_after_microusd;
-            }
-
             $account = Capsule::table('mod_driveresource_accounts')
                 ->where('service_id', $serviceId)
                 ->lockForUpdate()
@@ -164,20 +153,34 @@ final class WalletService
                 throw new RuntimeException('Elearning Stream commercial account was not found.');
             }
 
+            $existing = Capsule::table('mod_driveresource_wallet_ledger')
+                ->where('idempotency_key', $idempotencyKey)
+                ->first();
+            if ($existing) {
+                return $this->validatedExistingBalance(
+                    $existing,
+                    $serviceId,
+                    $entryType,
+                    -$amountMicrousd
+                );
+            }
+
             // Reversals must preserve debt. If previously consumed credit is
             // refunded, the negative balance is carried forward and future
             // recharges must cover it before paid overage is available again.
-            $balance = (int) $account->balance_microusd - $amountMicrousd;
-            $status = $balance > 0
-                ? (string) $account->status
-                : CommercialAccount::STATUS_UPLOAD_RESTRICTED;
+            $state = CommercialPolicy::afterDebit(
+                (int) $account->balance_microusd,
+                (string) $account->status,
+                $amountMicrousd
+            );
+            $balance = $state['balance'];
             $now = time();
 
             Capsule::table('mod_driveresource_accounts')
                 ->where('service_id', $serviceId)
                 ->update([
                     'balance_microusd' => $balance,
-                    'status' => $status,
+                    'status' => $state['status'],
                     'updated_at' => $now,
                 ]);
 
@@ -197,6 +200,35 @@ final class WalletService
 
             return $balance;
         });
+    }
+
+    /**
+     * Validate that a repeated operation is exactly the same wallet mutation.
+     *
+     * Reusing one idempotency key for a different account, entry type or
+     * amount is an integrity failure and must never be silently accepted.
+     *
+     * @param object $existing Existing ledger row.
+     * @param int $serviceId Expected service id.
+     * @param string $entryType Expected entry type.
+     * @param int $signedAmountMicrousd Expected signed ledger amount.
+     * @return int Existing resulting balance.
+     */
+    private function validatedExistingBalance(
+        object $existing,
+        int $serviceId,
+        string $entryType,
+        int $signedAmountMicrousd
+    ): int {
+        if (
+            (int) $existing->service_id !== $serviceId
+            || (string) $existing->entry_type !== $entryType
+            || (int) $existing->amount_microusd !== $signedAmountMicrousd
+        ) {
+            throw new RuntimeException('Wallet idempotency key collision detected.');
+        }
+
+        return (int) $existing->balance_after_microusd;
     }
 
     /**
