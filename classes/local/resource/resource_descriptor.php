@@ -16,7 +16,7 @@
 
 namespace mod_videoplayer\local\resource;
 
-use mod_videoplayer\local\drive;
+use mod_videoplayer\local\resource_compatibility;
 use mod_videoplayer\local\provider\bunny_stream;
 
 /**
@@ -86,12 +86,12 @@ final class resource_descriptor {
     public static function from_instance(\stdClass $instance, \context_module $context): self {
         $source = clean_param($instance->source ?? bunny_stream::SOURCE, PARAM_ALPHANUMEXT);
 
-        if ($source === drive::SOURCE_LOCALPDF) {
+        if ($source === resource_compatibility::SOURCE_LOCALPDF) {
             $localfile = videoplayer_get_localpdf_file($context);
             return new self(
                 $instance,
                 $context,
-                drive::SOURCE_LOCALPDF,
+                resource_compatibility::SOURCE_LOCALPDF,
                 'pdf',
                 null,
                 $localfile ?: null
@@ -112,7 +112,7 @@ final class resource_descriptor {
         // Fail closed for historical remote-source records. Keeping the
         // persisted source value makes migration diagnostics possible without
         // restoring any dependency on the former provider.
-        return new self($instance, $context, $source, drive::TYPE_FILE, null, null);
+        return new self($instance, $context, $source, resource_compatibility::TYPE_FILE, null, null);
     }
 
     /**
@@ -169,7 +169,7 @@ final class resource_descriptor {
      * @return bool
      */
     public function is_pdf_like(): bool {
-        return drive::is_pdf_type($this->type);
+        return resource_compatibility::is_pdf_type($this->type);
     }
 
     /**
@@ -223,7 +223,7 @@ final class resource_descriptor {
      * @return bool
      */
     public function is_available(): bool {
-        if ($this->source === drive::SOURCE_LOCALPDF) {
+        if ($this->source === resource_compatibility::SOURCE_LOCALPDF) {
             return $this->localfile !== null;
         }
         if ($this->source === bunny_stream::SOURCE) {
@@ -280,7 +280,7 @@ final class resource_descriptor {
      * @return string
      */
     public function mimetype(): string {
-        return drive::default_mimetype($this->type);
+        return resource_compatibility::default_mimetype($this->type);
     }
 
     /**
