@@ -96,12 +96,12 @@ require(
     "Gateway upgrade must explicitly run the 0.6.0 migration.",
 )
 require(
-    addon,
-    "'billing_mode' => 'legacy'",
+    migration,
+    "CommercialAccount::MODE_LEGACY",
     "Pre-0.6 services must be backfilled as legacy accounts.",
 )
 require(
-    addon,
+    migration,
     "'activation_amount_microusd' => 0",
     "Legacy migration must not fabricate activation wallet credit.",
 )
