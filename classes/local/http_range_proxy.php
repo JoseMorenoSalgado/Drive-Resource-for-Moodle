@@ -89,7 +89,6 @@ final class http_range_proxy {
         $ishead = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'HEAD';
         $validator = self::stable_validator($url);
         $currenturl = $url;
-        $requestcookies = [];
         $redirecthops = 0;
         $lastresponse = null;
 
@@ -111,8 +110,7 @@ final class http_range_proxy {
                     $validator,
                     $range,
                     $rangemode,
-                    $ishead,
-                    $requestcookies
+                    $ishead
                 );
 
                 if ($lastresponse['sent']) {
@@ -130,11 +128,6 @@ final class http_range_proxy {
                     }
                     die;
                 }
-
-                $requestcookies = self::merge_cookie_lists(
-                    $requestcookies,
-                    (array) ($lastresponse['cookies'] ?? [])
-                );
 
                 $status = (int)($lastresponse['status'] ?? 0);
                 if ($status >= 300 && $status < 400) {
@@ -203,7 +196,6 @@ final class http_range_proxy {
      * @param string $range Validated browser Range header.
      * @param string $rangemode Range transmission strategy.
      * @param bool $ishead Whether this is a HEAD request.
-     * @param array $requestcookies Domain-scoped cookies obtained from approved upstream responses.
      * @return array{
      *     sent: bool,
      *     result: bool,
@@ -213,7 +205,6 @@ final class http_range_proxy {
      *     invalidcontent: bool,
      *     warningbody: string,
      *     effectiveurl: string,
-     *     cookies: array,
      *     transferbytes: int
      * }
      */
@@ -225,8 +216,7 @@ final class http_range_proxy {
         string $validator,
         string $range,
         string $rangemode,
-        bool $ishead,
-        array $requestcookies = []
+        bool $ishead
     ): array {
         $requestheaders = [
             'Accept: */*',
@@ -341,7 +331,6 @@ final class http_range_proxy {
                 'invalidcontent' => false,
                 'warningbody' => '',
                 'effectiveurl' => $url,
-                'cookies' => [],
                 'transferbytes' => 0,
             ];
         }
@@ -359,7 +348,6 @@ final class http_range_proxy {
             CURLOPT_HTTPHEADER => $requestheaders,
             CURLOPT_HEADERFUNCTION => $headercallback,
             CURLOPT_USERAGENT => 'ElearningStreamMoodleProxy/1.2.0',
-            CURLOPT_COOKIEFILE => '',
             CURLOPT_WRITEFUNCTION => static function (
                 $curl,
                 string $data
@@ -501,10 +489,6 @@ final class http_range_proxy {
         }
 
         curl_setopt_array($ch, $options);
-        foreach ($requestcookies as $cookie) {
-            curl_setopt($ch, CURLOPT_COOKIELIST, $cookie);
-        }
-
         $result = curl_exec($ch);
         $curlerror = curl_error($ch);
         $curlcode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -567,7 +551,6 @@ final class http_range_proxy {
             'invalidcontent' => $invalidcontent,
             'warningbody' => $warningbody,
             'effectiveurl' => $effectiveurl !== '' ? $effectiveurl : $url,
-            'cookies' => $responsecookies,
             'transferbytes' => $transferbytes,
         ];
     }
@@ -900,56 +883,6 @@ final class http_range_proxy {
         ];
 
         return $types[$extension] ?? null;
-    }
-
-    /**
-     * Merge cURL cookie-list entries while preserving their domain and path.
-     *
-     * Flattening these cookies into one Cookie header can leak a google.com
-     * cookie to a googleusercontent.com redirect and can trigger redirect loops.
-     * Only bounded Google-domain cookie records are retained.
-     *
-     * @param array $existing Existing cURL cookie-list entries.
-     * @param array $incoming New cURL cookie-list entries.
-     * @return array Domain-scoped cookie-list entries.
-     */
-    private static function merge_cookie_lists(array $existing, array $incoming): array {
-        $cookies = [];
-        foreach (array_merge($existing, $incoming) as $line) {
-            $line = (string) $line;
-            if ($line === '' || strlen($line) > 4096) {
-                continue;
-            }
-
-            $parts = explode("\t", $line);
-            if (count($parts) < 7) {
-                continue;
-            }
-
-            $domain = preg_replace('/^#HttpOnly_/', '', trim((string) $parts[0]));
-            $domain = ltrim(strtolower($domain), '.');
-            if (
-                $domain !== 'google.com' &&
-                substr($domain, -11) !== '.google.com' &&
-                $domain !== 'googleusercontent.com' &&
-                substr($domain, -22) !== '.googleusercontent.com'
-            ) {
-                continue;
-            }
-
-            $path = (string) $parts[2];
-            $name = (string) $parts[5];
-            if ($path === '' || $name === '') {
-                continue;
-            }
-
-            $cookies[$domain . '|' . $path . '|' . $name] = $line;
-            if (count($cookies) >= 32) {
-                break;
-            }
-        }
-
-        return array_values($cookies);
     }
 
     /**
