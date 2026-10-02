@@ -16,16 +16,15 @@
 
 namespace mod_videoplayer\local\resource;
 
-use mod_videoplayer\local\resource_compatibility;
 use mod_videoplayer\local\provider\bunny_stream;
+use mod_videoplayer\local\resource_compatibility;
 
 /**
- * Normalised, browser-safe description of an Elearning Stream instance.
+ * Browser-safe descriptor for one Elearning Stream activity.
  *
- * Production descriptors support Elearning Stream managed video and the
- * historical Moodle-local PDF source. Legacy remote-provider records are
- * recognized only so they can fail closed and be migrated; no retired-provider URL is
- * resolved or contacted by the runtime.
+ * The active runtime intentionally supports only managed video and Moodle-local
+ * protected PDF. Historical remote records are recognised only so they can fail
+ * closed and be migrated without reintroducing retired provider logic.
  *
  * @package    mod_videoplayer
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
@@ -38,85 +37,55 @@ final class resource_descriptor {
     /** @var \context_module Module context. */
     private \context_module $context;
 
-    /** @var string Canonical source. */
+    /** @var string Canonical persisted source. */
     private string $source;
 
-    /** @var string Canonical type. */
-    private string $type;
-
-    /** @var string|null Legacy upstream identifier; unused in production. */
-    private ?string $fileid;
-
-    /** @var \stored_file|null Local protected PDF. */
+    /** @var \stored_file|null Moodle-local PDF file. */
     private ?\stored_file $localfile;
 
     /**
-     * Constructor.
-     *
-     * @param \stdClass $instance
-     * @param \context_module $context
-     * @param string $source
-     * @param string $type
-     * @param string|null $fileid
-     * @param \stored_file|null $localfile
+     * @param \stdClass $instance Activity instance.
+     * @param \context_module $context Module context.
+     * @param string $source Canonical source.
+     * @param \stored_file|null $localfile Moodle-local PDF file.
      */
     private function __construct(
         \stdClass $instance,
         \context_module $context,
         string $source,
-        string $type,
-        ?string $fileid,
-        ?\stored_file $localfile
+        ?\stored_file $localfile = null
     ) {
         $this->instance = $instance;
         $this->context = $context;
         $this->source = $source;
-        $this->type = $type;
-        $this->fileid = $fileid;
         $this->localfile = $localfile;
     }
 
     /**
-     * Build a descriptor from an activity instance.
+     * Build a descriptor from persisted activity data.
      *
-     * @param \stdClass $instance
-     * @param \context_module $context
+     * @param \stdClass $instance Activity instance.
+     * @param \context_module $context Module context.
      * @return self
      */
     public static function from_instance(\stdClass $instance, \context_module $context): self {
-        $source = clean_param($instance->source ?? bunny_stream::SOURCE, PARAM_ALPHANUMEXT);
+        $source = clean_param((string)($instance->source ?? bunny_stream::SOURCE), PARAM_ALPHANUMEXT);
 
         if ($source === resource_compatibility::SOURCE_LOCALPDF) {
-            $localfile = videoplayer_get_localpdf_file($context);
-            return new self(
-                $instance,
-                $context,
-                resource_compatibility::SOURCE_LOCALPDF,
-                'pdf',
-                null,
-                $localfile ?: null
-            );
+            $file = videoplayer_get_localpdf_file($context);
+            return new self($instance, $context, $source, $file ?: null);
         }
 
         if ($source === bunny_stream::SOURCE) {
-            return new self(
-                $instance,
-                $context,
-                bunny_stream::SOURCE,
-                'video',
-                null,
-                null
-            );
+            return new self($instance, $context, $source);
         }
 
-        // Fail closed for historical remote-source records. Keeping the
-        // persisted source value makes migration diagnostics possible without
-        // restoring any dependency on the former provider.
-        return new self($instance, $context, $source, resource_compatibility::TYPE_FILE, null, null);
+        // Historical remote-provider records intentionally fail closed.
+        return new self($instance, $context, $source);
     }
 
     /**
-     * Resource source.
+     * Return the persisted source.
      *
      * @return string
      */
@@ -125,22 +94,62 @@ final class resource_descriptor {
     }
 
     /**
-     * Whether this resource is managed by Bunny Stream through WHMCS.
+     * Whether this activity is a managed Elearning Stream video.
+     *
+     * @return bool
+     */
+    public function is_managed_video(): bool {
+        return $this->source === bunny_stream::SOURCE;
+    }
+
+    /**
+     * Backward-compatible alias for internal callers during the provider-neutral refactor.
      *
      * @return bool
      */
     public function is_bunny_stream(): bool {
-        return $this->source === bunny_stream::SOURCE;
+        return $this->is_managed_video();
+    }
+
+    /**
+     * Whether this activity is a Moodle-local protected PDF.
+     *
+     * @return bool
+     */
+    public function is_pdf(): bool {
+        return $this->source === resource_compatibility::SOURCE_LOCALPDF;
+    }
+
+    /**
+     * Whether this activity is a video.
+     *
+     * @return bool
+     */
+    public function is_video(): bool {
+        return $this->is_managed_video();
+    }
+
+    /**
+     * Whether this resource uses the PDF.js reader.
+     *
+     * @return bool
+     */
+    public function is_pdf_like(): bool {
+        return $this->is_pdf();
     }
 
     /**
      * Managed provider asset identifier.
      *
-     * This value is server-side state and is not exported to learner templates.
+     * Provider identifiers remain server-side and are never exported to learner templates.
      *
      * @return string|null
      */
     public function provider_asset_id(): ?string {
+        if (!$this->is_managed_video()) {
+            return null;
+        }
+
         $assetid = trim((string)($this->instance->providerassetid ?? ''));
         return bunny_stream::is_valid_asset_id($assetid) ? $assetid : null;
     }
@@ -151,65 +160,31 @@ final class resource_descriptor {
      * @return string
      */
     public function provider_status(): string {
+        if (!$this->is_managed_video()) {
+            return '';
+        }
+
         return bunny_stream::normalise_status((string)($this->instance->providerstatus ?? ''));
     }
 
     /**
-     * Canonical resource type.
+     * Resource type exposed to the presentation layer.
      *
      * @return string
      */
     public function type(): string {
-        return $this->type;
+        if ($this->is_managed_video()) {
+            return 'video';
+        }
+        if ($this->is_pdf()) {
+            return 'pdf';
+        }
+
+        return 'unsupported';
     }
 
     /**
-     * Whether this resource can be rendered with local PDF.js.
-     *
-     * @return bool
-     */
-    public function is_pdf_like(): bool {
-        return resource_compatibility::is_pdf_type($this->type);
-    }
-
-    /**
-     * Whether this is a video resource.
-     *
-     * @return bool
-     */
-    public function is_video(): bool {
-        return $this->type === 'video';
-    }
-
-    /**
-     * Whether this is an audio resource.
-     *
-     * @return bool
-     */
-    public function is_audio(): bool {
-        return $this->type === 'audio';
-    }
-
-    /**
-     * Whether this is an image resource.
-     *
-     * @return bool
-     */
-    public function is_image(): bool {
-        return $this->type === 'image';
-    }
-
-    /**
-     * Legacy upstream identifier. Production sources return null.
-     *
-     * @return string|null
-     */
-    public function fileid(): ?string {
-        return $this->fileid;
-    }
-
-    /**
-     * Local Moodle File API object when source=localpdf.
+     * Moodle-local PDF file.
      *
      * @return \stored_file|null
      */
@@ -218,25 +193,23 @@ final class resource_descriptor {
     }
 
     /**
-     * Whether the descriptor points to a usable resource.
+     * Whether the descriptor can be rendered.
      *
      * @return bool
      */
     public function is_available(): bool {
-        if ($this->source === resource_compatibility::SOURCE_LOCALPDF) {
+        if ($this->is_pdf()) {
             return $this->localfile !== null;
         }
-        if ($this->source === bunny_stream::SOURCE) {
-            return $this->provider_asset_id() !== null;
-        }
-        return false;
+
+        return $this->is_managed_video() && $this->provider_asset_id() !== null;
     }
 
     /**
-     * Moodle-only protected resource URL for all managed sources.
+     * Moodle-only protected URL.
      *
      * @param int $cmid Course module id.
-     * @param string|null $streammode Optional video stream mode.
+     * @param string|null $streammode Optional managed-video mode.
      * @return \moodle_url
      */
     public function protected_url(int $cmid, ?string $streammode = null): \moodle_url {
@@ -245,7 +218,7 @@ final class resource_descriptor {
             'v' => (int)($this->instance->timemodified ?? time()),
         ];
 
-        if ($this->localfile) {
+        if ($this->localfile !== null) {
             $params['fh'] = substr($this->localfile->get_contenthash(), 0, 12);
         }
         if ($streammode !== null && $streammode !== '') {
@@ -256,7 +229,7 @@ final class resource_descriptor {
     }
 
     /**
-     * Safe browser filename. No upstream identifiers are exposed.
+     * Safe browser filename.
      *
      * @return string
      */
@@ -266,7 +239,7 @@ final class resource_descriptor {
             $name = 'elearning-stream';
         }
 
-        $extension = $this->extension();
+        $extension = $this->is_pdf() ? 'pdf' : ($this->is_managed_video() ? 'mp4' : '');
         if ($extension !== '' && !preg_match('/\.' . preg_quote($extension, '/') . '$/i', $name)) {
             $name .= '.' . $extension;
         }
@@ -275,28 +248,18 @@ final class resource_descriptor {
     }
 
     /**
-     * Default MIME type for this resource.
+     * Safe content type.
      *
      * @return string
      */
     public function mimetype(): string {
-        return resource_compatibility::default_mimetype($this->type);
-    }
-
-    /**
-     * Appropriate browser filename extension.
-     *
-     * @return string
-     */
-    private function extension(): string {
-        if ($this->is_pdf_like()) {
-            return 'pdf';
+        if ($this->is_pdf()) {
+            return 'application/pdf';
         }
-        return match ($this->type) {
-            'video' => 'mp4',
-            'audio' => 'mp3',
-            'image' => 'jpg',
-            default => '',
-        };
+        if ($this->is_managed_video()) {
+            return 'video/mp4';
+        }
+
+        return 'application/octet-stream';
     }
 }
