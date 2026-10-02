@@ -33,7 +33,7 @@ use mod_videoplayer\local\gateway\upload_authorisation;
 use moodle_exception;
 
 /**
- * Client for the Drive Resource WHMCS media gateway.
+ * Client for the Elearning Stream gateway.
  */
 final class whmcs_gateway_client {
     /**
@@ -489,12 +489,12 @@ final class whmcs_gateway_client {
             // service token in a dedicated header because some Apache/FastCGI
             // stacks strip Authorization before PHP receives the request.
             'Authorization: Bearer ' . $this->servicetoken,
-            'X-Drive-Resource-Token: ' . $this->servicetoken,
-            'X-Drive-Resource-Service: ' . $this->serviceid,
-            'X-Drive-Resource-Site: ' . $CFG->wwwroot,
-            'X-Drive-Resource-Timestamp: ' . $timestamp,
-            'X-Drive-Resource-Nonce: ' . $payload['requestid'],
-            'X-Drive-Resource-Signature: ' . $requestsignature,
+            'X-Elearning-Stream-Token: ' . $this->servicetoken,
+            'X-Elearning-Stream-Service: ' . $this->serviceid,
+            'X-Elearning-Stream-Site: ' . $CFG->wwwroot,
+            'X-Elearning-Stream-Timestamp: ' . $timestamp,
+            'X-Elearning-Stream-Nonce: ' . $payload['requestid'],
+            'X-Elearning-Stream-Signature: ' . $requestsignature,
         ]);
 
         $raw = $curl->post($this->baseurl . $path, $body, [
