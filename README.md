@@ -6,7 +6,7 @@ Elearning Stream is a protected managed-video activity for Moodle. The historica
 
 - Product: **Elearning Stream**
 - Moodle component: `mod_videoplayer` (compatibility identifier)
-- Moodle release: **1.3.0-rc1-m45**
+- Moodle release: **1.3.0-rc2-m45**
 - Gateway release: **0.6.0**
 - Target: Moodle **4.5 LTS**
 - PHP baseline: PHP 8.1+
@@ -51,15 +51,15 @@ Default 0.6.0 policy:
 - PAYG Moodle installations: **unlimited by default**;
 - all installations under the account share the same wallet and aggregate usage.
 
-Money is stored as integer micro-USD. Recharge invoices credit the wallet only after WHMCS reports `InvoicePaid`. Refund/unpaid transitions reverse the wallet entitlement idempotently.
+Money is stored as integer micro-USD. Only the WHMCS `CreateAccount` provisioning path may verify the paid activation and grant the one-time US$1 credit; repair and token-rotation paths cannot mint activation credit. Recharge invoices credit the wallet only after WHMCS reports `InvoicePaid`. Refund/unpaid transitions reverse the wallet entitlement idempotently. If provider usage exceeds the remaining prepaid balance, the wallet carries the deficit as debt so a later recharge must cover it before paid overage resumes.
 
-## Google Drive retirement
+## Retired provider compatibility
 
-Elearning Stream does not resolve, download, preview or proxy Google Drive resources.
+The former Google Drive provider is fully retired from the Elearning Stream runtime. Elearning Stream does not resolve, download, preview or proxy that provider.
 
 Historical database values such as `googledrive`, the Moodle component name `mod_videoplayer`, WHMCS table prefixes such as `mod_driveresource_*`, and some upgrade migrations remain only for compatibility with previously installed builds. They are not production provider paths.
 
-When an old Google-backed activity is edited, Moodle requires migration to Elearning Stream before it can be saved. Runtime access to that retired remote source fails closed.
+When an activity backed by the retired remote provider is edited, Moodle requires migration to Elearning Stream before it can be saved. Runtime access to that retired remote source fails closed.
 
 ## Upload and playback
 
