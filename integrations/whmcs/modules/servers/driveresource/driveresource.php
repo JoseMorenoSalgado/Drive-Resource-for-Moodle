@@ -708,48 +708,74 @@ function driveresource_AddMoodleInstallation(array $params): string
         $lib = dirname(__DIR__, 2) . '/addons/driveresource_gateway/lib';
         require_once $lib . '/CommercialAccount.php';
 
-        $account = WHMCSModuleAddonDriveresourceGatewayCommercialAccount::find($serviceId);
-        if (!$account || !(bool) $account->activation_verified) {
-            throw new RuntimeException('Elearning Stream account activation is required.');
-        }
-        if (!WHMCSModuleAddonDriveresourceGatewayCommercialAccount::canAddInstallation($serviceId)) {
-            throw new RuntimeException(
-                'Your current Elearning Stream tier has reached its Moodle installation limit.'
-            );
-        }
-
         $siteUrl = driveresource_normalize_site_url((string) ($_POST['moodleurl'] ?? ''));
         $label = trim((string) ($_POST['label'] ?? ''));
-        $label = mb_substr($label !== '' ? $label : parse_url($siteUrl, PHP_URL_HOST), 0, 191);
+        $label = mb_substr($label !== '' ? $label : (string) parse_url($siteUrl, PHP_URL_HOST), 0, 191);
         $siteHash = hash('sha256', $siteUrl);
-
-        $existingInstallation = Capsule::table('mod_driveresource_installations')
-            ->where('service_id', $serviceId)
-            ->where('site_hash', $siteHash)
-            ->first();
-        if ($existingInstallation && (string) $existingInstallation->status !== 'revoked') {
-            throw new RuntimeException('This Moodle installation is already registered.');
-        }
-
         $token = bin2hex(random_bytes(32));
         $now = time();
-        if ($existingInstallation) {
-            $installationId = (int) $existingInstallation->id;
-            Capsule::table('mod_driveresource_installations')
-                ->where('id', $installationId)
-                ->update([
-                    'label' => $label,
-                    'site_url' => $siteUrl,
-                    'token_hash' => hash('sha256', $token),
-                    'status' => 'active',
-                    'is_primary' => false,
-                    'connection_status' => 'pending',
-                    'connection_checked_at' => null,
-                    'connection_message' => 'connection_pending',
-                    'last_seen_at' => null,
-                    'updated_at' => $now,
-                ]);
-        } else {
+        $installationId = 0;
+
+        Capsule::connection()->transaction(function () use (
+            $serviceId,
+            $siteUrl,
+            $siteHash,
+            $label,
+            $token,
+            $now,
+            &$installationId
+        ): void {
+            $account = Capsule::table('mod_driveresource_accounts')
+                ->where('service_id', $serviceId)
+                ->lockForUpdate()
+                ->first();
+            if (!$account || !(bool) $account->activation_verified) {
+                throw new RuntimeException('Elearning Stream account activation is required.');
+            }
+
+            $limit = \WHMCS\Module\Addon\DriveresourceGateway\CommercialAccount::installationLimit(
+                $account
+            );
+            $active = Capsule::table('mod_driveresource_installations')
+                ->where('service_id', $serviceId)
+                ->where('status', 'active')
+                ->lockForUpdate()
+                ->get();
+
+            if ($limit > 0 && count($active) >= $limit) {
+                throw new RuntimeException(
+                    'Your current Elearning Stream tier has reached its Moodle installation limit.'
+                );
+            }
+
+            $existingInstallation = Capsule::table('mod_driveresource_installations')
+                ->where('service_id', $serviceId)
+                ->where('site_hash', $siteHash)
+                ->lockForUpdate()
+                ->first();
+            if ($existingInstallation && (string) $existingInstallation->status !== 'revoked') {
+                throw new RuntimeException('This Moodle installation is already registered.');
+            }
+
+            if ($existingInstallation) {
+                $installationId = (int) $existingInstallation->id;
+                Capsule::table('mod_driveresource_installations')
+                    ->where('id', $installationId)
+                    ->update([
+                        'label' => $label,
+                        'site_url' => $siteUrl,
+                        'token_hash' => hash('sha256', $token),
+                        'status' => 'active',
+                        'is_primary' => false,
+                        'connection_status' => 'pending',
+                        'connection_checked_at' => null,
+                        'connection_message' => 'connection_pending',
+                        'last_seen_at' => null,
+                        'updated_at' => $now,
+                    ]);
+                return;
+            }
+
             $installationId = (int) Capsule::table('mod_driveresource_installations')->insertGetId([
                 'service_id' => $serviceId,
                 'label' => $label,
@@ -765,7 +791,7 @@ function driveresource_AddMoodleInstallation(array $params): string
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
-        }
+        });
 
         $_SESSION['elearning_stream_installation_secret'] = [
             'service_id' => $serviceId,
