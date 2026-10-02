@@ -990,9 +990,9 @@ final class GatewayService
                         ->where('service_id', (int) $service->service_id)
                         ->lockForUpdate()
                         ->first();
-                    $balance = max(0, (int) $accountLocked->balance_microusd);
-                    $debited = min($balance, $chargeMicrousd);
-                    $nextBalance = $balance - $debited;
+                    $balance = (int) $accountLocked->balance_microusd;
+                    $debited = $chargeMicrousd;
+                    $nextBalance = $balance - $chargeMicrousd;
                     $nextStatus = $nextBalance > 0
                         ? (string) $accountLocked->status
                         : CommercialAccount::STATUS_UPLOAD_RESTRICTED;
@@ -1021,7 +1021,7 @@ final class GatewayService
                             'report_id' => $reportId,
                             'billable_bytes' => $billableDelta,
                             'calculated_charge_microusd' => $chargeMicrousd,
-                            'uncovered_microusd' => max(0, $chargeMicrousd - $debited),
+                            'debt_after_microusd' => max(0, -$nextBalance),
                         ], JSON_UNESCAPED_SLASHES),
                         'created_at' => $now,
                     ]);
