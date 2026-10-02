@@ -44,15 +44,15 @@ function driveresource_MetaData(): array
 function driveresource_ConfigOptions(): array
 {
     return [
-        'Included Storage GB' => [
+        'Legacy Included Storage GB' => [
             'Type' => 'text',
             'Size' => '10',
             'Default' => '7',
-            'Description' => 'Storage included with the service before usage overage applies.',
+            'Description' => 'Compatibility policy for pre-0.6.0 legacy tenants. New FREE/PAYG accounts use gateway commercial settings.',
         ],
-        'Allow Storage Overage' => [
+        'Legacy Storage Overage' => [
             'Type' => 'yesno',
-            'Description' => 'Permit uploads above the included storage quota and bill the excess.',
+            'Description' => 'Compatibility overage switch for legacy tenants only. New FREE/PAYG accounts use the prepaid wallet.',
             'Default' => 'on',
         ],
         'Retention Days' => [
