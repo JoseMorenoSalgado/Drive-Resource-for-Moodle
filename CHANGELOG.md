@@ -13,6 +13,8 @@
 - Adds PAYG promotion after a qualifying US$10+ paid recharge, with unlimited Moodle installations by default.
 - Adds prepaid rates of US$0.03/GB-month storage and US$0.12/GB transfer above the included allowances.
 - Adds WHMCS invoice-backed wallet recharges; balance is credited only by `InvoicePaid` and reversed idempotently on refunded/unpaid transitions.
+- Prevents duplicate billing by suppressing legacy WHMCS Usage Billing metrics for FREE/PAYG wallet accounts while retaining them for migration-only legacy tenants.
+- Preserves negative wallet debt when already-consumed credit is refunded, so future recharges must cover the reversal before paid overage resumes.
 - Adds daily storage settlement and idempotent transfer charging using integer micro-USD accounting.
 - Adds secondary Moodle creation, one-time token display, token rotation and safe revocation.
 - Enforces FREE installation limits during authentication so a refund/downgrade cannot retain excess Moodle access.
