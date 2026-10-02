@@ -46,6 +46,8 @@ A service is the commercial account. `mod_driveresource_installations` contains 
 
 All usage and wallet accounting aggregate by `service_id`. Installation ids are attribution/security dimensions, not separate balances.
 
+The 0.6 legacy backfill must use `CommercialMigrationPolicy`; do not duplicate migration row construction inside database orchestration. CI executes this policy with representative 0.5.9 service records so account mode, activation credit, quota, status and primary-installation mapping remain regression-tested.
+
 ## Authentication
 
 Every Moodle -> gateway request must validate:
