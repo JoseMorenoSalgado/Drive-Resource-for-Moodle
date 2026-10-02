@@ -38,50 +38,77 @@ function driveresource_gateway_credit_paid_recharge(int $invoiceId): void
         return;
     }
 
-    $order = \WHMCS\Database\Capsule::table('mod_driveresource_wallet_orders')
-        ->where('invoice_id', $invoiceId)
-        ->where('status', 'pending')
-        ->first();
-    if (!$order) {
-        return;
-    }
+    \WHMCS\Database\Capsule::connection()->transaction(static function () use ($invoiceId): void {
+        $order = \WHMCS\Database\Capsule::table('mod_driveresource_wallet_orders')
+            ->where('invoice_id', $invoiceId)
+            ->where('status', 'pending')
+            ->lockForUpdate()
+            ->first();
+        if (!$order) {
+            return;
+        }
 
-    $invoice = \WHMCS\Database\Capsule::table('tblinvoices')
-        ->where('id', $invoiceId)
-        ->first();
-    if (
-        !$invoice
-        || (int) $invoice->userid !== (int) $order->client_id
-        || strtolower((string) $invoice->status) !== 'paid'
-        || (string) $order->currency !== 'USD'
-    ) {
-        return;
-    }
+        $invoice = \WHMCS\Billing\Invoice::find($invoiceId);
+        if (
+            !$invoice
+            || (int) $invoice->userid !== (int) $order->client_id
+            || strtolower((string) $invoice->status) !== 'paid'
+        ) {
+            return;
+        }
 
-    require_once __DIR__ . '/lib/CommercialAccount.php';
-    require_once __DIR__ . '/lib/WalletService.php';
+        require_once __DIR__ . '/lib/CommercialAccount.php';
+        require_once __DIR__ . '/lib/CommercialPolicy.php';
+        require_once __DIR__ . '/lib/Money.php';
+        require_once __DIR__ . '/lib/WalletService.php';
 
-    $wallet = new \WHMCS\Module\Addon\DriveresourceGateway\WalletService();
-    $wallet->credit(
-        (int) $order->service_id,
-        (int) $order->amount_microusd,
-        'recharge',
-        hash('sha256', 'wallet-credit|' . (int) $order->id . '|' . $invoiceId),
-        'invoice:' . $invoiceId,
-        [
-            'wallet_order_id' => (int) $order->id,
-            'invoice_id' => $invoiceId,
-        ]
-    );
+        $expectedInvoiceAmount = (int) ($order->invoice_amount_microunits ?? 0);
+        if ($expectedInvoiceAmount <= 0) {
+            throw new RuntimeException(
+                'Legacy wallet recharge order has no frozen invoice amount; recreate the recharge invoice.'
+            );
+        }
 
-    \WHMCS\Database\Capsule::table('mod_driveresource_wallet_orders')
-        ->where('id', (int) $order->id)
-        ->where('status', 'pending')
-        ->update([
-            'status' => 'paid',
-            'paid_at' => time(),
-            'updated_at' => time(),
-        ]);
+        $expectedCurrency = strtoupper(trim((string) $order->currency));
+        $invoiceCurrency = strtoupper(trim((string) $invoice->getCurrencyCodeAttribute()));
+        $actualInvoiceAmount = \WHMCS\Module\Addon\DriveresourceGateway\Money::decimalToMicrounits(
+            (string) $invoice->total
+        );
+
+        if (
+            $invoiceCurrency === ''
+            || !hash_equals($expectedCurrency, $invoiceCurrency)
+            || $actualInvoiceAmount !== $expectedInvoiceAmount
+        ) {
+            throw new RuntimeException(
+                'Wallet recharge invoice currency or amount does not match the frozen recharge order.'
+            );
+        }
+
+        $wallet = new \WHMCS\Module\Addon\DriveresourceGateway\WalletService();
+        $wallet->credit(
+            (int) $order->service_id,
+            (int) $order->amount_microusd,
+            'recharge',
+            hash('sha256', 'wallet-credit|' . (int) $order->id . '|' . $invoiceId),
+            'invoice:' . $invoiceId,
+            [
+                'wallet_order_id' => (int) $order->id,
+                'invoice_id' => $invoiceId,
+                'invoice_currency' => $invoiceCurrency,
+                'invoice_amount_microunits' => $actualInvoiceAmount,
+            ]
+        );
+
+        \WHMCS\Database\Capsule::table('mod_driveresource_wallet_orders')
+            ->where('id', (int) $order->id)
+            ->where('status', 'pending')
+            ->update([
+                'status' => 'paid',
+                'paid_at' => time(),
+                'updated_at' => time(),
+            ]);
+    });
 }
 
 /**
@@ -103,58 +130,81 @@ function driveresource_gateway_reverse_recharge(int $invoiceId, string $reason):
     ) {
         return;
     }
-
-    $order = \WHMCS\Database\Capsule::table('mod_driveresource_wallet_orders')
-        ->where('invoice_id', $invoiceId)
-        ->where('status', 'paid')
-        ->first();
-    if (!$order) {
-        return;
+    if (!in_array($reason, ['refunded', 'unpaid'], true)) {
+        throw new RuntimeException('Invalid wallet recharge reversal reason.');
     }
 
-    require_once __DIR__ . '/lib/CommercialAccount.php';
-    require_once __DIR__ . '/lib/WalletService.php';
+    \WHMCS\Database\Capsule::connection()->transaction(static function () use (
+        $invoiceId,
+        $reason
+    ): void {
+        $order = \WHMCS\Database\Capsule::table('mod_driveresource_wallet_orders')
+            ->where('invoice_id', $invoiceId)
+            ->where('status', 'paid')
+            ->lockForUpdate()
+            ->first();
+        if (!$order) {
+            return;
+        }
 
-    $wallet = new \WHMCS\Module\Addon\DriveresourceGateway\WalletService();
-    $wallet->debit(
-        (int) $order->service_id,
-        (int) $order->amount_microusd,
-        'refund',
-        hash('sha256', 'wallet-reversal|' . (int) $order->id),
-        [
-            'wallet_order_id' => (int) $order->id,
-            'invoice_id' => $invoiceId,
-            'reason' => $reason,
-        ]
-    );
+        require_once __DIR__ . '/lib/CommercialAccount.php';
+        require_once __DIR__ . '/lib/CommercialPolicy.php';
+        require_once __DIR__ . '/lib/WalletService.php';
 
-    \WHMCS\Database\Capsule::table('mod_driveresource_wallet_orders')
-        ->where('id', (int) $order->id)
-        ->where('status', 'paid')
-        ->update([
-            'status' => $reason === 'refunded' ? 'refunded' : 'reversed',
-            'refunded_at' => time(),
-            'updated_at' => time(),
-        ]);
+        $wallet = new \WHMCS\Module\Addon\DriveresourceGateway\WalletService();
+        $wallet->debit(
+            (int) $order->service_id,
+            (int) $order->amount_microusd,
+            'refund',
+            hash('sha256', 'wallet-reversal|' . (int) $order->id),
+            [
+                'wallet_order_id' => (int) $order->id,
+                'invoice_id' => $invoiceId,
+                'reason' => $reason,
+            ]
+        );
 
-    $remainingPaidRecharges = (int) \WHMCS\Database\Capsule::table(
-        'mod_driveresource_wallet_orders'
-    )
-        ->where('service_id', (int) $order->service_id)
-        ->where('status', 'paid')
-        ->count();
-
-    if ($remainingPaidRecharges === 0) {
-        \WHMCS\Database\Capsule::table('mod_driveresource_accounts')
-            ->where('service_id', (int) $order->service_id)
-            ->where('billing_mode', 'payg')
+        \WHMCS\Database\Capsule::table('mod_driveresource_wallet_orders')
+            ->where('id', (int) $order->id)
+            ->where('status', 'paid')
             ->update([
-                'billing_mode' => 'free',
-                'paid_at' => null,
-                'status' => 'upload_restricted',
+                'status' => $reason === 'refunded' ? 'refunded' : 'reversed',
+                'refunded_at' => time(),
                 'updated_at' => time(),
             ]);
-    }
+
+        $remainingPaidRecharges = (int) \WHMCS\Database\Capsule::table(
+            'mod_driveresource_wallet_orders'
+        )
+            ->where('service_id', (int) $order->service_id)
+            ->where('status', 'paid')
+            ->count();
+
+        $account = \WHMCS\Database\Capsule::table('mod_driveresource_accounts')
+            ->where('service_id', (int) $order->service_id)
+            ->lockForUpdate()
+            ->first();
+        if (!$account) {
+            throw new RuntimeException('Elearning Stream commercial account was not found.');
+        }
+
+        $state = \WHMCS\Module\Addon\DriveresourceGateway\CommercialPolicy::afterRechargeReversal(
+            (int) $account->balance_microusd,
+            (string) $account->billing_mode,
+            (string) $account->status,
+            !empty($account->paid_at) ? (int) $account->paid_at : null,
+            $remainingPaidRecharges
+        );
+
+        \WHMCS\Database\Capsule::table('mod_driveresource_accounts')
+            ->where('service_id', (int) $order->service_id)
+            ->update([
+                'billing_mode' => $state['mode'],
+                'paid_at' => $state['paidat'],
+                'status' => $state['status'],
+                'updated_at' => time(),
+            ]);
+    });
 }
 
 add_hook('InvoicePaid', 1, static function (array $vars): void {
