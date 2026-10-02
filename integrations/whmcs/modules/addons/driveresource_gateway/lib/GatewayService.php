@@ -55,7 +55,7 @@ final class GatewayService
                 ->first();
 
             if (!$locked || (string) $locked->status !== 'active') {
-                throw new GatewayException('Drive Resource service is not active.', 403);
+                throw new GatewayException('Elearning Stream service is not active.', 403);
             }
 
             $used = (int) $locked->used_bytes;
@@ -1549,11 +1549,21 @@ final class GatewayService
      */
     private function assertStoragePolicy(array $quota): void
     {
+        $mode = (string) ($quota['mode'] ?? CommercialAccount::MODE_LEGACY);
+        if (
+            $mode !== CommercialAccount::MODE_LEGACY
+            && !(bool) ($quota['activationverified'] ?? false)
+        ) {
+            throw new GatewayException(
+                'Elearning Stream account activation is required before uploads are allowed.',
+                402
+            );
+        }
+
         if ((int) ($quota['overagebytes'] ?? 0) <= 0 || (bool) ($quota['overageallowed'] ?? false)) {
             return;
         }
 
-        $mode = (string) ($quota['mode'] ?? CommercialAccount::MODE_LEGACY);
         if ($mode === CommercialAccount::MODE_FREE) {
             throw new GatewayException(
                 'The free storage allowance has been reached. Add prepaid credit to continue with PAYG.',
@@ -1587,6 +1597,13 @@ final class GatewayService
         $account = CommercialAccount::find((int) $service->service_id);
         if (!$account || (string) $account->billing_mode === CommercialAccount::MODE_LEGACY) {
             return;
+        }
+
+        if (!(bool) $account->activation_verified) {
+            throw new GatewayException(
+                'Elearning Stream account activation is required before playback is allowed.',
+                402
+            );
         }
 
         $transfer = (string) ($service->transfer_period ?? '') === gmdate('Y-m')
