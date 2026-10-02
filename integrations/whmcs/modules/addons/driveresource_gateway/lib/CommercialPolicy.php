@@ -96,6 +96,34 @@ final class CommercialPolicy
     }
 
     /**
+     * Resolve the next activation settlement version.
+     *
+     * An activation that is already verified must not mint another credit.
+     * A fully refunded activation is terminal and requires a new commercial
+     * service/order instead of reopening the old invoice.
+     *
+     * @param bool $verified Current activation state.
+     * @param int|null $refundedAt Terminal refund timestamp.
+     * @param int $settlementVersion Current activation settlement version.
+     * @return int|null Next version, or null when activation must not settle.
+     */
+    public static function nextActivationSettlementVersion(
+        bool $verified,
+        ?int $refundedAt,
+        int $settlementVersion
+    ): ?int {
+        if ($settlementVersion < 0) {
+            throw new RuntimeException('Activation settlement version cannot be negative.');
+        }
+
+        if ($verified || $refundedAt !== null) {
+            return null;
+        }
+
+        return $settlementVersion + 1;
+    }
+
+    /**
      * Resolve the next payment settlement version for one recharge order.
      *
      * Pending orders settle for the first time. Orders reversed by an Unpaid
