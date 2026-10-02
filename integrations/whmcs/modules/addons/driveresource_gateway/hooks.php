@@ -275,7 +275,16 @@ function driveresource_gateway_restore_paid_activation(int $invoiceId): void
             return;
         }
 
-        if ((float) $invoice->total <= 0) {
+        require_once __DIR__ . '/lib/CommercialAccount.php';
+        require_once __DIR__ . '/lib/CommercialPolicy.php';
+        require_once __DIR__ . '/lib/Money.php';
+        require_once __DIR__ . '/lib/WalletService.php';
+
+        if (
+            \WHMCS\Module\Addon\DriveresourceGateway\Money::decimalToMicrounits(
+                (string) $invoice->total
+            ) <= 0
+        ) {
             throw new RuntimeException(
                 'Elearning Stream activation invoice must keep a positive total.'
             );
@@ -286,15 +295,16 @@ function driveresource_gateway_restore_paid_activation(int $invoiceId): void
             ->where('type', 'Hosting')
             ->where('relid', (int) $account->service_id)
             ->first();
-        if (!$serviceItem || (float) $serviceItem->amount <= 0) {
+        if (
+            !$serviceItem
+            || \WHMCS\Module\Addon\DriveresourceGateway\Money::decimalToMicrounits(
+                (string) $serviceItem->amount
+            ) <= 0
+        ) {
             throw new RuntimeException(
                 'Elearning Stream activation invoice must keep a positive Hosting line.'
             );
         }
-
-        require_once __DIR__ . '/lib/CommercialAccount.php';
-        require_once __DIR__ . '/lib/CommercialPolicy.php';
-        require_once __DIR__ . '/lib/WalletService.php';
 
         $settlementVersion = \WHMCS\Module\Addon\DriveresourceGateway\CommercialPolicy::nextActivationSettlementVersion(
             (bool) $account->activation_verified,
