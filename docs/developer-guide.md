@@ -28,7 +28,7 @@ The future document/PDF product path must use the independent protected object-s
 ```text
 classes/local/access/        Moodle authorization context
 classes/local/resource/      normalized resource descriptor
-classes/local/resource_compatibility.php  provider-neutral persisted-type compatibility
+classes/local/resource_compatibility.php  persisted source keys only
 classes/local/stream/        protected delivery and upstream policy
 classes/local/provider/      managed-video lifecycle
 classes/local/gateway/       gateway DTO/authorization validation
@@ -132,9 +132,13 @@ Object-storage providers are separate. Do not overload video provider credential
 
 ## Progress and completion
 
-Video completion is based on watched ranges, not furthest seek position. Resume position and completion evidence remain separate.
+Video completion is based on watched ranges, not furthest seek position. Protected PDF completion is based on page progress. Resume position and completion evidence remain separate.
 
-Moodle Completion API changes must be server-authoritative. JavaScript reports telemetry; PHP decides persistence/completion transitions.
+Moodle Completion API changes must be server-authoritative. JavaScript reports telemetry; PHP decides persistence/completion transitions. Do not reintroduce points, rewards or generic presence-based completion into this module without a new product requirement and a fresh Privacy/Backup design review.
+
+## Course-format boundary
+
+The future `format_elearningstream` plugin is a separate Moodle component. It must use `get_fast_modinfo()`, `cm_info`, availability and Completion APIs. It must not query Elearning Stream tables or invoke provider/gateway internals. Any richer cross-plugin contract must first be documented and versioned in `docs/course-format-integration.md`.
 
 ## Coding requirements
 
