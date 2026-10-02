@@ -23,8 +23,8 @@ use mod_videoplayer\local\provider\bunny_stream;
  * Normalised, browser-safe description of an Elearning Stream instance.
  *
  * Production descriptors support Elearning Stream managed video and the
- * historical Moodle-local PDF source. Legacy Google-backed records are
- * recognized only so they can fail closed and be migrated; no Google URL is
+ * historical Moodle-local PDF source. Legacy remote-provider records are
+ * recognized only so they can fail closed and be migrated; no retired-provider URL is
  * resolved or contacted by the runtime.
  *
  * @package    mod_videoplayer
