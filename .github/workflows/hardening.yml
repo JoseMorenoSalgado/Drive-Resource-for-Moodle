@@ -32,6 +32,9 @@ jobs:
       - name: Validate protected-delivery invariants
         run: bash .github/scripts/release-invariants.sh
 
+      - name: Validate Moodle Marketplace architecture
+        run: bash .github/scripts/moodle-marketplace-invariants.sh
+
       - name: Record bundled PDF.js integrity
         run: |
           sha256sum thirdpartylibs/pdfjs/pdf.min.mjs
