@@ -91,12 +91,15 @@ echo "Checking resource compatibility boundary..."
 require_file "classes/local/resource_compatibility.php"
 grep -q "class resource_compatibility" classes/local/resource_compatibility.php \
     || fail "Provider-neutral resource compatibility helper is missing."
-grep -q "@deprecated since Elearning Stream 1.3" classes/local/drive.php \
-    || fail "Historical drive helper must remain a deprecated compatibility shim."
-if grep -RniE 'use mod_videoplayer\\local\\drive;|drive::' \
-    lib.php mod_form.php index.php view.php protected.php classes backup/moodle2; then
-    fail "Active Moodle runtime still depends on the historical drive helper."
+if [[ -e "classes/local/drive.php" ]]; then
+    fail "Retired provider helper classes/local/drive.php must not ship in Elearning Stream."
 fi
+if grep -RniE 'use mod_videoplayer\\local\\drive;|drive::|SOURCE_GOOGLEDRIVE' \
+    lib.php mod_form.php index.php view.php protected.php classes backup/moodle2 tests; then
+    fail "Active Moodle code still depends on retired provider symbols."
+fi
+grep -q "SOURCE_RETIRED_REMOTE = 'googledrive'" classes/local/resource_compatibility.php \
+    || fail "The historical database source key must remain isolated for migration compatibility."
 grep -q "fail closed" classes/local/resource/resource_descriptor.php \
     || fail "Legacy remote resources must fail closed."
 
