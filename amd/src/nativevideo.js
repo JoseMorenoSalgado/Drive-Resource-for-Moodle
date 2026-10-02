@@ -1,5 +1,5 @@
 /**
- * Drive Resource native HTML5 video player.
+ * Elearning Stream native HTML5 video player.
  *
  * @module     mod_videoplayer/nativevideo
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
@@ -116,7 +116,7 @@ define(['core/ajax'], function(Ajax) {
         }
         root.dataset.customPlayerReady = '1';
 
-        var video = root.querySelector('.js-drive-resource-video');
+        var video = root.querySelector('.js-elearning-stream-video');
         var loading = root.querySelector('.js-video-loading');
         var errorBox = root.querySelector('.js-video-error');
         var retry = root.querySelector('.js-video-retry');
@@ -322,7 +322,7 @@ define(['core/ajax'], function(Ajax) {
                 })
                 .catch(function(error) {
                     if (window.console && window.console.warn) {
-                        window.console.warn('Drive Resource progress save failed.', error);
+                        window.console.warn('Elearning Stream progress save failed.', error);
                     }
                 })
                 .then(function() {
