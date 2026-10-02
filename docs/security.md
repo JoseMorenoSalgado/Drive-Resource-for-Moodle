@@ -55,7 +55,10 @@ Security requirements:
 - refund/unpaid events reverse the recharge;
 - wallet/account rows are locked during balance mutation;
 - FREE/PAYG limits are enforced server-side;
-- account downgrade is rechecked at authentication time.
+- account downgrade is rechecked at authentication time;
+- only the WHMCS `CreateAccount` boundary may verify activation and grant the one-time activation credit;
+- connection repair and token rotation cannot grant activation credit;
+- insufficient PAYG provider cost is preserved as wallet debt rather than discarded.
 
 Do not trust a browser-provided price, balance, plan or charge.
 
@@ -67,7 +70,7 @@ Controllers must never accept a raw upstream URL from a learner. Signed provider
 
 Redirects are resolved hop-by-hop and revalidated against the same allow-list.
 
-## Google Drive retirement
+## Retired provider isolation
 
 Historical `googledrive` database values may remain for upgrade diagnostics. They are not executable provider configurations.
 
