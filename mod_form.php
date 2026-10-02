@@ -53,10 +53,10 @@ class mod_videoplayer_mod_form extends moodleform_mod {
         // available only for backward compatibility. Historical Google-backed
         // records must be migrated to Elearning Stream before they can be saved.
         $currentsource = bunny_stream::SOURCE;
-        $legacygooglesource = false;
+        $legacyremotesource = false;
         if (!empty($this->current) && !empty($this->current->source)) {
             $candidate = clean_param((string)$this->current->source, PARAM_ALPHANUMEXT);
-            $legacygooglesource = $candidate === resource_compatibility::SOURCE_RETIRED_REMOTE;
+            $legacyremotesource = $candidate === resource_compatibility::SOURCE_RETIRED_REMOTE;
             if ($candidate === resource_compatibility::SOURCE_LOCALPDF) {
                 $currentsource = resource_compatibility::SOURCE_LOCALPDF;
             }
@@ -65,12 +65,12 @@ class mod_videoplayer_mod_form extends moodleform_mod {
         $mform->addElement('hidden', 'source', $currentsource);
         $mform->setType('source', PARAM_ALPHANUMEXT);
 
-        if ($legacygooglesource) {
+        if ($legacyremotesource) {
             $mform->addElement(
                 'static',
                 'legacysourcemigration',
                 '',
-                get_string('legacygooglesourcenotsupported', 'mod_videoplayer')
+                get_string('legacyremotesourcenotsupported', 'mod_videoplayer')
             );
         }
 
