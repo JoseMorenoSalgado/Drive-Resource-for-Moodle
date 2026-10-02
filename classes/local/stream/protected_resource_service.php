@@ -17,17 +17,14 @@
 namespace mod_videoplayer\local\stream;
 
 use mod_videoplayer\local\drive;
-use mod_videoplayer\local\drive_stream_resolver;
 use mod_videoplayer\local\http_range_proxy;
-use mod_videoplayer\local\plugin_config;
 use mod_videoplayer\local\protected_stream;
 use mod_videoplayer\local\resource\resource_descriptor;
 use mod_videoplayer\local\transfer_meter;
 use mod_videoplayer\local\whmcs_gateway_client;
-use mod_videoplayer\task\precache_pdf;
 
 /**
- * Delivers authorised Drive Resource bytes to the browser from approved managed sources.
+ * Delivers authorised Elearning Stream bytes from approved managed sources.
  *
  * The service does not perform authentication itself. Callers must construct it
  * only after Moodle login and capability checks have succeeded.
@@ -78,7 +75,7 @@ final class protected_resource_service {
                 );
             } catch (\Throwable $exception) {
                 debugging(
-                    'Drive Resource Elearning Stream playback authorization failed: '
+                    'Elearning Stream playback authorization failed: '
                         . $exception->getMessage(),
                     DEBUG_DEVELOPER
                 );
@@ -96,94 +93,9 @@ final class protected_resource_service {
             );
         }
 
-        $fileid = $resource->fileid();
-        if (!$fileid) {
-            throw new \moodle_exception('invaliddriveurl', 'mod_videoplayer');
-        }
-
-        $url = $this->resolve_upstream_url($resource, $instance, $streammode, $forcerefresh);
-        if ($url === null) {
-            if ($resource->is_video() && $streammode === 'transcoded') {
-                $this->send_stream_unavailable();
-            }
-            throw new \moodle_exception('unsupportedprotectedresource', 'mod_videoplayer');
-        }
-
-        $cachestatus = 'BYPASS';
-        if ($resource->is_pdf_like() && plugin_config::pdf_cache_enabled()) {
-            $cachefile = protected_stream::cache_file_for($fileid, $resource->type());
-            if (protected_stream::is_fresh_pdf_cache($cachefile)) {
-                protected_stream::send_file(
-                    $cachefile,
-                    $resource->filename(),
-                    $resource->mimetype(),
-                    protected_stream::cache_key($fileid, $resource->type()),
-                    filemtime($cachefile) ?: time(),
-                    'HIT'
-                );
-            }
-
-            $cachestatus = $this->queue_pdf_cache((int)$instance->id) ? 'MISS_QUEUED' : 'MISS';
-        }
-
-        http_range_proxy::proxy($url, $resource->filename(), $resource->mimetype(), $cachestatus);
-    }
-
-    /**
-     * Resolve one server-side upstream URL.
-     *
-     * @param resource_descriptor $resource
-     * @param \stdClass $instance
-     * @param string $streammode
-     * @param bool $forcerefresh
-     * @return string|null
-     */
-    private function resolve_upstream_url(
-        resource_descriptor $resource,
-        \stdClass $instance,
-        string $streammode,
-        bool $forcerefresh
-    ): ?string {
-        $fileid = $resource->fileid();
-        if (!$fileid) {
-            return null;
-        }
-
-        $streammode = in_array($streammode, ['auto', 'transcoded', 'source'], true) ? $streammode : 'auto';
-        if ($resource->is_video() && $streammode !== 'source') {
-            $resolved = drive_stream_resolver::resolve($fileid, $forcerefresh);
-            if ($resolved !== null) {
-                return $resolved;
-            }
-            if ($streammode === 'transcoded') {
-                return null;
-            }
-        }
-
-        return drive::protected_content_url(
-            (string)($instance->videourl ?? ''),
-            $fileid,
-            $resource->type()
-        );
-    }
-
-    /**
-     * Queue asynchronous PDF cache warming.
-     *
-     * @param int $instanceid
-     * @return bool
-     */
-    private function queue_pdf_cache(int $instanceid): bool {
-        try {
-            $task = new precache_pdf();
-            $task->set_component('mod_videoplayer');
-            $task->set_custom_data(['instanceid' => $instanceid]);
-            \core\task\manager::queue_adhoc_task($task, true);
-            return true;
-        } catch (\Throwable $exception) {
-            debugging('Drive Resource PDF cache task queue failed: ' . $exception->getMessage(), DEBUG_DEVELOPER);
-            return false;
-        }
+        // Historical Google-backed records intentionally fail closed.
+        // The production runtime never resolves or proxies Google URLs.
+        throw new \moodle_exception('unsupportedprotectedresource', 'mod_videoplayer');
     }
 
     /**
