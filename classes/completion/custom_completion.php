@@ -21,7 +21,7 @@ namespace mod_videoplayer\completion;
 use core_completion\activity_custom_completion;
 
 /**
- * Moodle custom completion rules for Drive Resource.
+ * Moodle custom completion rules for Elearning Stream.
  *
  * @package    mod_videoplayer
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
@@ -65,7 +65,7 @@ final class custom_completion extends activity_custom_completion {
     }
 
     /**
-     * Define Drive Resource custom completion rules.
+     * Define Elearning Stream custom completion rules.
      *
      * @return array
      */
