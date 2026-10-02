@@ -68,7 +68,7 @@ Configure the WHMCS product as the **US$1 one-time activation** product. In **Mo
 
 ## Gateway 0.5.9 → 0.6.0 upgrade validation
 
-Before production, upgrade a copy of the current WHMCS database. The 0.6 migration now fails closed if commercial tables/columns are incomplete or if any existing service is left without a commercial account. Existing services must remain `legacy`, keep their media/quota state, and receive no fabricated activation wallet credit.
+Before production, upgrade a copy of the current WHMCS database. The 0.6 migration now re-runs its idempotent repair pass on every upgrade invocation and fails closed if commercial tables/columns are incomplete, if any existing service is left without a commercial account, if a provisioned legacy service lacks its primary Moodle installation, or if any legacy account receives fabricated activation credit. Existing services must remain `legacy` and keep their media/quota state.
 
 After the upgrade, confirm the Elearning Stream integration gate is green and exercise activation, recharge Paid/refund/unpaid, FREE installation limits, PAYG multi-Moodle access, upload/playback Range 206, rename and deletion lifecycle.
 
