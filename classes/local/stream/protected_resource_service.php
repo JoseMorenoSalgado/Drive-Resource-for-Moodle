@@ -93,8 +93,8 @@ final class protected_resource_service {
             );
         }
 
-        // Historical Google-backed records intentionally fail closed.
-        // The production runtime never resolves or proxies Google URLs.
+        // Historical remote-provider records intentionally fail closed.
+        // The production runtime never resolves or proxies retired-provider URLs.
         throw new \moodle_exception('unsupportedprotectedresource', 'mod_videoplayer');
     }
 
