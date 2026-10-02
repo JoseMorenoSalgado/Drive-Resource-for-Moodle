@@ -1408,14 +1408,18 @@ function driveresource_require_paid_activation_invoice(int $serviceId, int $clie
         throw new RuntimeException('Elearning Stream activation invoice must be Paid.');
     }
 
-    $containsService = Capsule::table('tblinvoiceitems')
+    if ((float) $invoice->total <= 0) {
+        throw new RuntimeException('Elearning Stream activation invoice must have a positive total.');
+    }
+
+    $serviceItem = Capsule::table('tblinvoiceitems')
         ->where('invoiceid', $invoiceId)
         ->where('type', 'Hosting')
         ->where('relid', $serviceId)
-        ->exists();
-    if (!$containsService) {
+        ->first();
+    if (!$serviceItem || (float) $serviceItem->amount <= 0) {
         throw new RuntimeException(
-            'Elearning Stream activation invoice does not contain this service.'
+            'Elearning Stream activation invoice must contain a positive Hosting line for this service.'
         );
     }
 
