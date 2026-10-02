@@ -47,7 +47,7 @@ WHMCS service / Elearning Stream account
 
 The external `service_id` remains stable for backward compatibility. Authentication first identifies the account, then requires an exact active installation binding by site URL and token hash.
 
-Existing pre-0.6.0 services are backfilled as `legacy` so a gateway upgrade cannot unexpectedly block active customers. The 0.6 migration is idempotent and runs its repair pass on every upgrade invocation; postconditions require one commercial account per service and one primary Moodle installation for every fully provisioned legacy binding. Account/installation backfill values are built by a deterministic migration policy that is also executed in CI against representative active, suspended and incomplete 0.5.9 records. New services enter the FREE/PAYG contract only through WHMCS `CreateAccount` after the paid activation; repair and credential-rotation paths never grant activation credit.
+Existing pre-0.6.0 services are backfilled as `legacy` so a gateway upgrade cannot unexpectedly block active customers. Legacy accounts do not participate in the new activation-invoice lifecycle. The 0.6 migration is idempotent and runs its repair pass on every upgrade invocation; postconditions require one commercial account per service and one primary Moodle installation for every fully provisioned legacy binding. Account/installation backfill values are built by a deterministic migration policy that is also executed in CI against representative active, suspended and incomplete 0.5.9 records. New services enter the FREE/PAYG contract only through WHMCS `CreateAccount` after the paid activation; repair and credential-rotation paths never grant activation credit.
 
 ## Default commercial policy
 
