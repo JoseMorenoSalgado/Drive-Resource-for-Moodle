@@ -30,6 +30,7 @@
 - Removes the historical `classes/local/drive.php` compatibility shim entirely; provider-neutral persisted compatibility now lives only in `resource_compatibility`, with the `googledrive` database key isolated strictly as migration metadata.
 - Removes obsolete provider-named language keys and historical provider branding from active Moodle comments/UI internals while retaining only persisted upgrade identifiers.
 - Adds a commercial wallet CI contract gate covering activation, FREE/PAYG boundaries, invoice idempotency, migration behavior and debt preservation.
+- Removes floating-point parsing from activation and wallet-money validation, adds exact integer micro-unit formatting/overflow protection, and expands executable settlement-cycle tests for Paid → Unpaid → Paid and terminal refunds.
 - Prevents duplicate billing by suppressing legacy WHMCS Usage Billing metrics for FREE/PAYG wallet accounts while retaining them for migration-only legacy tenants.
 - Preserves negative wallet debt when already-consumed credit is refunded, so future recharges must cover the reversal before paid overage resumes.
 - Adds daily storage settlement and idempotent transfer charging using integer micro-USD accounting.
