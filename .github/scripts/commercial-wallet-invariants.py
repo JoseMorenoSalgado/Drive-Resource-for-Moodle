@@ -50,18 +50,38 @@ require(
 )
 require(
     server,
-    "'activation_verified' => $activationeligible",
-    "Commercial account creation must derive activation from the CreateAccount boundary.",
+    "driveresource_require_paid_activation_invoice",
+    "CreateAccount activation must prove a paid WHMCS invoice.",
 )
 require(
     server,
-    "$activationeligible\n        && (bool) $account->activation_verified",
-    "Activation credit must be gated by the CreateAccount boundary.",
+    "->where('type', 'Hosting')",
+    "Activation invoice proof must contain the exact Hosting service line.",
+)
+require(
+    server,
+    "strtolower((string) $invoice->status) !== 'paid'",
+    "Activation must reject invoices that are not Paid.",
+)
+require(
+    server,
+    "'activation_verified' => false",
+    "Commercial accounts must start unverified until paid activation settlement succeeds.",
+)
+require(
+    server,
+    "nextActivationSettlementVersion",
+    "Activation credit must use a versioned executable settlement policy.",
 )
 require(
     server,
     "$account->activation_amount_microusd",
     "Activation retries must credit the amount frozen on the commercial account.",
+)
+require(
+    server,
+    "'activation_invoice_id' => $activationInvoiceId",
+    "Paid activation invoice id must be persisted on the commercial account.",
 )
 require(
     auth,
@@ -122,6 +142,26 @@ require(
 )
 require(
     addon,
+    "driveresource_gateway_backfill_activation_invoice_links",
+    "Gateway upgrade must repair provable activation invoices from earlier 0.6 RCs.",
+)
+require(
+    addon,
+    "$unprovenActivations",
+    "Gateway upgrade must fail closed on activated non-legacy accounts without paid invoice proof.",
+)
+require(
+    addon,
+    "activation_settlement_version",
+    "Commercial schema must persist activation settlement versions.",
+)
+require(
+    addon,
+    "activation_refunded_at",
+    "Commercial schema must persist terminal activation refunds.",
+)
+require(
+    addon,
     "CommercialMigrationPolicy::legacyAccountValues",
     "Gateway migration must use the executable legacy account mapping policy.",
 )
@@ -135,6 +175,16 @@ require(
     migration,
     "'activation_amount_microusd' => 0",
     "Legacy migration policy must never fabricate activation credit.",
+)
+require(
+    migration,
+    "'activation_invoice_id' => null",
+    "Legacy migration policy must not fabricate paid activation invoice proof.",
+)
+require(
+    migration,
+    "'activation_settlement_version' => 0",
+    "Legacy migration policy must not fabricate activation settlement history.",
 )
 require(
     migration,
@@ -186,8 +236,8 @@ require(
 )
 require(
     hooks,
-    "->where('status', 'pending')\n            ->lockForUpdate()",
-    "InvoicePaid must serialize the recharge order before crediting the wallet.",
+    "->whereIn('status', ['pending', 'reversed'])\n            ->lockForUpdate()",
+    "InvoicePaid must serialize first-time and re-opened recharge settlements.",
 )
 require(
     hooks,
@@ -225,6 +275,10 @@ require(hooks, "'|v' . $settlementVersion", "Wallet settlement idempotency keys 
 require(hooks, "add_hook('InvoicePaid'", "InvoicePaid wallet hook is missing.")
 require(hooks, "add_hook('InvoiceRefunded'", "InvoiceRefunded wallet hook is missing.")
 require(hooks, "add_hook('InvoiceUnpaid'", "InvoiceUnpaid wallet hook is missing.")
+require(hooks, "driveresource_gateway_restore_paid_activation", "InvoicePaid must restore an Unpaid activation safely.")
+require(hooks, "driveresource_gateway_reverse_activation", "Refund/unpaid must reverse activation credit.")
+require(hooks, "'activation-credit|'", "Activation credit keys must be deterministic and versioned.")
+require(hooks, "'activation-reversal|'", "Activation reversal keys must be deterministic and versioned.")
 
 # PAYG debt must remain visible instead of silently dropping uncovered provider cost.
 require(
@@ -273,6 +327,7 @@ for needle, message in (
     ("afterRechargeReversal", "Recharge reversal transition is missing."),
     ("nextRechargeSettlementVersion", "Recharge payment cycle transition is missing."),
     ("rechargeReversalVersion", "Recharge reversal cycle transition is missing."),
+    ("nextActivationSettlementVersion", "Activation settlement transition is missing."),
 ):
     require(policy, needle, message)
 require(money, "decimalToMicrounits", "Exact invoice decimal parsing is missing.")
