@@ -49,28 +49,30 @@ class mod_videoplayer_mod_form extends moodleform_mod {
         $mform->setType('name', PARAM_TEXT);
         $mform->addRule('name', null, 'required', null, 'client');
 
-        // Production UI is video-first. Legacy Drive/local-PDF activities remain
-        // editable, but new activities no longer expose those sources.
+        // Production UI is Elearning Stream-first. Moodle-local PDFs remain
+        // available only for backward compatibility. Historical Google-backed
+        // records must be migrated to Elearning Stream before they can be saved.
         $currentsource = bunny_stream::SOURCE;
+        $legacygooglesource = false;
         if (!empty($this->current) && !empty($this->current->source)) {
             $candidate = clean_param((string)$this->current->source, PARAM_ALPHANUMEXT);
-            if (
-                in_array(
-                    $candidate,
-                    [
-                        bunny_stream::SOURCE,
-                        drive::SOURCE_GOOGLEDRIVE,
-                        drive::SOURCE_LOCALPDF,
-                    ],
-                    true
-                )
-            ) {
-                $currentsource = $candidate;
+            $legacygooglesource = $candidate === drive::SOURCE_GOOGLEDRIVE;
+            if ($candidate === drive::SOURCE_LOCALPDF) {
+                $currentsource = drive::SOURCE_LOCALPDF;
             }
         }
 
         $mform->addElement('hidden', 'source', $currentsource);
         $mform->setType('source', PARAM_ALPHANUMEXT);
+
+        if ($legacygooglesource) {
+            $mform->addElement(
+                'static',
+                'legacysourcemigration',
+                '',
+                get_string('legacygooglesourcenotsupported', 'mod_videoplayer')
+            );
+        }
 
         if ($currentsource === bunny_stream::SOURCE) {
             $streammodes = [
@@ -256,18 +258,6 @@ class mod_videoplayer_mod_form extends moodleform_mod {
                 $uploadhtml
             );
             $mform->hideIf('bunnyuploadpanel', 'streaminputmode', 'neq', 'upload');
-        } else if ($currentsource === drive::SOURCE_GOOGLEDRIVE) {
-            // Backward compatibility only: no new Google Drive resources are exposed.
-            $mform->addElement('text', 'videourl', get_string('driveurl', 'mod_videoplayer'), ['size' => 90]);
-            $mform->setType('videourl', PARAM_URL);
-            $mform->addHelpButton('videourl', 'driveurl', 'mod_videoplayer');
-
-            $types = [drive::TYPE_AUTO => get_string('typeauto', 'mod_videoplayer')];
-            foreach (drive::RESOURCE_TYPES as $resourcetype) {
-                $types[$resourcetype] = get_string('type' . $resourcetype, 'mod_videoplayer');
-            }
-            $mform->addElement('select', 'type', get_string('resourcetype', 'mod_videoplayer'), $types);
-            $mform->setDefault('type', drive::TYPE_AUTO);
         } else {
             // Backward compatibility for existing Moodle-local protected PDFs.
             $filemanageroptions = $this->get_localpdf_filemanager_options();
@@ -460,10 +450,6 @@ class mod_videoplayer_mod_form extends moodleform_mod {
 
         $errors = parent::validation($data, $files);
         $source = $data['source'] ?? bunny_stream::SOURCE;
-
-        if ($source === drive::SOURCE_GOOGLEDRIVE && (empty($data['videourl']) || !drive::is_supported_url($data['videourl']))) {
-            $errors['videourl'] = get_string('invaliddriveurl', 'mod_videoplayer');
-        }
 
         if ($source === bunny_stream::SOURCE) {
             $missingconfig = whmcs_gateway_client::missing_configuration();
