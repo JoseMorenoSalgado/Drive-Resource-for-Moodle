@@ -58,10 +58,13 @@ final class MetricsProvider implements ProviderInterface
         $rows = Capsule::table('mod_driveresource_services')->get();
         $usage = [];
         foreach ($rows as $row) {
-            $usage['dr-' . (int) $row->service_id] = $this->withUsage(
-                (int) $row->used_bytes,
-                $this->currentTransferBytes($row)
-            );
+            $serviceId = (int) $row->service_id;
+            $usage['dr-' . $serviceId] = $this->usesLegacyUsageBilling($serviceId)
+                ? $this->withUsage(
+                    (int) $row->used_bytes,
+                    $this->currentTransferBytes($row)
+                )
+                : $this->withUsage(0, 0);
         }
 
         return $usage;
@@ -89,10 +92,39 @@ final class MetricsProvider implements ProviderInterface
             ->where('service_id', $serviceId)
             ->first();
 
+        if (!$row || !$this->usesLegacyUsageBilling($serviceId)) {
+            return $this->withUsage(0, 0);
+        }
+
         return $this->withUsage(
-            $row ? (int) $row->used_bytes : 0,
-            $row ? $this->currentTransferBytes($row) : 0
+            (int) $row->used_bytes,
+            $this->currentTransferBytes($row)
         );
+    }
+
+    /**
+     * Whether this service still uses WHMCS Usage Billing.
+     *
+     * Gateway 0.6.0 FREE/PAYG accounts are charged through the prepaid wallet.
+     * Returning zero metrics for those accounts prevents accidental duplicate
+     * charges when an upgraded WHMCS product still has historical Usage Billing
+     * pricing attached. Legacy tenants keep the previous metric behavior until
+     * they are intentionally migrated.
+     *
+     * @param int $serviceId WHMCS service id.
+     * @return bool
+     */
+    private function usesLegacyUsageBilling(int $serviceId): bool
+    {
+        if (!Capsule::schema()->hasTable('mod_driveresource_accounts')) {
+            return true;
+        }
+
+        $mode = Capsule::table('mod_driveresource_accounts')
+            ->where('service_id', $serviceId)
+            ->value('billing_mode');
+
+        return $mode === null || strtolower((string) $mode) === 'legacy';
     }
 
     /**
