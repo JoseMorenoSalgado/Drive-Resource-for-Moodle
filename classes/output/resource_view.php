@@ -21,7 +21,7 @@ use mod_videoplayer\local\plugin_config;
 use mod_videoplayer\local\resource\resource_descriptor;
 
 /**
- * Template model for the learner resource view.
+ * Template model for the Elearning Stream learner view.
  *
  * @package    mod_videoplayer
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
@@ -38,11 +38,9 @@ final class resource_view implements \renderable, \templatable {
     private ?\stdClass $progress;
 
     /**
-     * Constructor.
-     *
-     * @param activity_context $activity
-     * @param resource_descriptor $resource
-     * @param \stdClass|null $progress
+     * @param activity_context $activity Activity context.
+     * @param resource_descriptor $resource Resource descriptor.
+     * @param \stdClass|null $progress Current user progress.
      */
     public function __construct(
         activity_context $activity,
@@ -55,30 +53,20 @@ final class resource_view implements \renderable, \templatable {
     }
 
     /**
-     * Template to use for this resource type.
+     * Template name for the supported resource.
      *
      * @return string
      */
     public function template_name(): string {
-        if ($this->resource->is_pdf_like()) {
-            return 'mod_videoplayer/pdfjs';
-        }
-        if ($this->resource->is_video()) {
-            return 'mod_videoplayer/video';
-        }
-        if ($this->resource->is_audio()) {
-            return 'mod_videoplayer/audio';
-        }
-        if ($this->resource->is_image()) {
-            return 'mod_videoplayer/image';
-        }
-        return 'mod_videoplayer/resource';
+        return $this->resource->is_pdf()
+            ? 'mod_videoplayer/pdfjs'
+            : 'mod_videoplayer/video';
     }
 
     /**
      * Export browser-safe template data.
      *
-     * @param \renderer_base $output
+     * @param \renderer_base $output Moodle renderer.
      * @return array
      */
     public function export_for_template(\renderer_base $output): array {
@@ -86,19 +74,8 @@ final class resource_view implements \renderable, \templatable {
 
         $instance = $this->activity->instance();
         $cmid = (int)$this->activity->cm()->id;
-        $type = $this->resource->type();
-        $protectedurl = $this->resource->protected_url($cmid);
-        $primaryvideourl = '';
-        $fallbackvideourl = '';
-        if ($this->resource->is_video()) {
-            if ($this->resource->is_bunny_stream()) {
-                $primaryvideourl = $this->resource->protected_url($cmid, 'managed')->out(false);
-            } else {
-                $primaryvideourl = $this->resource->protected_url($cmid, 'transcoded')->out(false);
-                $fallbackvideourl = $this->resource->protected_url($cmid, 'source')->out(false);
-            }
-        }
         $isguest = isguestuser();
+        $trackprogress = !$isguest && plugin_config::tracking_enabled();
 
         $playerstyle = '';
         if (plugin_config::player_color_mode() === 'custom') {
@@ -111,8 +88,10 @@ final class resource_view implements \renderable, \templatable {
         $duration = max(0.0, (float)($this->progress->duration ?? 0));
         $watchedranges = (string)($this->progress->watchedranges ?? '[]');
         $timespent = max(0, (int)($this->progress->timespent ?? 0));
-        $completionpercent = max(0.0, min(100.0, (float)($this->progress->completionpercentage ?? 0)));
-        $points = max(0, (int)($this->progress->points ?? 0));
+        $completionpercent = max(
+            0.0,
+            min(100.0, (float)($this->progress->completionpercentage ?? 0))
+        );
 
         $watermark = '';
         if (!empty($instance->enablewatermark) && !$isguest) {
@@ -120,30 +99,32 @@ final class resource_view implements \renderable, \templatable {
                 . userdate(time(), get_string('strftimedatetimeshort', 'langconfig'));
         }
 
-        return [
-            'type' => $type,
+        $data = [
+            'type' => $this->resource->type(),
             'cmid' => $cmid,
             'title' => format_string($instance->name, true, ['context' => $this->activity->context()]),
-            'trackprogress' => !$isguest && plugin_config::tracking_enabled(),
-            'protectedurl' => $protectedurl ? $protectedurl->out(false) : '',
-            'pdfurl' => $protectedurl ? $protectedurl->out(false) : '',
-            'videourl' => $primaryvideourl,
-            'videofallbackurl' => $fallbackvideourl,
-            'audiourl' => $protectedurl ? $protectedurl->out(false) : '',
-            'imageurl' => $protectedurl ? $protectedurl->out(false) : '',
-            'playerstyle' => $playerstyle,
+            'trackprogress' => $trackprogress,
             'disablecontextmenu' => !empty($instance->disablecontextmenu),
             'enablewatermark' => !empty($instance->enablewatermark),
-            'enablegamification' => !empty($instance->enablegamification),
-            'initialpage' => $initialpage,
-            'totalpages' => $totalpages,
-            'initialposition' => round($lastposition, 3),
-            'initialduration' => round($duration, 3),
-            'watchedranges' => $watchedranges,
-            'initialtimespent' => $timespent,
-            'points' => $points,
-            'completionpercent' => round($completionpercent, 2),
             'watermark' => $watermark,
+            'initialtimespent' => $timespent,
+            'completionpercent' => round($completionpercent, 2),
         ];
+
+        if ($this->resource->is_pdf()) {
+            $data['pdfurl'] = $this->resource->protected_url($cmid)->out(false);
+            $data['initialpage'] = $initialpage;
+            $data['totalpages'] = $totalpages;
+            return $data;
+        }
+
+        $data['videourl'] = $this->resource->protected_url($cmid, 'managed')->out(false);
+        $data['videofallbackurl'] = '';
+        $data['playerstyle'] = $playerstyle;
+        $data['initialposition'] = round($lastposition, 3);
+        $data['initialduration'] = round($duration, 3);
+        $data['watchedranges'] = $watchedranges;
+
+        return $data;
     }
 }
