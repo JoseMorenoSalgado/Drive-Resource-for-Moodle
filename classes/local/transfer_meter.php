@@ -60,7 +60,7 @@ final class transfer_meter {
             $DB->insert_record('videoplayer_transfer_events', $record, false);
         } catch (\Throwable $exception) {
             debugging(
-                'Drive Resource could not queue transfer usage: ' . $exception->getMessage(),
+                'Elearning Stream could not queue transfer usage: ' . $exception->getMessage(),
                 DEBUG_DEVELOPER
             );
         }
