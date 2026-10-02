@@ -16,58 +16,27 @@
 
 namespace mod_videoplayer\task;
 
-
-use mod_videoplayer\local\drive;
-use mod_videoplayer\local\plugin_config;
-use mod_videoplayer\local\protected_stream;
-
 /**
- * Ad-hoc task that pre-warms the protected Google Drive PDF cache.
+ * Compatibility no-op for queued remote-PDF cache tasks from older releases.
+ *
+ * Elearning Stream no longer has a remote Google document data plane. Keeping
+ * the class allows Moodle cron to consume historical ad-hoc task rows safely
+ * after an upgrade instead of failing because the task class disappeared.
  *
  * @package    mod_videoplayer
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class precache_pdf extends \core\task\adhoc_task {
+final class precache_pdf extends \core\task\adhoc_task {
     /**
-     * Execute the cache warming task.
+     * Consume the obsolete task without contacting any upstream provider.
      *
      * @return void
      */
     public function execute(): void {
-        global $DB;
-
-        $data = $this->get_custom_data();
-        if (empty($data->instanceid)) {
-            return;
-        }
-
-        $record = $DB->get_record('videoplayer', ['id' => (int)$data->instanceid]);
-        if (!$record || ($record->source ?? drive::SOURCE_GOOGLEDRIVE) !== drive::SOURCE_GOOGLEDRIVE) {
-            return;
-        }
-
-        $type = drive::resolve_record_type($record);
-
-        if (!drive::is_pdf_type($type) || !plugin_config::pdf_cache_enabled()) {
-            return;
-        }
-
-        $fileid = drive::extract_file_id($record->videourl);
-        if (!$fileid) {
-            return;
-        }
-
-        $url = drive::protected_content_url((string)$record->videourl, $fileid, $type);
-        if (!$url) {
-            return;
-        }
-
-        $cachefile = protected_stream::cache_file_for($fileid, $type);
-        if (protected_stream::is_fresh_pdf_cache($cachefile)) {
-            return;
-        }
-
-        protected_stream::warm_drive_pdf_cache($url, $cachefile);
+        debugging(
+            'Elearning Stream skipped an obsolete remote-PDF precache task.',
+            DEBUG_DEVELOPER
+        );
     }
 }
