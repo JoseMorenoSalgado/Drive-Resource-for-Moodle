@@ -42,7 +42,7 @@ A WHMCS service is one commercial account. Multiple Moodle installations share t
 
 `InvoiceRefunded` and `InvoiceUnpaid` reverse the current versioned settlement with a stable idempotency key. `Paid → Unpaid → Paid` is supported by incrementing `settlement_version`; a fully Refunded order is terminal and requires a new recharge. Wallet operations serialize on the commercial-account row before idempotency lookup, and a reused key with mismatched service/type/amount fails closed. If no paid recharge remains, PAYG entitlement is removed and FREE installation limits are enforced again; debt-free accounts return to active FREE while negative balances remain restricted.
 
-This design works with PayPal and other WHMCS payment gateways without storing gateway credentials in Elearning Stream.
+This design works with PayPal and other WHMCS payment gateways without storing gateway credentials in Elearning Stream. Financial validation uses exact integer micro-units after WHMCS currency conversion; activation and settlement paths do not compare invoice money using PHP floats.
 
 For FREE/PAYG accounts, the module's historical WHMCS Usage Billing metrics deliberately report zero billable usage. The prepaid wallet is the billing authority, preventing an upgraded product with old Usage Billing pricing from charging the same storage/transfer twice. Legacy accounts continue exposing their historical usage metrics until intentionally migrated.
 
