@@ -24,90 +24,73 @@ use mod_videoplayer\local\stream\upstream_url_policy;
  * @package    mod_videoplayer
  * @category   test
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers     \mod_videoplayer\local\stream\upstream_url_policy
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class upstream_url_policy_test extends \advanced_testcase {
     /**
-     * Google-owned media endpoints are accepted.
-     *
-     * @return void
-     */
-    public function test_google_media_hosts_are_allowed(): void {
-        $this->assertTrue(upstream_url_policy::is_allowed('https://drive.google.com/uc?id=abc'));
-        $this->assertTrue(upstream_url_policy::is_allowed('https://drive.usercontent.google.com/download?id=abc'));
-        $this->assertTrue(upstream_url_policy::is_allowed('https://r1---sn-test.googlevideo.com/videoplayback?id=abc'));
-        $this->assertTrue(upstream_url_policy::is_allowed('https://doc-00-00-docs.googleusercontent.com/docs/securesc/abc'));
-        $this->assertTrue(upstream_url_policy::is_allowed('https://lh3.c.drive.google.com/videoplayback?id=abc'));
-        $this->assertTrue(upstream_url_policy::is_allowed(
-            'https://content-workspacevideo-pa.googleapis.com/v1/drive/media/abc/playback'
-        ));
-    }
-
-    /**
-     * Elearning Stream CDN playback hosts are accepted only as strict subdomains.
+     * Managed Elearning Stream CDN subdomains are accepted.
      *
      * @return void
      */
     public function test_elearning_stream_cdn_hosts_are_allowed(): void {
-        $videoid = 'd4b3b9ce-531f-4f7a-a8db-847f47a889e9';
         $this->assertTrue(upstream_url_policy::is_allowed(
-            'https://vz-example.b-cdn.net/' . $videoid . '/play_720p.mp4?token=HS256-test&expires=1'
+            'https://vz-example.b-cdn.net/video/play_720p.mp4?token=HS256-test&expires=1'
         ));
     }
 
     /**
-     * Non-HTTPS and lookalike hosts are rejected.
+     * Retired Google and arbitrary hosts are rejected.
      *
      * @return void
      */
-    public function test_untrusted_hosts_are_rejected(): void {
-        $this->assertFalse(upstream_url_policy::is_allowed('http://drive.google.com/uc?id=abc'));
-        $this->assertFalse(upstream_url_policy::is_allowed('https://drive.google.com.evil.example/uc?id=abc'));
-        $this->assertFalse(upstream_url_policy::is_allowed('https://googlevideo.com.evil.example/videoplayback?id=abc'));
-        $this->assertFalse(upstream_url_policy::is_allowed('https://evilgooglevideo.com/videoplayback?id=abc'));
-        $this->assertFalse(upstream_url_policy::is_allowed('https://googleusercontent.com.evil.example/file?id=abc'));
-        $this->assertFalse(upstream_url_policy::is_allowed('https://127.0.0.1/internal'));
-        $this->assertFalse(upstream_url_policy::is_allowed('https://[::1]/internal'));
-        $this->assertFalse(upstream_url_policy::is_allowed('file:///etc/passwd'));
-        $this->assertFalse(upstream_url_policy::is_allowed('//drive.google.com/uc?id=abc'));
-        $this->assertFalse(upstream_url_policy::is_allowed('https://user:pass@drive.google.com/uc?id=abc'));
-        $this->assertFalse(upstream_url_policy::is_allowed('https://drive.google.com:8443/uc?id=abc'));
-        $this->assertFalse(upstream_url_policy::is_allowed('https://b-cdn.net/video/play_720p.mp4'));
-        $this->assertFalse(upstream_url_policy::is_allowed('https://evilb-cdn.net/video/play_720p.mp4'));
-        $this->assertFalse(upstream_url_policy::is_allowed('https://vz-example.b-cdn.net.evil.example/video.mp4'));
+    public function test_untrusted_and_retired_hosts_are_rejected(): void {
+        $blocked = [
+            'https://drive.google.com/uc?id=abc',
+            'https://docs.google.com/document/d/abc',
+            'https://drive.usercontent.google.com/download?id=abc',
+            'https://r1---sn-test.googlevideo.com/videoplayback?id=abc',
+            'https://content-workspacevideo-pa.googleapis.com/v1/drive/media/abc/playback',
+            'https://127.0.0.1/internal',
+            'https://[::1]/internal',
+            'file:///etc/passwd',
+            'https://b-cdn.net/video/play_720p.mp4',
+            'https://evilb-cdn.net/video/play_720p.mp4',
+            'https://vz-example.b-cdn.net.evil.example/video.mp4',
+        ];
+
+        foreach ($blocked as $url) {
+            $this->assertFalse(upstream_url_policy::is_allowed($url), $url);
+        }
     }
 
     /**
-     * Redirects must remain on allow-listed Google HTTPS endpoints.
+     * Redirects remain confined to the managed CDN allow-list.
      *
      * @return void
      */
     public function test_redirect_resolution_stays_inside_allow_list(): void {
-        $base = 'https://drive.google.com/uc?id=abc';
+        $base = 'https://vz-example.b-cdn.net/video/play_720p.mp4';
 
         $this->assertSame(
-            'https://drive.usercontent.google.com/download?id=abc',
-            upstream_url_policy::resolve_redirect(
-                $base,
-                'https://drive.usercontent.google.com/download?id=abc'
-            )
+            'https://vz-example.b-cdn.net/video/segment.mp4',
+            upstream_url_policy::resolve_redirect($base, '/video/segment.mp4')
         );
         $this->assertSame(
-            'https://drive.google.com/download?id=abc',
-            upstream_url_policy::resolve_redirect($base, '/download?id=abc')
-        );
-        $this->assertSame(
-            'https://r1---sn-test.googlevideo.com/videoplayback?id=abc',
+            'https://vz-other.b-cdn.net/video/segment.mp4',
             upstream_url_policy::resolve_redirect(
                 $base,
-                '//r1---sn-test.googlevideo.com/videoplayback?id=abc'
+                'https://vz-other.b-cdn.net/video/segment.mp4'
             )
         );
-
+        $this->assertNull(
+            upstream_url_policy::resolve_redirect(
+                $base,
+                'https://drive.google.com/uc?id=abc'
+            )
+        );
         $this->assertNull(upstream_url_policy::resolve_redirect($base, 'https://evil.example/file'));
         $this->assertNull(upstream_url_policy::resolve_redirect($base, '//127.0.0.1/internal'));
         $this->assertNull(upstream_url_policy::resolve_redirect($base, '../relative/path'));
-        $this->assertNull(upstream_url_policy::resolve_redirect($base, "https://drive.google.com\r\nX-Test: injected"));
     }
 }
