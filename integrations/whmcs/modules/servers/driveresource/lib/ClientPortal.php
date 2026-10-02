@@ -53,9 +53,41 @@ final class ClientPortal
             : 0;
         $usedBytes = max(0, (int) $service->used_bytes);
         $reservedBytes = max(0, (int) $service->reserved_bytes);
-        $quotaBytes = max(1, (int) $service->quota_bytes);
-        $storagePercent = min(999, (int) round(($usedBytes / $quotaBytes) * 100));
         $retentionDays = max(0, (int) ($service->retention_days ?? 0));
+
+        $account = Capsule::schema()->hasTable('mod_driveresource_accounts')
+            ? Capsule::table('mod_driveresource_accounts')->where('service_id', $serviceId)->first()
+            : null;
+        $billingMode = $account ? strtolower((string) $account->billing_mode) : 'legacy';
+        $quotaBytes = max(1, $account && $billingMode !== 'legacy'
+            ? (int) $account->free_storage_bytes
+            : (int) $service->quota_bytes);
+        $freeTransferBytes = max(0, $account ? (int) $account->free_transfer_bytes : 0);
+        $walletBalance = $account ? max(0, (int) $account->balance_microusd) : 0;
+        $storagePercent = min(999, (int) round(($usedBytes / $quotaBytes) * 100));
+
+        $installations = Capsule::schema()->hasTable('mod_driveresource_installations')
+            ? Capsule::table('mod_driveresource_installations')
+                ->where('service_id', $serviceId)
+                ->where('status', '<>', 'revoked')
+                ->orderBy('is_primary', 'desc')
+                ->orderBy('created_at', 'asc')
+                ->get()
+            : [];
+        $installationCount = count($installations);
+        $installationLimit = 1;
+        if ($account) {
+            $installationLimit = in_array($billingMode, ['payg', 'legacy'], true)
+                ? max(0, (int) $account->paid_installation_limit)
+                : max(1, (int) $account->free_installation_limit);
+        }
+        $canAddInstallation = $account
+            && (bool) $account->activation_verified
+            && ($installationLimit === 0 || $installationCount < $installationLimit);
+
+        $planKey = $billingMode === 'payg'
+            ? 'plan_payg'
+            : ($billingMode === 'free' ? 'plan_free' : 'plan_legacy');
 
         $videoPage = max(1, (int) ($_GET['drpage'] ?? 1));
         $videoTotal = (int) Capsule::table('mod_driveresource_uploads')
@@ -121,6 +153,21 @@ final class ClientPortal
             $checked . ($connectionMessage !== '' ? '<br>' . $this->e($connectionMessage) : '')
         );
         $html .= $this->card(
+            $this->translator->t('card_plan'),
+            $this->e($this->translator->t($planKey)),
+            $account && $billingMode !== 'legacy'
+                ? $this->translator->t('free_included', [
+                    'storage' => $this->formatBytes($quotaBytes),
+                    'transfer' => $this->formatBytes($freeTransferBytes),
+                ])
+                : $this->translator->t('videos_meta')
+        );
+        $html .= $this->card(
+            $this->translator->t('card_balance'),
+            $this->e($this->formatMoney($walletBalance)),
+            $this->translator->t('balance_meta')
+        );
+        $html .= $this->card(
             $this->translator->t('card_storage'),
             $this->formatBytes($usedBytes) . ' / ' . $this->formatBytes($quotaBytes),
             $this->translator->t('storage_used', ['percent' => $storagePercent])
@@ -133,8 +180,15 @@ final class ClientPortal
         );
         $html .= $this->card(
             $this->translator->t('card_transfer', ['period' => $period]),
-            $this->formatBytes($transferBytes),
-            $this->translator->t('transfer_meta')
+            $account && $billingMode !== 'legacy'
+                ? $this->formatBytes($transferBytes) . ' / ' . $this->formatBytes($freeTransferBytes)
+                : $this->formatBytes($transferBytes),
+            $account && $billingMode !== 'legacy'
+                ? $this->translator->t('transfer_included_meta', [
+                    'used' => $this->formatBytes($transferBytes),
+                    'included' => $this->formatBytes($freeTransferBytes),
+                ])
+                : $this->translator->t('transfer_meta')
         );
         $html .= $this->card(
             $this->translator->t('card_videos'),
@@ -483,6 +537,17 @@ final class ClientPortal
         $label = $labelkey !== '' ? $this->translator->t($labelkey) : ucfirst($status);
 
         return '<span class="label label-' . $class . '">' . $this->e($label) . '</span>';
+    }
+
+    /**
+     * Format integer micro-USD for customer display.
+     *
+     * @param int $microusd Amount in micro-USD.
+     * @return string
+     */
+    private function formatMoney(int $microusd): string
+    {
+        return 'US$' . number_format(max(0, $microusd) / 1000000, 2, '.', ',');
     }
 
     /**
