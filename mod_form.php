@@ -101,8 +101,6 @@ class mod_videoplayer_mod_form extends moodleform_mod {
             $mform->setType('providerfilesize', PARAM_INT);
             $mform->addElement('hidden', 'providerstatus', '');
             $mform->setType('providerstatus', PARAM_ALPHANUMEXT);
-            $mform->addElement('hidden', 'type', resource_compatibility::TYPE_VIDEO);
-            $mform->setType('type', PARAM_ALPHANUMEXT);
 
             $uploadhtml = html_writer::start_div('mod-videoplayer-bunny-upload', [
                 'id' => 'mod-videoplayer-bunny-upload',
@@ -269,8 +267,6 @@ class mod_videoplayer_mod_form extends moodleform_mod {
                 $filemanageroptions
             );
             $mform->addHelpButton('localpdffile', 'localpdffile', 'mod_videoplayer');
-            $mform->addElement('hidden', 'type', 'pdf');
-            $mform->setType('type', PARAM_ALPHANUMEXT);
         }
 
         $mform->addElement('advcheckbox', 'disablecontextmenu', get_string('disablecontextmenu', 'mod_videoplayer'));
