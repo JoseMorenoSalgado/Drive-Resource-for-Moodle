@@ -998,13 +998,18 @@ function driveresource_gateway_backfill_activation_invoice_links(): void
             ->where('userid', $clientId)
             ->where('status', 'Paid')
             ->first();
-        $containsService = Capsule::table('tblinvoiceitems')
+        $serviceItem = Capsule::table('tblinvoiceitems')
             ->where('invoiceid', $invoiceId)
             ->where('type', 'Hosting')
             ->where('relid', $serviceId)
-            ->exists();
+            ->first();
 
-        if (!$invoice || !$containsService) {
+        if (
+            !$invoice
+            || (float) $invoice->total <= 0
+            || !$serviceItem
+            || (float) $serviceItem->amount <= 0
+        ) {
             continue;
         }
 
