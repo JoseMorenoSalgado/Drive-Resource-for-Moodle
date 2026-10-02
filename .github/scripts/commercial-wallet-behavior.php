@@ -37,6 +37,31 @@ assert_wallet(Money::microunitsToDecimal(10000000) === '10.00', 'US$10 decimal f
 
 $now = 1700000000;
 
+assert_wallet(
+    CommercialPolicy::nextRechargeSettlementVersion('pending', 0) === 1,
+    'Initial Paid transition must create settlement version 1'
+);
+assert_wallet(
+    CommercialPolicy::rechargeReversalVersion('paid', 1) === 1,
+    'Unpaid/refund must reverse the currently paid settlement version'
+);
+assert_wallet(
+    CommercialPolicy::nextRechargeSettlementVersion('reversed', 1) === 2,
+    'Paid after Unpaid must create a new settlement version'
+);
+assert_wallet(
+    CommercialPolicy::rechargeReversalVersion('paid', 2) === 2,
+    'Second reversal must target the second settlement version'
+);
+assert_wallet(
+    CommercialPolicy::nextRechargeSettlementVersion('refunded', 2) === null,
+    'Refunded recharge orders are terminal and must require a new invoice'
+);
+assert_wallet(
+    CommercialPolicy::nextRechargeSettlementVersion('paid', 2) === null,
+    'Duplicate InvoicePaid must not create another settlement'
+);
+
 $activation = CommercialPolicy::afterCredit(
     0,
     CommercialAccount::MODE_FREE,
