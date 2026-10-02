@@ -79,6 +79,7 @@ $string['invalidpointsperpage'] = 'Points per page must be a number between 0 an
 $string['invalidstreamurl'] = 'Enter a valid Elearning Stream URL.';
 $string['invalidurl'] = 'The provided URL is not valid. Please use a proper legacy remote source shareable link.';
 $string['lastposition'] = 'Resume position';
+$string['legacygooglesourcenotsupported'] = 'This activity uses a retired remote source that is no longer part of Elearning Stream. Upload or link the video through Elearning Stream before saving the activity.';
 $string['loadingpdf'] = 'Loading PDF...';
 $string['localpdffile'] = 'Local PDF file';
 $string['localpdffile_help'] = 'Upload one PDF file. The file is stored in Moodle private file storage and is served only through Elearning Stream access checks.';
@@ -221,5 +222,4 @@ $string['whmcsgatewaynotconfigured'] = 'Elearning Stream is not configured in Mo
 $string['whmcsgatewayremoteerror'] = 'The Elearning Stream gateway rejected the request: {$a}';
 $string['whmcsgatewayrequestfailed'] = 'The Elearning Stream gateway could not process the request.';
 $string['zoomin'] = 'Zoom in';
-$string['zoomout'] = 'Zoom out';$string['legacygooglesourcenotsupported'] = 'This activity uses a retired remote source that is no longer part of Elearning Stream. Upload or link the video through Elearning Stream before saving the activity.';
-
+$string['zoomout'] = 'Zoom out';
