@@ -1647,7 +1647,7 @@ function driveresource_service_token(array $params): string
 }
 
 /**
- * Write one redacted Drive Resource audit event.
+ * Write one redacted Elearning Stream audit event.
  *
  * @param int $serviceId WHMCS service id.
  * @param string $action Stable action key.
