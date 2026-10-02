@@ -107,7 +107,13 @@ final class RequestAuthenticator
             $account = Capsule::table('mod_driveresource_accounts')
                 ->where('service_id', $serviceId)
                 ->first();
-            if ($account && (string) $account->status === CommercialAccount::STATUS_SUSPENDED) {
+            if (!$account) {
+                throw new GatewayException(
+                    'Elearning Stream commercial account migration is incomplete.',
+                    503
+                );
+            }
+            if ((string) $account->status === CommercialAccount::STATUS_SUSPENDED) {
                 throw new GatewayException('Elearning Stream account is suspended.', 403);
             }
 
