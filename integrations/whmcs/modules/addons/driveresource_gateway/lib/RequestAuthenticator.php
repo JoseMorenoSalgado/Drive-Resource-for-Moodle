@@ -110,6 +110,30 @@ final class RequestAuthenticator
             if ($account && (string) $account->status === CommercialAccount::STATUS_SUSPENDED) {
                 throw new GatewayException('Elearning Stream account is suspended.', 403);
             }
+
+            if (
+                $account
+                && $installation
+                && (string) $account->billing_mode === CommercialAccount::MODE_FREE
+            ) {
+                $limit = max(1, (int) $account->free_installation_limit);
+                $allowedIds = Capsule::table('mod_driveresource_installations')
+                    ->where('service_id', $serviceId)
+                    ->where('status', 'active')
+                    ->orderBy('is_primary', 'desc')
+                    ->orderBy('id', 'asc')
+                    ->limit($limit)
+                    ->pluck('id')
+                    ->map(static fn($id): int => (int) $id)
+                    ->all();
+
+                if (!in_array((int) $installation->id, $allowedIds, true)) {
+                    throw new GatewayException(
+                        'This Moodle installation requires an active PAYG account.',
+                        402
+                    );
+                }
+            }
         }
 
         $hosting = Capsule::table('tblhosting as h')
@@ -131,6 +155,9 @@ final class RequestAuthenticator
             Capsule::table('mod_driveresource_installations')
                 ->where('id', (int) $installation->id)
                 ->update([
+                    'connection_status' => 'connected',
+                    'connection_checked_at' => $now,
+                    'connection_message' => 'connection_verified',
                     'last_seen_at' => $now,
                     'updated_at' => $now,
                 ]);
