@@ -290,7 +290,15 @@ function driveresource_gateway_restore_paid_activation(int $invoiceId): void
         require_once __DIR__ . '/lib/CommercialPolicy.php';
         require_once __DIR__ . '/lib/WalletService.php';
 
-        $settlementVersion = (int) ($account->activation_settlement_version ?? 0) + 1;
+        $settlementVersion = \WHMCS\Module\Addon\DriveresourceGateway\CommercialPolicy::nextActivationSettlementVersion(
+            (bool) $account->activation_verified,
+            !empty($account->activation_refunded_at) ? (int) $account->activation_refunded_at : null,
+            (int) ($account->activation_settlement_version ?? 0)
+        );
+        if ($settlementVersion === null) {
+            return;
+        }
+
         $activationCredit = max(0, (int) $account->activation_amount_microusd);
         if ($activationCredit > 0) {
             $wallet = new \WHMCS\Module\Addon\DriveresourceGateway\WalletService();
