@@ -113,6 +113,17 @@ final class RequestAuthenticator
 
             if (
                 $account
+                && (string) $account->billing_mode !== CommercialAccount::MODE_LEGACY
+                && !(bool) $account->activation_verified
+            ) {
+                throw new GatewayException(
+                    'Elearning Stream account activation is required before this installation can use the gateway.',
+                    402
+                );
+            }
+
+            if (
+                $account
                 && $installation
                 && (string) $account->billing_mode === CommercialAccount::MODE_FREE
             ) {
