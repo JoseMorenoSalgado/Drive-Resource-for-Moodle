@@ -275,14 +275,20 @@ function driveresource_gateway_restore_paid_activation(int $invoiceId): void
             return;
         }
 
-        $containsService = \WHMCS\Database\Capsule::table('tblinvoiceitems')
+        if ((float) $invoice->total <= 0) {
+            throw new RuntimeException(
+                'Elearning Stream activation invoice must keep a positive total.'
+            );
+        }
+
+        $serviceItem = \WHMCS\Database\Capsule::table('tblinvoiceitems')
             ->where('invoiceid', $invoiceId)
             ->where('type', 'Hosting')
             ->where('relid', (int) $account->service_id)
-            ->exists();
-        if (!$containsService) {
+            ->first();
+        if (!$serviceItem || (float) $serviceItem->amount <= 0) {
             throw new RuntimeException(
-                'Elearning Stream activation invoice no longer contains its service.'
+                'Elearning Stream activation invoice must keep a positive Hosting line.'
             );
         }
 
