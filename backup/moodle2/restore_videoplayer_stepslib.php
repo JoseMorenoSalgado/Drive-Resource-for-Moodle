@@ -24,7 +24,7 @@
  */
 
 
-use mod_videoplayer\local\drive;
+use mod_videoplayer\local\resource_compatibility;
 use mod_videoplayer\local\provider\bunny_stream;
 
 /**
@@ -65,22 +65,22 @@ class restore_videoplayer_activity_structure_step extends restore_activity_struc
         $data->course = $this->get_courseid();
 
         $source = clean_param(
-            (string)($data->source ?? drive::SOURCE_GOOGLEDRIVE),
+            (string)($data->source ?? resource_compatibility::SOURCE_RETIRED_REMOTE),
             PARAM_ALPHANUMEXT
         );
         $data->source = in_array(
             $source,
-            [drive::SOURCE_GOOGLEDRIVE, bunny_stream::SOURCE, drive::SOURCE_LOCALPDF],
+            [resource_compatibility::SOURCE_RETIRED_REMOTE, bunny_stream::SOURCE, resource_compatibility::SOURCE_LOCALPDF],
             true
-        ) ? $source : drive::SOURCE_GOOGLEDRIVE;
+        ) ? $source : resource_compatibility::SOURCE_RETIRED_REMOTE;
 
-        $type = clean_param((string)($data->type ?? drive::TYPE_AUTO), PARAM_ALPHANUMEXT);
-        if ($data->source === drive::SOURCE_LOCALPDF) {
+        $type = clean_param((string)($data->type ?? resource_compatibility::TYPE_AUTO), PARAM_ALPHANUMEXT);
+        if ($data->source === resource_compatibility::SOURCE_LOCALPDF) {
             $data->type = 'pdf';
         } else if ($data->source === bunny_stream::SOURCE) {
             $data->type = 'video';
         } else {
-            $data->type = drive::is_supported_configured_type($type) ? $type : drive::TYPE_AUTO;
+            $data->type = resource_compatibility::is_supported_configured_type($type) ? $type : resource_compatibility::TYPE_AUTO;
         }
 
         $data->displaymode = 'standard';
@@ -105,7 +105,7 @@ class restore_videoplayer_activity_structure_step extends restore_activity_struc
         } else {
             $data->completionprogressenabled = empty($data->completionprogressenabled) ? 0 : 1;
         }
-        if ($data->source === drive::SOURCE_LOCALPDF) {
+        if ($data->source === resource_compatibility::SOURCE_LOCALPDF) {
             $data->videourl = '';
             $data->providerassetid = null;
             $data->provideruploadid = null;
