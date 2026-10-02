@@ -136,6 +136,25 @@ function driveresource_gateway_reverse_recharge(int $invoiceId, string $reason):
             'refunded_at' => time(),
             'updated_at' => time(),
         ]);
+
+    $remainingPaidRecharges = (int) \WHMCS\Database\Capsule::table(
+        'mod_driveresource_wallet_orders'
+    )
+        ->where('service_id', (int) $order->service_id)
+        ->where('status', 'paid')
+        ->count();
+
+    if ($remainingPaidRecharges === 0) {
+        \WHMCS\Database\Capsule::table('mod_driveresource_accounts')
+            ->where('service_id', (int) $order->service_id)
+            ->where('billing_mode', 'payg')
+            ->update([
+                'billing_mode' => 'free',
+                'paid_at' => null,
+                'status' => 'upload_restricted',
+                'updated_at' => time(),
+            ]);
+    }
 }
 
 add_hook('InvoicePaid', 1, static function (array $vars): void {
