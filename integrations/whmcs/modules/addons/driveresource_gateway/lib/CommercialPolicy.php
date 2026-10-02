@@ -96,6 +96,50 @@ final class CommercialPolicy
     }
 
     /**
+     * Resolve the next payment settlement version for one recharge order.
+     *
+     * Pending orders settle for the first time. Orders reversed by an Unpaid
+     * transition may settle again if WHMCS later marks the same invoice Paid.
+     * Refunded orders are terminal and require a new recharge order.
+     *
+     * @param string $orderStatus Current wallet-order status.
+     * @param int $settlementVersion Current settlement version.
+     * @return int|null Next version, or null when payment must not apply.
+     */
+    public static function nextRechargeSettlementVersion(
+        string $orderStatus,
+        int $settlementVersion
+    ): ?int {
+        if ($settlementVersion < 0) {
+            throw new RuntimeException('Recharge settlement version cannot be negative.');
+        }
+
+        if (!in_array($orderStatus, ['pending', 'reversed'], true)) {
+            return null;
+        }
+
+        return $settlementVersion + 1;
+    }
+
+    /**
+     * Resolve the version that a refund/unpaid transition must reverse.
+     *
+     * @param string $orderStatus Current wallet-order status.
+     * @param int $settlementVersion Current settlement version.
+     * @return int|null Version to reverse, or null when no paid settlement exists.
+     */
+    public static function rechargeReversalVersion(
+        string $orderStatus,
+        int $settlementVersion
+    ): ?int {
+        if ($settlementVersion < 0) {
+            throw new RuntimeException('Recharge settlement version cannot be negative.');
+        }
+
+        return $orderStatus === 'paid' ? $settlementVersion : null;
+    }
+
+    /**
      * Remove PAYG entitlement after the final paid recharge is reversed.
      *
      * FREE access remains active when no debt is outstanding. A negative
