@@ -1,400 +1,156 @@
-# Drive Resource developer guide
+# Elearning Stream developer guide
 
-## Production provider extension model
+## Product and component identity
 
-For new development, treat **Elearning Stream** as the product surface and `mod_videoplayer` as the immutable compatibility component name.
+Customer-facing product name: **Elearning Stream**.
 
-Provider work is split by capability rather than by a single storage backend:
+Compatibility identifiers that must not be casually renamed:
 
-- managed video adapters implement upload authorization, asset ownership, protected playback and usage accounting;
-- object-storage adapters implement protected document upload, object metadata, signed/server-side retrieval, range delivery, lifecycle and accounting;
-- provider credentials stay in the gateway/control plane and must never be copied into Moodle;
-- Moodle keeps only the public connection URL, Service ID and service-scoped token.
+- Moodle component: `mod_videoplayer`;
+- Moodle database tables: `videoplayer*`;
+- WHMCS internal module/table prefix: `driveresource`.
 
-To add another video provider, add it to the gateway provider registry and implement the same capability contract before marking it operational. Do not add provider API keys or provider-specific management URLs to Moodle settings.
+These identifiers are implementation history, not branding.
 
-The S3-compatible object provider is currently assignable/configurable in the control plane but intentionally non-operational in the protected-PDF data plane. Do not expose it in Moodle until upload, retrieval, deletion, retention, quota and failure-recovery tests are complete.
+## Supported production sources
 
-## Component identity
+Production Moodle runtime supports:
 
-- Product: Drive Resource
-- Moodle component: `mod_videoplayer`
-- Target branch for this package: Moodle 4.5 LTS
-- PHP: 8.1+
+- Elearning Stream managed video;
+- historical Moodle-local PDF files.
 
-Do not rename the Moodle component without a separate migration project; existing database tables, capabilities, backups and installed-site upgrade paths depend on it.
+Google-backed remote sources are retired. Do not add Google URL parsing, Google hosts, viewer embeds, export URLs or provider-specific fallback paths back into runtime code.
 
-## Directory responsibilities
+The future document/PDF product path must use the independent protected object-storage lane.
+
+## Layer responsibilities
 
 ```text
-classes/local/access/        authorization/request context
-classes/local/resource/      normalized resource model
-classes/local/stream/        protected delivery orchestration/policy
+classes/local/access/        Moodle authorization context
+classes/local/resource/      normalized resource descriptor
+classes/local/stream/        protected delivery and upstream policy
+classes/local/provider/      managed-video lifecycle
+classes/local/gateway/       gateway DTO/authorization validation
 classes/local/progress/      progress/completion business logic
-classes/output/              renderer/template models/report tables
-classes/external/            AJAX/web-service API
-classes/event/               Moodle events
-classes/privacy/             Privacy API
-classes/task/                PDF cache tasks
-amd/src/                     JavaScript source
-amd/build/                   production AMD modules
-templates/                   Mustache presentation
-db/                          schema, services, cache, tasks, capabilities
-backup/moodle2/              Backup & Restore API
-thirdpartylibs/pdfjs/         local PDF.js distribution
+classes/external/            Moodle AJAX/web-service endpoints
+classes/task/                asynchronous bind/release/rename/usage
+integrations/whmcs/          commercial control plane
 ```
 
-## Adding or changing a resource type
+## Gateway account model
 
-1. Add the canonical type to `drive::RESOURCE_TYPES`.
-2. Add detection/resolution logic to `drive` only if needed; runtime callers must use `drive::resolve_record_type()`.
-3. Add a descriptor predicate when the behavior warrants it.
-4. Add a dedicated Mustache template/AMD module if the browser interaction differs materially.
-5. Keep upstream URLs out of `export_for_template()`.
-6. Add language strings, backup/privacy implications and tests.
-7. Update documentation and the manual regression checklist.
+Do not treat a WHMCS service as one Moodle site.
 
-## Protected endpoint rules
+A service is the commercial account. `mod_driveresource_installations` contains one or more independently authenticated Moodle sites under that account.
 
-`protected.php` must remain a controller, not a business-logic container. It must:
+All usage and wallet accounting aggregate by `service_id`. Installation ids are attribution/security dimensions, not separate balances.
 
-- load Moodle;
-- validate the course module through `activity_context`;
-- construct the resource descriptor;
-- release the PHP session lock before long streaming;
-- delegate to `protected_resource_service`.
+## Authentication
 
-Do not add a direct URL parameter that accepts an arbitrary upstream URL.
+Every Moodle -> gateway request must validate:
 
-## Streaming rules
+- POST;
+- exact Service ID;
+- exact canonical HTTPS site URL;
+- installation token hash;
+- timestamp drift;
+- request nonce;
+- HMAC over timestamp, nonce and raw body hash;
+- active WHMCS service;
+- active installation;
+- account state.
 
-When changing `http_range_proxy` or `protected_stream`:
+Nonce insertion is the replay barrier and must remain transactional enough to reject duplicate requests.
 
-- never read a complete large file into memory;
-- preserve `Range`/`206` behavior;
-- handle `HEAD` without a body;
-- do not relay unsafe upstream headers;
-- do not expose upstream errors/pages as successful media;
-- validate server-side upstream hosts;
-- test Safari/iOS seeking as well as Chromium;
-- preserve cancellation/low-speed handling so abandoned or stalled upstream cURL transfers do not occupy PHP workers indefinitely;
-- preserve the `refresh=1` recovery contract as a boolean server-side cache bypass only; never convert it into an arbitrary upstream URL parameter.
+## Money and billing
 
-The progressive Drive stream resolver is upstream-dependent. Keep it isolated and preserve source fallback. Any resolver change must be regression-tested with the exact Google Drive video that previously worked on rc15. Persistent `waiting`/`stalled` recovery must retain the current playback position and must not loop indefinitely; the AMD player caps recovery attempts and resets the counter only after stable playback.
+Never use floating-point values as stored money.
 
-## JavaScript
+- persisted unit: micro-USD;
+- 1 USD = 1,000,000 micro-USD;
+- every wallet mutation requires a deterministic idempotency key;
+- invoice creation does not credit a wallet;
+- `InvoicePaid` is the credit authority;
+- refund/unpaid hooks reverse the entitlement;
+- FREE/PAYG transition is based on a qualifying paid recharge.
 
-Video is implemented by `amd/src/nativevideo.js`; audio by `nativeaudio.js`; PDF by `pdfviewer.js`.
+Usage calculations may use byte integers. Convert to charges only at the accounting boundary.
 
-There is no Plyr, Video.js or StPageFlip dependency.
+## Upload reservations
 
-After source changes, rebuild the Moodle AMD bundles in a Moodle development environment:
-
-```bash
-npx grunt amd
-```
-
-Commit both `amd/src/` and generated `amd/build/` artifacts expected by Moodle production deployments.
-
-### Progress ownership
-
-Do not attach multiple trackers to one resource:
-
-- video -> `nativevideo.js`;
-- audio -> `nativeaudio.js`;
-- PDF-like -> `pdfviewer.js`;
-- image/generic -> `progress.js` when tracking is enabled.
-
-This avoids double-counted time and duplicate AJAX writes.
-
-## Progress API
-
-`mod_videoplayer_save_progress` is AJAX-enabled and delegates all persistence to `progress_service`.
-
-The server, not the UI, decides the persisted completion transition. Do not directly update Moodle completion from JavaScript.
-
-For video, `lastposition` is resume-only state. `watchedranges` is the completion authority. `nativevideo.js` must add only short contiguous playback intervals and must reset its contiguous sample on seeking. `watched_range_set` validates, bounds, merges and clamps browser telemetry before `progress_service` calculates completion.
-
-When adding progress fields:
-
-1. update `db/install.xml`;
-2. add a monotonic version/savepoint to `db/upgrade.php`;
-3. update external parameters/returns;
-4. update Privacy API;
-5. update Backup & Restore;
-6. update reports/tests/docs.
-
-## Database upgrades
-
-Never edit a historical savepoint to represent a new schema change. Add a new `$plugin->version` and a new guarded block in `db/upgrade.php`.
-
-When changing an indexed field, explicitly account for XMLDB index/key dependencies before calling type/default change methods. This plugin previously encountered `ddldependencyerror`; regression-test upgrades from older installations.
-
-## Moodle coding conventions
-
-Use Moodle Coding Style and PHPDoc. Keep classes final unless extension is a deliberate API. Prefer small single-purpose services and avoid accessing globals outside Moodle-facing infrastructure where practical.
-
-## Testing
-
-Static checks before packaging:
-
-```bash
-find . -name '*.php' -print0 | xargs -0 -n1 php -l
-node --check amd/src/nativevideo.js
-node --check amd/src/nativeaudio.js
-node --check amd/src/pdfviewer.js
-```
-
-CI additionally runs Moodle Plugin CI checks and PHPUnit where a full Moodle environment is available.
-
-Manual release testing is mandatory because Google Drive playback is an external integration. Follow `docs/manual-test-checklist.md`.
-
-## Commercial hardening workflow
-
-Changes intended for a stable commercial release must pass both the standard Moodle 4.5 CI matrix and the dedicated hardening gate. Run the invariant guard locally from the plugin root with:
-
-```bash
-bash .github/scripts/release-invariants.sh
-```
-
-Do not weaken an invariant simply to make the gate pass. If the architecture legitimately changes, update the implementation, security model, tests and `docs/hardening-validation.md` together, then document why the invariant changed.
-
-### Type-resolution rule
-
-Do not duplicate the `type=auto` decision in controllers, tasks, render models or lifecycle callbacks. The hardening gate intentionally fails if `drive::detect_type()` is called directly from those runtime paths. Direct detection belongs inside `drive` and tests only.
-
-Legacy schema fields such as `displaymode` and `disabledownload` remain for upgrade/backup compatibility, but they are not active presentation switches. The commercial architecture is protected-only and does not expose a direct-download mode.
-
-
-## Custom completion form compatibility
-
-Moodle 4.5 provides `get_suffix()` through the completion form trait. When adding plugin-specific completion controls, build field names as `<base name> . $this->get_suffix()` in every form lifecycle method. Do not introduce `get_suffixed_name()`; it is not part of the Moodle 4.5 `moodleform_mod` API and causes a fatal error while the activity form is constructed. The release-invariant gate enforces this rule.
-
-## Bunny Stream / WHMCS development rules
-
-Provider lifecycle decisions belong in `local/provider/bunny_asset_lifecycle.php`, not in `lib.php`. Keep Moodle callbacks focused on persistence and local file/cache work; add lifecycle transition tests whenever bind/release/rename rules change. Queue destructive release work only after the corresponding Moodle database mutation has committed.
-
-WHMCS lifecycle code must acquire the upload-row lock before mutating asset references. Do not revert the asset-reference unique key to service/site/instance only: `video_id` is required so a replacement bind and the previous asset release remain independently addressable under concurrent cron workers.
-
-When queueing a release from Moodle, preserve `provideruploadid` if it is still present. It is the scoped proof for the edge case where the activity is deleted before `bind_bunny_asset` creates an WHMCS asset reference. Never accept a reservation-based release after `bound_instance_id` becomes non-zero without the exact reference row.
-
-
-Managed video is intentionally split across two trust domains.
-
-Moodle code may know the WHMCS gateway URL, service ID, service token, Bunny video GUID and short-lived TUS upload signature. Moodle must never contain or persist a Bunny Stream management `AccessKey` or playback signing key.
-
-WHMCS companion code lives under `integrations/whmcs/` during development:
+Reserve source bytes before issuing TUS authorization. Under a row lock calculate:
 
 ```text
-modules/addons/driveresource_gateway/
-  api/                     authenticated Moodle-facing gateway endpoints
-  lib/BunnyClient.php      only Bunny management API client
-  lib/GatewayService.php   quota/reservation/asset orchestration
-  hooks.php                reconciliation/retention cron
-
-modules/servers/driveresource/
-  driveresource.php        product provisioning lifecycle
-  lib/MetricsProvider.php  WHMCS Usage Billing metrics
+projected = used_bytes + reserved_bytes + incoming_bytes
 ```
 
-When changing direct upload behavior:
+FREE rejects projected storage above the included allowance. PAYG allows overage only with available prepaid balance.
 
-1. preserve Moodle login/course/capability checks before any authorization is requested;
-2. reserve quota in WHMCS before creating a usable upload authorization;
-3. keep Bunny management credentials WHMCS-only;
-4. scope TUS authorization to a single video and expiration;
-5. pin the browser upload host;
-6. keep retries bounded and resumable;
-7. support authorization renewal for uploads that exceed the initial TTL;
-8. never place `provideruploadid` in Moodle backups;
-9. reconcile restored provider GUIDs through WHMCS tenant ownership;
-10. update `.github/scripts/bunny-whmcs-invariants.sh` when an intentional security boundary changes.
+On completion, release the reservation and replace provisional source bytes with provider-reported storage when available.
 
-Run the feature gate before promotion:
+## Protected playback
 
-```bash
-bash .github/scripts/bunny-whmcs-invariants.sh
-node --check amd/src/bunnyupload.js
-find . -name '*.php' -not -path './thirdpartylibs/*' -print0 | xargs -0 -n1 php -l
-```
+`protected.php` remains the browser-visible endpoint.
 
-The production Moodle package must not accidentally install the WHMCS companion under `mod/videoplayer`; package the two deployables separately.
+Do not:
 
-## DDL migration rule for optional predecessor fields
+- accept arbitrary upstream URLs;
+- redirect learners to provider URLs;
+- expose signed provider URLs in templates/AMD;
+- accept Google hosts in the upstream allow-list.
 
-Do not use an XMLDB `previous` column argument for an upgrade field when the predecessor may be absent on an existing installation. A declaration such as `watchedranges ... AFTER duration` can fail on MySQL/MariaDB before Moodle reaches the savepoint.
+The provider CDN URL is server-side only and must support reliable HTTP 206 byte ranges.
 
-For compatibility migrations, first check every required field with `field_exists()` and add missing fields without relying on physical ordering. The `2026092202` migration is the regression reference for this rule.
+## Multiple Moodle installations
 
+Secondary installation tokens are never stored plaintext. Show a newly generated token only in the current authenticated WHMCS session.
 
-## Partial-schema compatibility rule
+FREE installation limits are enforced both when creating an installation and again during request authentication. This second check prevents a refunded/downgraded account from continuing to use excess installations.
 
-Any callback reachable while Moodle is building course caches must tolerate optional fields introduced by pre-release builds. Do not hard-select a newly introduced field from a hot-path callback unless the current schema is guaranteed. Use one cached schema inspection where required, provide a safe default, and pair it with a newer idempotent XMLDB repair savepoint.
+## Provider extension model
 
-For the current release, `completionprogressenabled` defaults to enabled and `completionpercentage` defaults to 80 only while the repair migration has not yet restored the physical columns.
+Video providers must implement the gateway capability boundary before becoming operational:
 
+- direct upload;
+- asset verification;
+- protected playback;
+- rename/delete;
+- usage/accounting metadata.
 
-## Elearning Stream compatibility
+Object-storage providers are separate. Do not overload video provider credentials or tables with document storage behavior.
 
-Use **Elearning Stream** in customer-facing text. Do not rename the persisted `bunnystream` source value, internal `bunny_stream` provider class, database fields or existing external-function names in this release; those identifiers are compatibility contracts.
+## Progress and completion
 
-When accepting an existing provider URL, parse only the video GUID and discard the original URL before DML. The WHMCS gateway remains authoritative for provider-library existence, service ownership and quota accounting.
+Video completion is based on watched ranges, not furthest seek position. Resume position and completion evidence remain separate.
 
+Moodle Completion API changes must be server-authoritative. JavaScript reports telemetry; PHP decides persistence/completion transitions.
 
-## Elearning Stream playback rules
+## Coding requirements
 
-Elearning Stream learner playback must remain behind `protected.php`. Do not render the CDN hostname, MP4 fallback URL, token key or signed playback URL into Mustache/AMD configuration.
+- Moodle Coding Style for Moodle code;
+- PSR-12 style for standalone WHMCS namespaced classes where compatible;
+- PHPDoc/JSDoc on public contracts;
+- small methods and explicit state transitions;
+- no duplicated provider secrets or billing policy;
+- no complete large-file buffering in PHP;
+- no CDN-loaded runtime libraries.
 
-The WHMCS gateway is authoritative for service ownership and signs the provider MP4 path. Moodle validates the returned HTTPS `*.b-cdn.net` URL, caches it only until near expiry, and passes it to `http_range_proxy`. Provider MP4 fallback is required for the native HTML5 path.
+## Required validation
 
-Do not remove the Gateway 0.5.7 playback preflight. It intentionally requests only byte `0-0` of the freshly signed URL and must receive HTTP `206` plus `Content-Range`. Treat HTTP 200 as a range-delivery configuration failure; for Bunny uncached MP4 delivery, verify Pull Zone Cache Slicing. Treat HTTP 401/403 as token/direct-play/referrer failures and HTTP 404 as CDN hostname/fallback-path failures.
+Before merge:
 
-For the custom timeline, do not assign `video.currentTime` on every `input` event. Mobile sliders can emit dozens of events per drag, which causes overlapping protected `Range` requests. Keep `input` as a preview, commit once on `pointerup`/`change`, and preserve `desiredSeekPosition` until a `seeked` event confirms the browser actually reached the requested position.
-
-The internal `bunny_*` setting and class identifiers are retained for compatibility and are not customer-facing naming.
-
-
-## Elearning Stream gateway preflight rule
-
-Any teacher workflow that calls `whmcs_gateway_client` must perform a Moodle-side configuration preflight before persistence. Use `whmcs_gateway_client::missing_configuration()` / `is_configured()` rather than duplicating configuration checks.
-
-The required Moodle settings are the addon URL, WHMCS service ID and service-scoped token. The addon URL must target the deployed `modules/addons/driveresource_gateway` path because client endpoints are appended beneath its `api/` directory.
-
-
-## WHMCS storage backend extension contract
-
-WHMCS service identity must remain provider-neutral. Do not add provider credentials to Moodle and do not encode provider choice into a Moodle token.
-
-The provisioning module appends backend selection after the legacy quota settings:
-
-- `configoption1`: included storage GB;
-- `configoption2`: overage allowed;
-- `configoption3`: retention days;
-- `configoption4`: backend key;
-- `configoption5`: backend profile.
-
-Never reorder these options in an upgrade because WHMCS passes module configuration by numbered position.
-
-To add an S3-compatible implementation:
-
-1. mark `s3compatible` provisionable only after the adapter is complete;
-2. keep credentials/profile configuration in WHMCS;
-3. implement direct multipart upload authorization rather than proxying large uploads through WHMCS/PHP;
-4. implement server-side signed delivery compatible with the Moodle protected endpoint;
-5. reconcile authoritative object size into existing service usage accounting;
-6. enforce tenant prefixes/buckets and cross-tenant object ownership;
-7. integrate lifecycle deletion/retention into backend-scoped maintenance;
-8. add CI invariants and production tests before exposing the backend in product configuration.
-
-Backend switching for a service with existing assets must use an explicit migration workflow. `ChangePackage` intentionally rejects an in-place backend change when media or bytes remain.
-
-
-## WHMCS provisioning token contract
-
-Do not set `RequiresServer=true` for the Elearning Stream provisioning module: no server hostname or server credential is part of the service contract.
-
-The Moodle gateway token must be created by `driveresource_CreateAccount()`. Its plaintext copy belongs only in WHMCS protected service properties; the gateway database stores only SHA-256 of that token. Administrators may retrieve the service token through the module's administrator service fields to configure Moodle.
-
-Do not allow operators to repair an unprovisioned service by inventing a password manually. Re-run the module Create action so the WHMCS password and gateway token hash are created atomically by the module.
-
-
-## Idempotent WHMCS connection repair
-
-`driveresource_CreateAccount()`, `driveresource_ProvisionMoodleConnection()` and explicit token rotation share one provisioning implementation.
-
-Repair must preserve an existing valid service password/token. If WHMCS no longer has a plaintext service token, repair generates a new cryptographically random token and atomically replaces the gateway hash before persisting the new protected WHMCS service property.
-
-Never expose a "repair" path that accepts an arbitrary operator-supplied token. Explicit rotation must be a separate administrator action.
-
-
-## WHMCS client self-service contract
-
-Client actions are exposed through WHMCS provisioning-module custom functions and remain bound to the service selected by WHMCS. Mutating actions must use POST and must never accept a caller-supplied WHMCS service id as the ownership authority.
-
-The current self-service actions are:
-- provision/repair Moodle connection;
-- rotate Moodle service token;
-- update Moodle URL;
-- validate Moodle connection;
-- delete an unreferenced provider video.
-
-The Moodle URL stored in `mod_driveresource_services.site_url` is authoritative after provisioning. Changing it marks connection state pending and is rejected while active media references exist.
-
-Provider deletion must remain idempotent and must refuse any video with active `mod_driveresource_asset_refs`.
-
-## Transfer metering contract
-
-`http_range_proxy` may receive an optional transfer callback. Increment usage only for bytes actually emitted to the browser. Do not count HEAD bodies, provider bytes discarded while retrying ranges, warning HTML, failed upstream requests or bytes after a client disconnect.
-
-Moodle stores short-lived aggregateable events in `videoplayer_transfer_events`. The scheduled task groups at most 1000 events by service/month and sends an idempotent SHA-256 batch id to WHMCS. Events collected under an old Service ID must never be reported with the current token.
-
-WHMCS stores the current UTC month in `transfer_period` and the accumulated bytes in `transfer_bytes`. Usage Billing exposes this as `video_transfer_gb` with `MetricInterface::TYPE_PERIOD_MONTH`; storage remains `TYPE_SNAPSHOT`.
-
-The signed connection probe endpoint must remain cookie-free, HTTPS-exact, HMAC-authenticated and replay-protected.
-
-
-## Public video hostname validation contract
-
-Do not add branded video domains directly to Moodle allow-lists. Moodle may validate only safe HTTPS URL shape and provider-GUID syntax. WHMCS is authoritative for public video hostnames through `Config::publicVideoHosts()`.
-
-`bunny_public_aliases` accepts exact DNS hostnames separated by commas/whitespace/semicolons. Never accept URL schemes, wildcards, IP literals or arbitrary ports in this setting.
-
-The pasted URL may cross the authenticated Moodle→WHMCS channel only long enough to validate hostname and extract the provider GUID. Do not persist it and do not fetch it. Provider ownership must always be verified with the configured Video Library API.
-
-## WHMCS localisation contract
-
-Customer-facing server-module strings belong in `modules/servers/driveresource/lang/english.php` and `spanish.php`. Use `Translator::fromParams()` from Client Area and service actions. Do not add new hardcoded Spanish/English UI labels inside `ClientPortal.php`.
-
-## WHMCS audit contract
-
-Use `driveresource_audit()` / `AuditLogger::log()` for successful sensitive control-plane mutations. Metadata must be operational and non-secret. Never pass service tokens, provider API keys, token-signing keys, request signatures or passwords.
-
-Audit failure should not corrupt the user operation; the logger records an appropriately redacted module-log failure when possible.
-
-
-## Provider asset deletion contract
-
-Provider deletion is reference-counted and gateway-owned. Moodle's `videoplayer_delete_instance()` queues `release_bunny_asset`; the gateway is authoritative for whether physical deletion is safe.
-
-For `Retention Days = 0`, the final reference release moves the upload to transient status `deleting` before the provider API call. This prevents a concurrent bind from reviving an asset while deletion is in flight. On success the upload becomes `deleted`, accounted bytes are zeroed, and service usage is recomputed. On provider failure the prior status is restored and `delete_after` is set to the current time so daily maintenance can retry.
-
-Do not bypass this contract by adding direct Bunny deletion code to Moodle.
-
-
-## Virtual classroom provider contract
-
-Managed-video providers must support a tenant-level organisational primitive equivalent to a collection/folder. For Elearning Stream, one Bunny collection is persisted per WHMCS service.
-
-The gateway owns collection creation and assignment. Moodle only sends the existing Service ID, course ID and activity metadata; it must never create provider collections directly.
-
-For upgrades from Gateway < 0.5.3, use the WHMCS admin module command **Organize virtual classroom**. It calls `GatewayService::organizeServiceAssets()`, creates the service collection if needed, and moves up to 1000 currently owned videos without renaming them.
-
-## RC7 implementation note
-
-When editing `amd/src/nativevideo.js`, regenerate `amd/build/nativevideo.min.js` as a named Moodle AMD module. The seek control uses `--seek-progress` and the volume control uses `--volume-progress`; preserve keyboard focus and mobile controls when changing layout.
-
-Changing a bound activity name queues `rename_bunny_asset`. WHMCS endpoint `asset-rename.php` verifies service and site-scoped reference ownership. Deploy Gateway 0.5.4 before RC8.
-
-The Moodle code checker also validates task file boilerplate and PSR-12 layout for multiline calls and conditions; run it after editing the task classes.
-
-## Gateway TUS response contract
-
-Do not duplicate TUS capability parsing inside external functions or `whmcs_gateway_client`. Route create/refresh responses through `local/gateway/upload_authorisation::normalise()`. A refresh is identity-preserving: the returned `uploadid` and `videoid` must match the requested identifiers. Any future provider adapter that changes the browser upload endpoint requires an explicit validator change plus PHPUnit and security-documentation updates.
-
-
-### Teacher upload UX
-
-The rc12 upload UI is rendered by `mod_form.php` and driven by `amd/src/bunnyupload.js`. Preserve these invariants when changing it:
-
-- file selection and drag/drop must converge on the same validation path;
-- do not start a provider upload until the teacher explicitly presses the upload button;
-- keep Moodle form submit buttons disabled while an upload is in progress;
-- never render Bunny API keys, provider management URLs, TUS signatures or WHMCS service tokens;
-- keep progress based on uploaded bytes, not timers;
-- preserve retry/resume and TUS authorization refresh behavior;
-- regenerate `amd/build/bunnyupload.min.js` after every source change.
-
-
-### WHMCS video names
-
-Do not overwrite `mod_driveresource_uploads.filename` when a Moodle activity is renamed. That field is source-file provenance. Use `display_name` for the customer-facing title, update it after a successful provider rename, and preserve the maintenance reconciliation path for eventual consistency.
+- PHP syntax;
+- Moodle PHPUnit for changed business rules;
+- Moodle Plugin CI;
+- integration invariant scripts;
+- fresh install + upgrade;
+- direct upload/resume;
+- Range/206 seek;
+- rename/replace/delete races;
+- FREE storage/transfer limits;
+- PAYG recharge and wallet debit;
+- refund/unpaid reversal;
+- one FREE Moodle limit;
+- multiple PAYG Moodle authentication;
+- Backup & Restore;
+- Privacy API.
