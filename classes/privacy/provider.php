@@ -12,21 +12,25 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace mod_videoplayer\privacy;
 
 use core_privacy\local\metadata\collection;
 use core_privacy\local\request\approved_contextlist;
+use core_privacy\local\request\approved_userlist;
 use core_privacy\local\request\contextlist;
 use core_privacy\local\request\helper;
-use core_privacy\local\request\userlist;
-use core_privacy\local\request\approved_userlist;
 use core_privacy\local\request\transform;
+use core_privacy\local\request\userlist;
 use core_privacy\local\request\writer;
 
 /**
- * Privacy provider for mod_videoplayer.
+ * Privacy provider for Elearning Stream.
+ *
+ * Learner-identifying progress stays inside Moodle. Gateway transfer and quota
+ * accounting is aggregated by service/video and does not transmit Moodle user
+ * identifiers.
  *
  * @package    mod_videoplayer
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
@@ -37,9 +41,9 @@ class provider implements
     \core_privacy\local\request\core_userlist_provider,
     \core_privacy\local\request\plugin\provider {
     /**
-     * Describe the personal data stored by this plugin.
+     * Describe stored personal data.
      *
-     * @param collection $collection
+     * @param collection $collection Metadata collection.
      * @return collection
      */
     public static function get_metadata(collection $collection): collection {
@@ -55,67 +59,65 @@ class provider implements
             'lastposition' => 'privacy:metadata:videoplayer_views:lastposition',
             'duration' => 'privacy:metadata:videoplayer_views:duration',
             'watchedranges' => 'privacy:metadata:videoplayer_views:watchedranges',
-            'points' => 'privacy:metadata:videoplayer_views:points',
             'timecreated' => 'privacy:metadata:videoplayer_views:timecreated',
             'timemodified' => 'privacy:metadata:videoplayer_views:timemodified',
         ], 'privacy:metadata:videoplayer_views');
-
-        $collection->add_database_table('videoplayer_rewards', [
-            'videoplayerid' => 'privacy:metadata:videoplayer_rewards:videoplayerid',
-            'userid' => 'privacy:metadata:videoplayer_rewards:userid',
-            'rewardtype' => 'privacy:metadata:videoplayer_rewards:rewardtype',
-            'rewardkey' => 'privacy:metadata:videoplayer_rewards:rewardkey',
-            'points' => 'privacy:metadata:videoplayer_rewards:points',
-            'timecreated' => 'privacy:metadata:videoplayer_rewards:timecreated',
-        ], 'privacy:metadata:videoplayer_rewards');
 
         return $collection;
     }
 
     /**
-     * Get contexts that contain user information for a user.
+     * Get contexts containing user progress.
      *
-     * @param int $userid
+     * @param int $userid User id.
      * @return contextlist
      */
     public static function get_contexts_for_userid(int $userid): contextlist {
         $contextlist = new contextlist();
         $sql = "SELECT ctx.id
                   FROM {context} ctx
-                  JOIN {course_modules} cm ON cm.id = ctx.instanceid AND ctx.contextlevel = :contextmodule
-                  JOIN {modules} m ON m.id = cm.module AND m.name = :modname
+                  JOIN {course_modules} cm
+                    ON cm.id = ctx.instanceid
+                   AND ctx.contextlevel = :contextmodule
+                  JOIN {modules} m
+                    ON m.id = cm.module
+                   AND m.name = :modname
                   JOIN {videoplayer} v ON v.id = cm.instance
-             LEFT JOIN {videoplayer_views} vv ON vv.videoplayerid = v.id AND vv.userid = :viewuserid
-             LEFT JOIN {videoplayer_rewards} vr ON vr.videoplayerid = v.id AND vr.userid = :rewarduserid
-                 WHERE vv.userid IS NOT NULL OR vr.userid IS NOT NULL";
+                  JOIN {videoplayer_views} vv
+                    ON vv.videoplayerid = v.id
+                   AND vv.userid = :userid";
 
-        $params = [
+        $contextlist->add_from_sql($sql, [
             'contextmodule' => CONTEXT_MODULE,
             'modname' => 'videoplayer',
-            'viewuserid' => $userid,
-            'rewarduserid' => $userid,
-        ];
-        $contextlist->add_from_sql($sql, $params);
+            'userid' => $userid,
+        ]);
 
         return $contextlist;
     }
 
     /**
-     * Export user data for approved contexts.
+     * Export user data.
      *
-     * @param approved_contextlist $contextlist
+     * @param approved_contextlist $contextlist Approved contexts.
+     * @return void
      */
     public static function export_user_data(approved_contextlist $contextlist): void {
         global $DB;
 
-        $userid = $contextlist->get_user()->id;
-
+        $userid = (int)$contextlist->get_user()->id;
         foreach ($contextlist->get_contexts() as $context) {
             if ($context->contextlevel !== CONTEXT_MODULE) {
                 continue;
             }
 
-            $cm = get_coursemodule_from_id('videoplayer', $context->instanceid, 0, false, IGNORE_MISSING);
+            $cm = get_coursemodule_from_id(
+                'videoplayer',
+                $context->instanceid,
+                0,
+                false,
+                IGNORE_MISSING
+            );
             if (!$cm) {
                 continue;
             }
@@ -124,105 +126,76 @@ class provider implements
                 'videoplayerid' => $cm->instance,
                 'userid' => $userid,
             ]);
+            if (!$records) {
+                continue;
+            }
 
             $views = [];
             foreach ($records as $record) {
-                $views[] = (object) [
+                $views[] = (object)[
                     'progress' => $record->progress,
-                    'completed' => (bool) $record->completed,
+                    'completed' => (bool)$record->completed,
                     'completionpercentage' => $record->completionpercentage,
-                    'lastpage' => $record->lastpage ?? 0,
-                    'totalpages' => $record->totalpages ?? 0,
-                    'timespent' => $record->timespent ?? 0,
-                    'lastposition' => $record->lastposition ?? 0,
-                    'duration' => $record->duration ?? 0,
-                    'watchedranges' => $record->watchedranges ?? null,
-                    'points' => $record->points ?? 0,
+                    'lastpage' => $record->lastpage,
+                    'totalpages' => $record->totalpages,
+                    'timespent' => $record->timespent,
+                    'lastposition' => $record->lastposition,
+                    'duration' => $record->duration,
+                    'watchedranges' => $record->watchedranges,
                     'timecreated' => transform::datetime($record->timecreated),
                     'timemodified' => transform::datetime($record->timemodified),
                 ];
             }
 
-            $rewardrecords = $DB->get_records('videoplayer_rewards', [
-                'videoplayerid' => $cm->instance,
-                'userid' => $userid,
-            ]);
-
-            $rewards = [];
-            foreach ($rewardrecords as $reward) {
-                $rewards[] = (object) [
-                    'rewardtype' => $reward->rewardtype,
-                    'rewardkey' => $reward->rewardkey,
-                    'points' => $reward->points,
-                    'timecreated' => transform::datetime($reward->timecreated),
-                ];
-            }
-
-            if (!$views && !$rewards) {
-                continue;
-            }
-
             $contextdata = helper::get_context_data($context, $contextlist->get_user());
             $contextdata->views = $views;
-            $contextdata->rewards = $rewards;
             writer::with_context($context)->export_data([], $contextdata);
         }
     }
 
     /**
-     * Delete all user data for a context.
+     * Delete all plugin user data in one context.
      *
-     * @param \context $context
+     * @param \context $context Context.
+     * @return void
      */
     public static function delete_data_for_all_users_in_context(\context $context): void {
         global $DB;
 
-        if ($context->contextlevel !== CONTEXT_MODULE) {
-            return;
+        $instanceid = self::instance_id_from_context($context);
+        if ($instanceid !== null) {
+            $DB->delete_records('videoplayer_views', ['videoplayerid' => $instanceid]);
         }
-
-        $cm = get_coursemodule_from_id('videoplayer', $context->instanceid, 0, false, IGNORE_MISSING);
-        if (!$cm) {
-            return;
-        }
-
-        $DB->delete_records('videoplayer_rewards', ['videoplayerid' => $cm->instance]);
-        $DB->delete_records('videoplayer_views', ['videoplayerid' => $cm->instance]);
     }
 
     /**
-     * Delete user data by approved contexts.
+     * Delete one user's data in approved contexts.
      *
-     * @param approved_contextlist $contextlist
+     * @param approved_contextlist $contextlist Approved contexts.
+     * @return void
      */
     public static function delete_data_for_user(approved_contextlist $contextlist): void {
         global $DB;
 
-        $userid = $contextlist->get_user()->id;
-
+        $userid = (int)$contextlist->get_user()->id;
         foreach ($contextlist->get_contexts() as $context) {
-            if ($context->contextlevel !== CONTEXT_MODULE) {
+            $instanceid = self::instance_id_from_context($context);
+            if ($instanceid === null) {
                 continue;
             }
 
-            $cm = get_coursemodule_from_id('videoplayer', $context->instanceid, 0, false, IGNORE_MISSING);
-            if (!$cm) {
-                continue;
-            }
-
-            $conditions = [
-                'videoplayerid' => $cm->instance,
+            $DB->delete_records('videoplayer_views', [
+                'videoplayerid' => $instanceid,
                 'userid' => $userid,
-            ];
-            $DB->delete_records('videoplayer_rewards', $conditions);
-            $DB->delete_records('videoplayer_views', $conditions);
+            ]);
         }
     }
 
     /**
-     * Get users in a context.
+     * Add users with progress in a context.
      *
-     * @param userlist $userlist
+     * @param userlist $userlist User list.
+     * @return void
      */
     public static function get_users_in_context(userlist $userlist): void {
         $context = $userlist->get_context();
@@ -232,51 +205,62 @@ class provider implements
 
         $sql = "SELECT vv.userid
                   FROM {course_modules} cm
-                  JOIN {modules} m ON m.id = cm.module AND m.name = :modname
-                  JOIN {videoplayer} v ON v.id = cm.instance
-                  JOIN {videoplayer_views} vv ON vv.videoplayerid = v.id
-                 WHERE cm.id = :cmid
-                 UNION
-                SELECT vr.userid
-                  FROM {course_modules} cm
-                  JOIN {modules} m ON m.id = cm.module AND m.name = :modname2
-                  JOIN {videoplayer} v ON v.id = cm.instance
-                  JOIN {videoplayer_rewards} vr ON vr.videoplayerid = v.id
-                 WHERE cm.id = :cmid2";
+                  JOIN {modules} m
+                    ON m.id = cm.module
+                   AND m.name = :modname
+                  JOIN {videoplayer_views} vv
+                    ON vv.videoplayerid = cm.instance
+                 WHERE cm.id = :cmid";
+
         $userlist->add_from_sql('userid', $sql, [
             'modname' => 'videoplayer',
-            'modname2' => 'videoplayer',
             'cmid' => $context->instanceid,
-            'cmid2' => $context->instanceid,
         ]);
     }
 
     /**
      * Delete data for approved users in a context.
      *
-     * @param approved_userlist $userlist
+     * @param approved_userlist $userlist Approved users.
+     * @return void
      */
     public static function delete_data_for_users(approved_userlist $userlist): void {
         global $DB;
 
-        $context = $userlist->get_context();
-        if ($context->contextlevel !== CONTEXT_MODULE) {
-            return;
-        }
-
-        $cm = get_coursemodule_from_id('videoplayer', $context->instanceid, 0, false, IGNORE_MISSING);
-        if (!$cm) {
-            return;
-        }
-
+        $instanceid = self::instance_id_from_context($userlist->get_context());
         $userids = $userlist->get_userids();
-        if (!$userids) {
+        if ($instanceid === null || !$userids) {
             return;
         }
 
         [$insql, $params] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
-        $params['videoplayerid'] = $cm->instance;
-        $DB->delete_records_select('videoplayer_rewards', "videoplayerid = :videoplayerid AND userid {$insql}", $params);
-        $DB->delete_records_select('videoplayer_views', "videoplayerid = :videoplayerid AND userid {$insql}", $params);
+        $params['videoplayerid'] = $instanceid;
+        $DB->delete_records_select(
+            'videoplayer_views',
+            "videoplayerid = :videoplayerid AND userid {$insql}",
+            $params
+        );
+    }
+
+    /**
+     * Resolve an activity instance id from a module context.
+     *
+     * @param \context $context Context.
+     * @return int|null
+     */
+    private static function instance_id_from_context(\context $context): ?int {
+        if ($context->contextlevel !== CONTEXT_MODULE) {
+            return null;
+        }
+
+        $cm = get_coursemodule_from_id(
+            'videoplayer',
+            $context->instanceid,
+            0,
+            false,
+            IGNORE_MISSING
+        );
+
+        return $cm ? (int)$cm->instance : null;
     }
 }
