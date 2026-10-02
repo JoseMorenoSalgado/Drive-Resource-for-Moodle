@@ -826,6 +826,7 @@ function driveresource_gateway_ensure_commercial_account_schema(): void
             $table->unsignedBigInteger('invoice_amount_microunits')->default(0);
             $table->char('currency', 3)->default('USD');
             $table->string('status', 16)->default('pending')->index();
+            $table->unsignedInteger('settlement_version')->default(0);
             $table->unsignedInteger('created_at');
             $table->unsignedInteger('paid_at')->nullable();
             $table->unsignedInteger('refunded_at')->nullable();
@@ -839,6 +840,15 @@ function driveresource_gateway_ensure_commercial_account_schema(): void
     ) {
         $schema->table('mod_driveresource_wallet_orders', static function (Blueprint $table): void {
             $table->unsignedBigInteger('invoice_amount_microunits')->default(0);
+        });
+    }
+
+    if (
+        $schema->hasTable('mod_driveresource_wallet_orders')
+        && !$schema->hasColumn('mod_driveresource_wallet_orders', 'settlement_version')
+    ) {
+        $schema->table('mod_driveresource_wallet_orders', static function (Blueprint $table): void {
+            $table->unsignedInteger('settlement_version')->default(0);
         });
     }
 
@@ -966,6 +976,7 @@ function driveresource_gateway_assert_commercial_schema(): void
             'invoice_amount_microunits',
             'currency',
             'status',
+            'settlement_version',
             'created_at',
             'updated_at',
         ],
