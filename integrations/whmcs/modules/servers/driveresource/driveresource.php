@@ -1833,7 +1833,63 @@ function driveresource_microusd_decimal(int $microusd): string
  */
 function driveresource_format_microusd(int $microusd): string
 {
-    return 'US/**
+    return 'US$' . driveresource_microusd_decimal($microusd);
+}
+
+/**
+ * Convert the USD wallet value into the exact invoice amount in the client's
+ * WHMCS currency.
+ *
+ * Wallet accounting remains USD. Only the invoice presentation/collection
+ * amount is converted, frozen on the recharge order, and revalidated before
+ * wallet credit is granted.
+ *
+ * @param int $clientId WHMCS client id.
+ * @param int $amountMicrousd Wallet amount in micro-USD.
+ * @return array{currency:string,decimal:string,microunits:int}
+ */
+function driveresource_wallet_invoice_amount(int $clientId, int $amountMicrousd): array
+{
+    if ($clientId <= 0 || $amountMicrousd <= 0) {
+        throw new RuntimeException('Wallet invoice conversion requires a valid client and positive amount.');
+    }
+
+    $clientCurrencyId = (int) (Capsule::table('tblclients')
+        ->where('id', $clientId)
+        ->value('currency') ?? 0);
+    $usd = Currency::code('USD')->first();
+    $clientCurrency = $clientCurrencyId > 0 ? Currency::find($clientCurrencyId) : null;
+
+    if (!$usd || !$clientCurrency) {
+        throw new RuntimeException(
+            'WHMCS must have USD and the client currency configured before creating a wallet recharge.'
+        );
+    }
+
+    $converted = Currency::convertBetween(
+        $usd,
+        $amountMicrousd / 1000000,
+        $clientCurrency
+    );
+    if (!is_finite($converted) || $converted <= 0) {
+        throw new RuntimeException('WHMCS returned an invalid wallet currency conversion.');
+    }
+
+    $decimals = $clientCurrency->isNonFractionalCurrency() ? 0 : 2;
+    $decimal = number_format(round($converted, $decimals), $decimals, '.', '');
+
+    $moneyfile = dirname(__DIR__, 2) . '/addons/driveresource_gateway/lib/Money.php';
+    require_once $moneyfile;
+    $microunits = \WHMCS\Module\Addon\DriveresourceGateway\Money::decimalToMicrounits($decimal);
+
+    return [
+        'currency' => strtoupper($clientCurrency->getCode()),
+        'decimal' => $decimal,
+        'microunits' => $microunits,
+    ];
+}
+
+/**
  * Normalize one Moodle wwwroot URL.
  *
  * @param string $raw Candidate URL.
