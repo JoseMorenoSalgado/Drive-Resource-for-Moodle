@@ -17,100 +17,68 @@
 namespace mod_videoplayer\local;
 
 /**
- * Historical resource constants and type compatibility helpers.
+ * Deprecated compatibility shim for pre-1.3 code.
  *
- * The class name is retained because older backups, upgrade code and installed
- * releases referenced it. It no longer parses, resolves or generates Google
- * URLs and performs no network/provider work.
+ * Runtime code must use resource_compatibility. This class remains only so
+ * older extension code and serialized references do not fail during upgrade.
  *
+ * @deprecated since Elearning Stream 1.3
  * @package    mod_videoplayer
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class drive {
-    /** @var string Retired remote-source key retained only for migration. */
-    public const SOURCE_GOOGLEDRIVE = 'googledrive';
+    /** @deprecated Retired persisted source key. */
+    public const SOURCE_GOOGLEDRIVE = resource_compatibility::SOURCE_RETIRED_REMOTE;
 
-    /** @var string Moodle-local protected PDF source. */
-    public const SOURCE_LOCALPDF = 'localpdf';
+    /** @deprecated Use resource_compatibility::SOURCE_LOCALPDF. */
+    public const SOURCE_LOCALPDF = resource_compatibility::SOURCE_LOCALPDF;
 
-    /** @var string Automatic resource type retained for older records. */
-    public const TYPE_AUTO = 'auto';
+    /** @deprecated Use resource_compatibility::TYPE_AUTO. */
+    public const TYPE_AUTO = resource_compatibility::TYPE_AUTO;
 
-    /** @var string Video resource type. */
-    public const TYPE_VIDEO = 'video';
+    /** @deprecated Use resource_compatibility::TYPE_VIDEO. */
+    public const TYPE_VIDEO = resource_compatibility::TYPE_VIDEO;
 
-    /** @var string Generic unsupported file type. */
-    public const TYPE_FILE = 'file';
+    /** @deprecated Use resource_compatibility::TYPE_FILE. */
+    public const TYPE_FILE = resource_compatibility::TYPE_FILE;
 
-    /** Canonical historical resource types accepted in persisted data. */
-    public const RESOURCE_TYPES = [
-        self::TYPE_VIDEO,
-        'audio',
-        'pdf',
-        'image',
-        'document',
-        'spreadsheet',
-        'presentation',
-        self::TYPE_FILE,
-    ];
+    /** @deprecated Use resource_compatibility::RESOURCE_TYPES. */
+    public const RESOURCE_TYPES = resource_compatibility::RESOURCE_TYPES;
 
     /**
-     * Resolve the persisted resource type without inspecting an external URL.
-     *
+     * @deprecated Use resource_compatibility::resolve_record_type().
      * @param object $record Activity record.
      * @return string
      */
     public static function resolve_record_type(object $record): string {
-        if (($record->source ?? '') === self::SOURCE_LOCALPDF) {
-            return 'pdf';
-        }
-
-        $configured = clean_param((string)($record->type ?? self::TYPE_AUTO), PARAM_ALPHANUMEXT);
-        if ($configured !== '' && $configured !== self::TYPE_AUTO) {
-            return in_array($configured, self::RESOURCE_TYPES, true)
-                ? $configured
-                : self::TYPE_FILE;
-        }
-
-        // Historical automatic media records came from the original
-        // video-only component. No remote URL inspection is performed.
-        return self::TYPE_VIDEO;
+        return resource_compatibility::resolve_record_type($record);
     }
 
     /**
-     * Validate a persisted resource type.
-     *
+     * @deprecated Use resource_compatibility::is_supported_configured_type().
      * @param string $type Resource type.
      * @return bool
      */
     public static function is_supported_configured_type(string $type): bool {
-        return $type === self::TYPE_AUTO || in_array($type, self::RESOURCE_TYPES, true);
+        return resource_compatibility::is_supported_configured_type($type);
     }
 
     /**
-     * Whether the type uses the local PDF.js reader.
-     *
+     * @deprecated Use resource_compatibility::is_pdf_type().
      * @param string $type Resource type.
      * @return bool
      */
     public static function is_pdf_type(string $type): bool {
-        return in_array($type, ['pdf', 'document', 'spreadsheet', 'presentation'], true);
+        return resource_compatibility::is_pdf_type($type);
     }
 
     /**
-     * Default MIME type for retained resource types.
-     *
+     * @deprecated Use resource_compatibility::default_mimetype().
      * @param string $type Resource type.
      * @return string
      */
     public static function default_mimetype(string $type): string {
-        return match ($type) {
-            'pdf', 'document', 'spreadsheet', 'presentation' => 'application/pdf',
-            'video' => 'video/mp4',
-            'audio' => 'audio/mpeg',
-            'image' => 'image/jpeg',
-            default => 'application/octet-stream',
-        };
+        return resource_compatibility::default_mimetype($type);
     }
 }
