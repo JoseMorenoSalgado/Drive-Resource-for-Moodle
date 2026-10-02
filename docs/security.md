@@ -50,8 +50,10 @@ Commercial money is represented as integer micro-USD.
 Security requirements:
 
 - every credit/debit has an idempotency key;
+- wallet mutations lock the account before idempotency lookup, preventing concurrent duplicate hooks from double-applying a balance change;
+- an idempotency key collision with a different service/type/amount fails closed;
 - recharge invoice creation grants no balance;
-- wallet credit occurs only after `InvoicePaid`;
+- wallet credit occurs only after `InvoicePaid` and only when the paid invoice currency and total equal the values frozen on the recharge order;
 - refund/unpaid events reverse the recharge;
 - wallet/account rows are locked during balance mutation;
 - FREE/PAYG limits are enforced server-side;
