@@ -981,6 +981,7 @@ function driveresource_CreateWalletRecharge(array $params): string
             'invoice_amount_microunits' => $invoiceMoney['microunits'],
             'currency' => $invoiceMoney['currency'],
             'status' => 'pending',
+            'settlement_version' => 0,
             'created_at' => $now,
             'paid_at' => null,
             'refunded_at' => null,
@@ -1643,6 +1644,7 @@ function driveresource_require_gateway(): void
             'invoice_amount_microunits',
             'currency',
             'status',
+            'settlement_version',
         ],
         'mod_driveresource_usage_daily' => [
             'service_id',
