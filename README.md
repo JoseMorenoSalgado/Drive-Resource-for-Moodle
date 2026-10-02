@@ -1,131 +1,138 @@
 # Elearning Stream for Moodle
 
-Elearning Stream is a protected-video activity for Moodle. The historical Moodle component and folder remain `mod_videoplayer` / `videoplayer` so existing installations can upgrade without a component migration.
+Elearning Stream is a protected managed-video activity for Moodle. The historical Moodle component and folder remain `mod_videoplayer` / `videoplayer` so installed sites can upgrade without a component migration.
 
-## Release
+## Current release line
 
 - Product: **Elearning Stream**
-- Moodle component: `mod_videoplayer`
-- Release: **1.2.0-rc12-m45**
+- Moodle component: `mod_videoplayer` (compatibility identifier)
+- Moodle release: **1.3.0-rc1-m45**
+- Gateway release: **0.6.0**
 - Target: Moodle **4.5 LTS**
 - PHP baseline: PHP 8.1+
-- Video runtime: native HTML5 Media API
-- Provider secrets in Moodle: **none**
+- Player: native HTML5 Media API
+- Provider management secrets in Moodle: **none**
+- Google Drive dependency: **none**
 
-## Production activity flow
+## Production architecture
 
-New activities are video-first. Teachers can:
+```text
+Teacher / learner
+      |
+      v
+Moodle mod_videoplayer
+      |
+      | Service ID + installation token + signed request
+      v
+Elearning Stream Gateway (WHMCS)
+      |
+      +--> commercial account / wallet / usage
+      +--> Moodle installations
+      +--> managed video provider
+      +--> future protected object-storage provider
+```
 
-1. upload a new video directly to the managed video provider; or
-2. register an existing Elearning Stream video URL.
+Moodle never receives the provider management API key. Direct uploads use short-lived, video-scoped TUS authorization. Learner playback remains Moodle-owned: the browser requests `protected.php`, Moodle verifies course/module access, WHMCS authorizes the owned asset, and Moodle proxies byte ranges from the signed provider URL.
 
-The browser uploads video bytes directly to the provider using a short-lived authorization. Provider management credentials never enter Moodle.
+## Commercial model
 
-The Moodle activity form no longer exposes the legacy Google Drive/local-PDF source selector for new activities.
+A WHMCS service represents one **Elearning Stream commercial account**, not one Moodle site.
 
-## Legacy compatibility
+Default 0.6.0 policy:
 
-Existing activities created with previous releases remain readable/editable. Legacy Google Drive and Moodle-local PDF runtime code is retained only to avoid breaking installed courses and backups.
+- activation: **US$1 once**, provisioned only after the WHMCS service is activated;
+- the activation dollar becomes **US$1 usable Elearning Stream wallet credit**;
+- FREE: **7 GB** video storage;
+- FREE: **20 GB/month** protected video transfer;
+- FREE: **1 Moodle installation**;
+- PAYG transition: a wallet recharge of at least **US$10**;
+- PAYG storage: **US$0.03/GB-month** above the free allowance;
+- PAYG transfer: **US$0.12/GB** above the monthly free allowance;
+- PAYG Moodle installations: **unlimited by default**;
+- all installations under the account share the same wallet and aggregate usage.
 
-No existing database rows are rewritten during the RC1 upgrade. The new default source applies only to future activities.
+Money is stored as integer micro-USD. Recharge invoices credit the wallet only after WHMCS reports `InvoicePaid`. Refund/unpaid transitions reverse the wallet entitlement idempotently.
 
-## Connection settings
+## Google Drive retirement
 
-Moodle administrators see production-facing Elearning Stream labels rather than the billing implementation.
+Elearning Stream does not resolve, download, preview or proxy Google Drive resources.
 
-Configure:
+Historical database values such as `googledrive`, the Moodle component name `mod_videoplayer`, WHMCS table prefixes such as `mod_driveresource_*`, and some upgrade migrations remain only for compatibility with previously installed builds. They are not production provider paths.
 
-- **Elearning Stream connection URL** — normally `https://stream.elearningcloud.io`;
-- **Service ID** — generated/provisioned for the customer service;
-- **Service token** — 64-character service-scoped token;
-- **Gateway timeout** — normally 15 seconds.
+When an old Google-backed activity is edited, Moodle requires migration to Elearning Stream before it can be saved. Runtime access to that retired remote source fails closed.
 
-The internal configuration keys keep their historical names for upgrade compatibility.
+## Upload and playback
 
-
-### Provider lanes
-
-The gateway now separates **video** from **protected object/PDF storage**. Video uses Elearning Stream today. S3-compatible storage is configured independently in the gateway and is intentionally gated until the protected-PDF data-plane adapter is production-ready. This separation allows additional video providers to be added later without changing Moodle Service IDs or tokens.
-
-## Security model
-
-Every managed request is bound to the provisioned service. The gateway validates service status, site identity, HMAC signatures, timestamps and replay nonces before authorizing media operations.
-
-The learner receives Moodle-owned protected URLs. Provider API keys and playback signing keys stay in the gateway.
-
-Gateway 0.5.7 performs a one-byte server-side Range probe of each newly signed MP4 playback URL and now requires a real `206 Partial Content` response with `Content-Range`. A CDN that only returns `200 OK` is rejected because playback may start but seeking is not production-safe.
-
-RC11 preserves the learner's requested seek position across signed-URL refresh/recovery, commits on touch `pointerup/change`, and refuses to silently fall back to second 0 after a failed seek. The learner video view is also simplified: resource-type, protection and percentage chips are no longer rendered above the player.
-
-RC12 redesigns the teacher upload experience as a responsive upload card with drag-and-drop, selected-file summary, upload progress in percent and transferred bytes, storage/quota feedback, explicit retry/error/completion states, and mobile-first actions. The secure TUS data plane and WHMCS credential boundary are unchanged.
-
-## Video upload and playback
-
-Upload flow:
+Upload:
 
 ```text
 Teacher browser
-  -> Moodle capability/session validation
+  -> Moodle login/capability validation
   -> Elearning Stream Gateway
-  -> quota + service validation
+  -> account + installation + wallet/quota checks
+  -> provider asset reservation
   <- short-lived upload authorization
 Teacher browser
-  -> provider upload endpoint directly
+  -> provider TUS upload directly
 ```
 
-Playback flow:
+Playback:
 
 ```text
 Learner
   -> Moodle protected.php
-  -> Elearning Stream Gateway authorization
-  -> short-lived provider playback URL
-  -> Moodle range proxy
-  -> HTML5 video player
+  -> course/module/capability validation
+  -> Elearning Stream Gateway
+  -> account + installation + asset-reference validation
+  <- short-lived provider playback URL (server-side only)
+  -> Moodle Range proxy
+  -> learner HTML5 player
 ```
 
-Moodle meters protected transfer per service and reports idempotent usage batches to the gateway.
+## Multiple Moodle installations
 
-## Provider architecture
+Each Moodle installation has its own exact HTTPS site binding and token. A secondary token is displayed once when it is created or rotated and is stored only as a hash in the gateway database.
 
-Managed-video lifecycle transitions are coordinated by `classes/local/provider/bunny_asset_lifecycle.php`. Moodle callbacks persist local state first, then the lifecycle service queues idempotent WHMCS bind, release or rename tasks. Provider credentials and destructive provider calls remain outside Moodle.
+FREE permits one active Moodle installation by default. PAYG permits unlimited installations by default while maintaining one consolidated balance and usage ledger.
 
-WHMCS Gateway 0.5.7 additionally serializes bind/restore/release transitions on the provider upload row and stores references per activity+video. This prevents a replacement bind from erasing the old reference before its release task runs and prevents deletion from racing a concurrent rebind.
+## Provider lanes
 
-If an activity is deleted before its first bind task executes, Moodle forwards the original upload reservation id with the release task. WHMCS accepts that fallback only when the reservation belongs to the same service/video and has never been bound to another activity.
+The control plane separates:
 
-The WHMCS companion 0.5.0 separates:
+- **managed video** — Elearning Stream today;
+- **protected objects/documents** — independent S3-compatible lane reserved for the future document/PDF implementation.
 
-- **video provider** — Elearning Stream today, extensible to additional managed-video providers;
-- **protected PDF/object provider** — an independent S3-compatible provider lane.
-
-The S3 control-plane/profile configuration is present in 0.5.0, but the protected-PDF S3 data plane remains gated until its upload, signed-delivery and lifecycle adapter is complete. It is not presented to teachers as a production source yet.
+The S3 control plane must remain disabled in Moodle until its upload, delivery, lifecycle, accounting and security adapters pass production validation.
 
 ## Installation
 
-Install the ZIP so Moodle contains:
+Install the Moodle package at:
 
 ```text
 <moodle>/mod/videoplayer
 ```
 
-Then run Moodle's normal plugin upgrade and purge caches.
+Deploy the WHMCS companion from:
 
-The WHMCS companion is deployed separately from `integrations/whmcs/`; it is intentionally excluded from the Moodle ZIP.
+```text
+integrations/whmcs/modules/addons/driveresource_gateway/
+integrations/whmcs/modules/servers/driveresource/
+```
 
-## CI and hardening
+The internal directory/module identifiers are compatibility names and are not customer-facing branding.
 
-The repository validates Moodle 4.5 across PHP 8.1, 8.2 and 8.3 with MariaDB and PostgreSQL, plus dedicated gateway/security/package gates.
+## Release gate
 
-The `mod_videoplayer` component name, database tables and internal compatibility identifiers should not be renamed without a formal Moodle migration.
+Before production:
+
+- Moodle CI must pass on the supported PHP/database matrix;
+- the WHMCS integration/security gate must pass;
+- direct upload, seek, Range/206, rename, replace and delete must be tested end-to-end;
+- wallet recharge must be tested with paid, refunded and unpaid invoices;
+- FREE/PAYG limits must be tested with multiple Moodle installations;
+- no provider management key or signed provider URL may appear in browser HTML or JavaScript;
+- no Google host may be accepted by the Moodle upstream proxy.
 
 ## License
 
 GNU GPL v3 or later for the Moodle plugin. Companion-module licensing is declared in the WHMCS integration source.
-
-### Gateway upload authorization integrity
-
-Direct TUS upload capabilities returned by the control plane are revalidated inside Moodle before they reach the teacher browser. Drive Resource requires the exact HTTPS Bunny upload host/path, standard TLS port, bounded expiration, strict identifiers and signature format. Refreshed capabilities must preserve the upload reservation and video identity originally requested by Moodle.
-
-
-Gateway 0.5.8 separates the original upload filename from the customer-facing video title. Moodle renames are reflected immediately in Bunny and in the WHMCS client portal, with daily provider reconciliation for legacy/stale rows.
