@@ -34,7 +34,7 @@ Gateway 0.6.0 owns:
 - PAYG transfer: US$0.12/GB above free;
 - PAYG Moodles: unlimited by default.
 
-A WHMCS service is one commercial account. Multiple Moodle installations share that account's wallet and aggregate usage. Only the WHMCS `CreateAccount` path may verify the paid activation and issue the one-time US$1 wallet credit; connection repair and token rotation cannot issue it.
+A WHMCS service is one commercial account. Multiple Moodle installations share that account's wallet and aggregate usage. `CreateAccount` may activate only after the linked order invoice is Paid and contains the exact Hosting service line. The invoice id and activation settlement version are persisted; connection repair and token rotation cannot issue activation credit.
 
 ## Recharge billing
 
