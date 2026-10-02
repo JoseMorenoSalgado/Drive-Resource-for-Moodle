@@ -39,6 +39,7 @@ final class GatewayMaintenance
         $this->syncServicePoliciesFromProducts();
         $this->expireAbandonedUploads();
         $this->syncProviderStorage();
+        $this->settleDailyStorageUsage();
         $this->deleteExpiredOrphans();
         $this->purgeNonces();
         $this->purgeUsageReports();
@@ -252,6 +253,198 @@ final class GatewayMaintenance
         foreach (array_keys($affected) as $serviceId) {
             $this->recalculateServiceUsage((int) $serviceId);
         }
+    }
+
+    /**
+     * Snapshot and charge PAYG storage once per UTC day.
+     *
+     * Storage pricing is configured as USD/GB-month. The current provider
+     * storage snapshot is prorated by the number of days in the current UTC
+     * month. A deterministic ledger key makes the charge retry-safe.
+     *
+     * FREE accounts are never charged for storage, but provider growth beyond
+     * the free allowance (for example after transcoding) restricts new uploads.
+     *
+     * @return void
+     */
+    private function settleDailyStorageUsage(): void
+    {
+        $schema = Capsule::schema();
+        foreach ([
+            'mod_driveresource_accounts',
+            'mod_driveresource_services',
+            'mod_driveresource_usage_daily',
+            'mod_driveresource_wallet_ledger',
+        ] as $table) {
+            if (!$schema->hasTable($table)) {
+                return;
+            }
+        }
+
+        $usageDate = gmdate('Y-m-d');
+        $daysInMonth = max(28, (int) gmdate('t'));
+        $rows = Capsule::table('mod_driveresource_accounts as a')
+            ->join('mod_driveresource_services as s', 's.service_id', '=', 'a.service_id')
+            ->where('a.activation_verified', true)
+            ->whereIn('a.billing_mode', [
+                CommercialAccount::MODE_FREE,
+                CommercialAccount::MODE_PAYG,
+            ])
+            ->where('s.status', 'active')
+            ->select([
+                'a.service_id',
+                'a.billing_mode',
+                'a.free_storage_bytes',
+                'a.storage_rate_microusd_per_gb',
+                's.used_bytes',
+            ])
+            ->limit(1000)
+            ->get();
+
+        foreach ($rows as $row) {
+            $serviceId = (int) $row->service_id;
+            $storageBytes = max(0, (int) $row->used_bytes);
+            $freeBytes = max(0, (int) $row->free_storage_bytes);
+            $billableBytes = max(0, $storageBytes - $freeBytes);
+            $mode = (string) $row->billing_mode;
+            $rate = max(0, (int) $row->storage_rate_microusd_per_gb);
+            $charge = $mode === CommercialAccount::MODE_PAYG
+                ? $this->dailyStorageChargeMicrousd($billableBytes, $rate, $daysInMonth)
+                : 0;
+            $ledgerKey = hash('sha256', 'storage|' . $serviceId . '|' . $usageDate);
+            $now = time();
+
+            Capsule::connection()->transaction(function () use (
+                $serviceId,
+                $storageBytes,
+                $billableBytes,
+                $mode,
+                $charge,
+                $ledgerKey,
+                $usageDate,
+                $now
+            ): void {
+                $daily = Capsule::table('mod_driveresource_usage_daily')
+                    ->where('service_id', $serviceId)
+                    ->where('usage_date', $usageDate)
+                    ->lockForUpdate()
+                    ->first();
+
+                $storageChargeAlreadyRecorded = Capsule::table('mod_driveresource_wallet_ledger')
+                    ->where('idempotency_key', $ledgerKey)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (
+                    $mode === CommercialAccount::MODE_PAYG
+                    && $charge > 0
+                    && !$storageChargeAlreadyRecorded
+                ) {
+                    $account = Capsule::table('mod_driveresource_accounts')
+                        ->where('service_id', $serviceId)
+                        ->lockForUpdate()
+                        ->first();
+                    if (!$account) {
+                        return;
+                    }
+
+                    $balance = max(0, (int) $account->balance_microusd);
+                    $debited = min($balance, $charge);
+                    $nextBalance = $balance - $debited;
+                    $nextStatus = $nextBalance > 0
+                        ? (string) $account->status
+                        : CommercialAccount::STATUS_UPLOAD_RESTRICTED;
+
+                    Capsule::table('mod_driveresource_accounts')
+                        ->where('service_id', $serviceId)
+                        ->update([
+                            'balance_microusd' => $nextBalance,
+                            'status' => $nextStatus,
+                            'updated_at' => $now,
+                        ]);
+
+                    Capsule::table('mod_driveresource_wallet_ledger')->insert([
+                        'service_id' => $serviceId,
+                        'entry_type' => 'storage_debit',
+                        'amount_microusd' => -$debited,
+                        'balance_after_microusd' => $nextBalance,
+                        'currency' => 'USD',
+                        'idempotency_key' => $ledgerKey,
+                        'external_ref' => null,
+                        'metadata_json' => json_encode([
+                            'usage_date' => $usageDate,
+                            'billable_bytes' => $billableBytes,
+                            'calculated_charge_microusd' => $charge,
+                            'uncovered_microusd' => max(0, $charge - $debited),
+                        ], JSON_UNESCAPED_SLASHES),
+                        'created_at' => $now,
+                    ]);
+                } else if (
+                    $mode === CommercialAccount::MODE_FREE
+                    && $billableBytes > 0
+                ) {
+                    Capsule::table('mod_driveresource_accounts')
+                        ->where('service_id', $serviceId)
+                        ->update([
+                            'status' => CommercialAccount::STATUS_UPLOAD_RESTRICTED,
+                            'updated_at' => $now,
+                        ]);
+                }
+
+                if ($daily) {
+                    $nextCharge = (int) $daily->charge_microusd;
+                    if (!$storageChargeAlreadyRecorded) {
+                        $nextCharge += $charge;
+                    }
+
+                    Capsule::table('mod_driveresource_usage_daily')
+                        ->where('id', (int) $daily->id)
+                        ->update([
+                            'storage_bytes' => $storageBytes,
+                            'billable_storage_bytes' => $billableBytes,
+                            'charge_microusd' => $nextCharge,
+                            'updated_at' => $now,
+                        ]);
+                } else {
+                    Capsule::table('mod_driveresource_usage_daily')->insert([
+                        'service_id' => $serviceId,
+                        'usage_date' => $usageDate,
+                        'storage_bytes' => $storageBytes,
+                        'transfer_bytes' => 0,
+                        'billable_storage_bytes' => $billableBytes,
+                        'billable_transfer_bytes' => 0,
+                        'charge_microusd' => $charge,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                }
+            });
+        }
+    }
+
+    /**
+     * Calculate one day's prorated storage charge without floating-point money.
+     *
+     * @param int $bytes Billable storage bytes.
+     * @param int $rateMicrousdPerGb Monthly price per decimal GB in micro-USD.
+     * @param int $daysInMonth UTC month length.
+     * @return int
+     */
+    private function dailyStorageChargeMicrousd(
+        int $bytes,
+        int $rateMicrousdPerGb,
+        int $daysInMonth
+    ): int {
+        if ($bytes <= 0 || $rateMicrousdPerGb <= 0) {
+            return 0;
+        }
+
+        $wholeGb = intdiv($bytes, 1000000000);
+        $remainder = $bytes % 1000000000;
+        $monthly = ($wholeGb * $rateMicrousdPerGb)
+            + intdiv(($remainder * $rateMicrousdPerGb) + 999999999, 1000000000);
+
+        return intdiv($monthly + $daysInMonth - 1, $daysInMonth);
     }
 
     /**
