@@ -61,7 +61,7 @@ final class protected_resource_service {
             protected_stream::send_stored_pdf($file, $resource->filename());
         }
 
-        if ($resource->is_bunny_stream()) {
+        if ($resource->is_managed_video()) {
             $videoid = $resource->provider_asset_id();
             if ($videoid === null) {
                 throw new \moodle_exception('protectedresourceunavailable', 'mod_videoplayer');
