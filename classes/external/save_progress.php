@@ -18,7 +18,6 @@ namespace mod_videoplayer\external;
 
 use core_external\external_api;
 use core_external\external_function_parameters;
-use core_external\external_multiple_structure;
 use core_external\external_single_structure;
 use core_external\external_value;
 use mod_videoplayer\local\access\activity_context;
@@ -26,7 +25,7 @@ use mod_videoplayer\local\plugin_config;
 use mod_videoplayer\local\progress\progress_service;
 
 /**
- * External API for saving Drive Resource progress.
+ * External API for saving Elearning Stream progress.
  *
  * @package    mod_videoplayer
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
@@ -133,12 +132,6 @@ final class save_progress extends external_api {
             'lastposition' => new external_value(PARAM_FLOAT, 'Saved media position'),
             'duration' => new external_value(PARAM_FLOAT, 'Saved media duration'),
             'watchedranges' => new external_value(PARAM_RAW, 'Canonical watched media ranges JSON'),
-            'points' => new external_value(PARAM_INT, 'Total points'),
-            'rewards' => new external_multiple_structure(new external_single_structure([
-                'key' => new external_value(PARAM_ALPHANUMEXT, 'Reward key'),
-                'label' => new external_value(PARAM_TEXT, 'Reward label'),
-                'points' => new external_value(PARAM_INT, 'Awarded points'),
-            ])),
             'timemodified' => new external_value(PARAM_INT, 'Last modification timestamp'),
         ]);
     }
