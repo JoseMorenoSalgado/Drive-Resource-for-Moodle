@@ -41,7 +41,7 @@ function driveresource_gateway_credit_paid_recharge(int $invoiceId): void
     \WHMCS\Database\Capsule::connection()->transaction(static function () use ($invoiceId): void {
         $order = \WHMCS\Database\Capsule::table('mod_driveresource_wallet_orders')
             ->where('invoice_id', $invoiceId)
-            ->where('status', 'pending')
+            ->whereIn('status', ['pending', 'reversed'])
             ->lockForUpdate()
             ->first();
         if (!$order) {
@@ -85,27 +85,41 @@ function driveresource_gateway_credit_paid_recharge(int $invoiceId): void
             );
         }
 
+        $settlementVersion = \WHMCS\Module\Addon\DriveresourceGateway\CommercialPolicy::nextRechargeSettlementVersion(
+            (string) $order->status,
+            (int) ($order->settlement_version ?? 0)
+        );
+        if ($settlementVersion === null) {
+            return;
+        }
+
         $wallet = new \WHMCS\Module\Addon\DriveresourceGateway\WalletService();
         $wallet->credit(
             (int) $order->service_id,
             (int) $order->amount_microusd,
             'recharge',
-            hash('sha256', 'wallet-credit|' . (int) $order->id . '|' . $invoiceId),
+            hash(
+                'sha256',
+                'wallet-credit|' . (int) $order->id . '|' . $invoiceId . '|v' . $settlementVersion
+            ),
             'invoice:' . $invoiceId,
             [
                 'wallet_order_id' => (int) $order->id,
                 'invoice_id' => $invoiceId,
                 'invoice_currency' => $invoiceCurrency,
                 'invoice_amount_microunits' => $actualInvoiceAmount,
+                'settlement_version' => $settlementVersion,
             ]
         );
 
         \WHMCS\Database\Capsule::table('mod_driveresource_wallet_orders')
             ->where('id', (int) $order->id)
-            ->where('status', 'pending')
+            ->whereIn('status', ['pending', 'reversed'])
             ->update([
                 'status' => 'paid',
+                'settlement_version' => $settlementVersion,
                 'paid_at' => time(),
+                'refunded_at' => null,
                 'updated_at' => time(),
             ]);
     });
@@ -151,16 +165,28 @@ function driveresource_gateway_reverse_recharge(int $invoiceId, string $reason):
         require_once __DIR__ . '/lib/CommercialPolicy.php';
         require_once __DIR__ . '/lib/WalletService.php';
 
+        $settlementVersion = \WHMCS\Module\Addon\DriveresourceGateway\CommercialPolicy::rechargeReversalVersion(
+            (string) $order->status,
+            (int) ($order->settlement_version ?? 0)
+        );
+        if ($settlementVersion === null) {
+            return;
+        }
+
         $wallet = new \WHMCS\Module\Addon\DriveresourceGateway\WalletService();
         $wallet->debit(
             (int) $order->service_id,
             (int) $order->amount_microusd,
             'refund',
-            hash('sha256', 'wallet-reversal|' . (int) $order->id),
+            hash(
+                'sha256',
+                'wallet-reversal|' . (int) $order->id . '|v' . $settlementVersion
+            ),
             [
                 'wallet_order_id' => (int) $order->id,
                 'invoice_id' => $invoiceId,
                 'reason' => $reason,
+                'settlement_version' => $settlementVersion,
             ]
         );
 
