@@ -155,6 +155,16 @@ require(
     "Recharge orders must freeze the exact invoice amount for later payment validation.",
 )
 require(
+    addon,
+    "settlement_version",
+    "Recharge orders must persist the settlement cycle version.",
+)
+require(
+    server,
+    "'settlement_version' => 0",
+    "New recharge orders must start before their first payment settlement.",
+)
+require(
     server,
     "Currency::convertBetween",
     "Wallet recharge invoices must convert USD wallet value into the client's WHMCS currency.",
@@ -202,9 +212,16 @@ debit_account_lock = wallet.index("mod_driveresource_accounts", debit_start)
 debit_ledger_lookup = wallet.index("mod_driveresource_wallet_ledger", debit_start)
 if debit_account_lock > debit_ledger_lookup:
     raise SystemExit("Wallet debit must lock the account before checking the idempotency ledger.")
-require(hooks, "->where('status', 'pending')", "InvoicePaid must only credit pending recharge orders.")
-require(hooks, "hash('sha256', 'wallet-credit|'", "Recharge credit key must be deterministic.")
-require(hooks, "hash('sha256', 'wallet-reversal|'", "Recharge reversal key must be deterministic.")
+require(
+    hooks,
+    "->whereIn('status', ['pending', 'reversed'])",
+    "InvoicePaid must accept only a first settlement or a previously reversed Unpaid settlement.",
+)
+require(hooks, "nextRechargeSettlementVersion", "InvoicePaid must version each wallet settlement cycle.")
+require(hooks, "rechargeReversalVersion", "Refund/unpaid must reverse the current settlement version.")
+require(hooks, "'wallet-credit|'", "Recharge credit key must be deterministic.")
+require(hooks, "'wallet-reversal|'", "Recharge reversal key must be deterministic.")
+require(hooks, "'|v' . $settlementVersion", "Wallet settlement idempotency keys must include their cycle version.")
 require(hooks, "add_hook('InvoicePaid'", "InvoicePaid wallet hook is missing.")
 require(hooks, "add_hook('InvoiceRefunded'", "InvoiceRefunded wallet hook is missing.")
 require(hooks, "add_hook('InvoiceUnpaid'", "InvoiceUnpaid wallet hook is missing.")
@@ -254,6 +271,8 @@ for needle, message in (
     ("afterCredit", "Commercial credit transition is missing."),
     ("afterDebit", "Commercial debit transition is missing."),
     ("afterRechargeReversal", "Recharge reversal transition is missing."),
+    ("nextRechargeSettlementVersion", "Recharge payment cycle transition is missing."),
+    ("rechargeReversalVersion", "Recharge reversal cycle transition is missing."),
 ):
     require(policy, needle, message)
 require(money, "decimalToMicrounits", "Exact invoice decimal parsing is missing.")
