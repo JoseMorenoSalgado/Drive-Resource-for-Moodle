@@ -1599,6 +1599,69 @@ function driveresource_require_gateway(): void
             );
         }
     }
+    $commercialcolumns = [
+        'mod_driveresource_accounts' => [
+            'service_id',
+            'billing_mode',
+            'activation_verified',
+            'balance_microusd',
+            'free_storage_bytes',
+            'free_transfer_bytes',
+            'minimum_recharge_microusd',
+            'free_installation_limit',
+            'paid_installation_limit',
+            'status',
+        ],
+        'mod_driveresource_installations' => [
+            'id',
+            'service_id',
+            'site_url',
+            'site_hash',
+            'token_hash',
+            'status',
+            'is_primary',
+        ],
+        'mod_driveresource_wallet_ledger' => [
+            'service_id',
+            'amount_microusd',
+            'balance_after_microusd',
+            'idempotency_key',
+        ],
+        'mod_driveresource_wallet_orders' => [
+            'service_id',
+            'client_id',
+            'invoice_id',
+            'amount_microusd',
+            'status',
+        ],
+        'mod_driveresource_usage_daily' => [
+            'service_id',
+            'usage_date',
+            'storage_bytes',
+            'transfer_bytes',
+            'charge_microusd',
+        ],
+    ];
+    foreach ($commercialcolumns as $table => $columns) {
+        foreach ($columns as $column) {
+            if (!$schema->hasColumn($table, $column)) {
+                throw new RuntimeException(
+                    'Elearning Stream Gateway 0.6.0 commercial schema is incomplete: '
+                        . $table . '.' . $column
+                );
+            }
+        }
+    }
+    if (!$schema->hasColumn('mod_driveresource_uploads', 'installation_id')) {
+        throw new RuntimeException(
+            'Elearning Stream Gateway 0.6.0 upload installation binding is missing.'
+        );
+    }
+    if (!$schema->hasColumn('mod_driveresource_usage_reports', 'installation_id')) {
+        throw new RuntimeException(
+            'Elearning Stream Gateway 0.6.0 usage installation binding is missing.'
+        );
+    }
     if (
         !$schema->hasTable('mod_driveresource_uploads')
         || !$schema->hasColumn('mod_driveresource_uploads', 'display_name')
