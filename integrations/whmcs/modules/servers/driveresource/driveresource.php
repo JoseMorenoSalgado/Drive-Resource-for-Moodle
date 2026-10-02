@@ -1466,9 +1466,15 @@ function driveresource_ensure_commercial_account(
             ]);
     }
 
-    if ($newService && (int) $account->balance_microusd === 0) {
+    if (
+        (bool) $account->activation_verified
+        && (string) $account->billing_mode !== 'legacy'
+    ) {
         $activationCredit = $config::activationCreditMicrousd();
         if ($activationCredit > 0) {
+            // Always attempt the deterministic activation ledger entry. This
+            // makes provisioning recoverable if WHMCS retries after a partial
+            // failure between account creation and wallet credit.
             $wallet = new $walletClass();
             $wallet->credit(
                 $serviceId,
@@ -1476,7 +1482,7 @@ function driveresource_ensure_commercial_account(
                 'activation',
                 'activation:' . $serviceId,
                 'whmcs-service:' . $serviceId,
-                ['source' => 'create_account']
+                ['source' => $newService ? 'create_account' : 'provision_repair']
             );
         }
     }
