@@ -30,11 +30,11 @@ final class RequestAuthenticator
             throw new GatewayException('Invalid JSON request body.', 400);
         }
 
-        $serviceId = (int) $this->header('X-Drive-Resource-Service');
-        $timestamp = (int) $this->header('X-Drive-Resource-Timestamp');
-        $nonce = strtolower($this->header('X-Drive-Resource-Nonce'));
-        $signature = strtolower($this->header('X-Drive-Resource-Signature'));
-        $site = $this->canonicalSite($this->header('X-Drive-Resource-Site'));
+        $serviceId = (int) $this->gatewayHeader('Service');
+        $timestamp = (int) $this->gatewayHeader('Timestamp');
+        $nonce = strtolower($this->gatewayHeader('Nonce'));
+        $signature = strtolower($this->gatewayHeader('Signature'));
+        $site = $this->canonicalSite($this->gatewayHeader('Site'));
 
         if ($serviceId <= 0
             || !preg_match('/^[a-f0-9]{32}$/', $nonce)
@@ -45,7 +45,7 @@ final class RequestAuthenticator
         // Prefer the dedicated token header. Apache/FastCGI and some reverse
         // proxy configurations can remove Authorization before PHP receives
         // it. Keep Bearer as a backward-compatible fallback.
-        $token = strtolower(trim($this->header('X-Drive-Resource-Token')));
+        $token = strtolower(trim($this->gatewayHeader('Token')));
         if (!preg_match('/^[a-f0-9]{64}$/', $token)) {
             $authorization = $this->header('Authorization');
             if (!preg_match('/^Bearer\s+([a-f0-9]{64})$/i', $authorization, $tokenMatch)) {
@@ -69,7 +69,7 @@ final class RequestAuthenticator
             ->where('service_id', $serviceId)
             ->first();
         if (!$service) {
-            throw new GatewayException('Drive Resource service was not found.', 404);
+            throw new GatewayException('Elearning Stream service was not found.', 404);
         }
 
         if ((string) $service->status !== 'active') {
@@ -201,6 +201,25 @@ final class RequestAuthenticator
             'payload' => $payload,
             'siteurl' => $site,
         ];
+    }
+
+    /**
+     * Read the current branded gateway header with a temporary legacy fallback.
+     *
+     * Older installed Moodle builds may still send X-Drive-Resource-* while
+     * they are being upgraded. New builds send X-Elearning-Stream-* only.
+     *
+     * @param string $suffix Stable authentication header suffix.
+     * @return string
+     */
+    private function gatewayHeader(string $suffix): string
+    {
+        $current = $this->header('X-Elearning-Stream-' . $suffix);
+        if ($current !== '') {
+            return $current;
+        }
+
+        return $this->header('X-Drive-Resource-' . $suffix);
     }
 
     /**
