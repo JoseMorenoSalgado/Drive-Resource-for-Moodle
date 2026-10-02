@@ -17,7 +17,8 @@
 - Rejects gateway authentication, upload and playback for non-legacy accounts whose activation has not been verified.
 - Carries insufficient PAYG storage/transfer charges as negative wallet debt instead of silently dropping uncovered provider cost.
 - Adds 0.6 migration postcondition checks for commercial tables, critical columns, installation attribution and service-to-account backfill.
-- Replaces active Moodle runtime use of the historical `drive` helper with provider-neutral `resource_compatibility`; the old class remains only as a deprecated compatibility shim.
+- Makes the 0.6 commercial migration self-repairing and idempotent on every upgrade invocation, and fails closed if a provisioned legacy service is missing its primary Moodle installation or receives fabricated activation credit.
+- Removes the historical `classes/local/drive.php` compatibility shim entirely; provider-neutral persisted compatibility now lives only in `resource_compatibility`, with the `googledrive` database key isolated strictly as migration metadata.
 - Removes obsolete provider-named language keys and historical provider branding from active Moodle comments/UI internals while retaining only persisted upgrade identifiers.
 - Adds a commercial wallet CI contract gate covering activation, FREE/PAYG boundaries, invoice idempotency, migration behavior and debt preservation.
 - Prevents duplicate billing by suppressing legacy WHMCS Usage Billing metrics for FREE/PAYG wallet accounts while retaining them for migration-only legacy tenants.
