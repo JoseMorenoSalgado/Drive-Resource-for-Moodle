@@ -25,7 +25,7 @@
 require(__DIR__ . '/../../config.php');
 require_once(__DIR__ . '/lib.php');
 
-use mod_videoplayer\local\drive;
+use mod_videoplayer\local\resource_compatibility;
 
 $id = required_param('id', PARAM_INT);
 
@@ -85,7 +85,7 @@ foreach ($cms as $cm) {
         continue;
     }
 
-    $type = drive::resolve_record_type($instance);
+    $type = resource_compatibility::resolve_record_type($instance);
     $typestring = get_string_manager()->string_exists('type' . $type, 'mod_videoplayer')
         ? get_string('type' . $type, 'mod_videoplayer')
         : get_string('typefile', 'mod_videoplayer');
