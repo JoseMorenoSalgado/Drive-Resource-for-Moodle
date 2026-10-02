@@ -2,7 +2,7 @@
 
 ## Supported platform
 
-For **Elearning Stream 1.3.0-rc3-m45**:
+For **Elearning Stream 1.3.0-rc4-m45**:
 
 - Moodle 4.5 LTS;
 - PHP 8.1+;
@@ -18,6 +18,12 @@ The Moodle component directory remains:
 ```
 
 This is a compatibility identifier, not the product name.
+
+## Moodle rc4 cleanup upgrade
+
+Build `2026100203` removes prototype fields and gamification data structures which were not part of the production Elearning Stream feature set. The upgrade is idempotent and preserves managed-video ownership, local PDF files, learner progress/completion, transfer accounting and provider lifecycle data.
+
+Before upgrading production, take the normal Moodle database and `moodledata` backups and validate the upgrade on staging. Older backup files remain restorable: the restore path discards retired fields instead of recreating them.
 
 ## WHMCS companion
 
