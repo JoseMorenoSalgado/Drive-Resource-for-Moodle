@@ -34,7 +34,7 @@ Gateway 0.6.0 owns:
 - PAYG transfer: US$0.12/GB above free;
 - PAYG Moodles: unlimited by default.
 
-A WHMCS service is one commercial account. Multiple Moodle installations share that account's wallet and aggregate usage.
+A WHMCS service is one commercial account. Multiple Moodle installations share that account's wallet and aggregate usage. Only the WHMCS `CreateAccount` path may verify the paid activation and issue the one-time US$1 wallet credit; connection repair and token rotation cannot issue it.
 
 ## Recharge billing
 
@@ -46,7 +46,7 @@ This design works with PayPal and other WHMCS payment gateways without storing g
 
 For FREE/PAYG accounts, the module's historical WHMCS Usage Billing metrics deliberately report zero billable usage. The prepaid wallet is the billing authority, preventing an upgraded product with old Usage Billing pricing from charging the same storage/transfer twice. Legacy accounts continue exposing their historical usage metrics until intentionally migrated.
 
-If a paid wallet recharge is later refunded after some credit was consumed, the reversal may leave a negative wallet balance. That debt is carried forward; later recharges must cover it before paid overage becomes available again.
+If a paid wallet recharge is later refunded after some credit was consumed, or if PAYG provider usage exceeds the remaining prepaid balance, the wallet may become negative. That debt is carried forward; later recharges must cover it before paid overage becomes available again.
 
 ## Credential boundary
 
@@ -73,7 +73,7 @@ The protected object-storage lane remains independent and is not production-enab
 
 ## Existing services
 
-Gateway 0.6.0 backfills existing services into `legacy` commercial mode and creates their primary Moodle installation from the existing site/token binding. It does not reset current quota, wallet state or media ownership.
+Gateway 0.6.0 backfills existing services into `legacy` commercial mode and creates their primary Moodle installation from the existing site/token binding. It does not reset current quota, wallet state or media ownership. Migration postconditions verify all critical commercial columns, installation attribution and one account row per existing service before the gateway is considered usable.
 
 ## No Google Drive dependency
 
