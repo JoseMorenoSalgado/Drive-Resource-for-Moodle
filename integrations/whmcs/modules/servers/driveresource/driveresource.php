@@ -236,6 +236,20 @@ function driveresource_UpdateMoodleUrl(array $params): string
                     'connection_message' => 'connection_pending',
                     'updated_at' => $now,
                 ]);
+
+            if (Capsule::schema()->hasTable('mod_driveresource_installations')) {
+                Capsule::table('mod_driveresource_installations')
+                    ->where('service_id', $serviceId)
+                    ->where('is_primary', true)
+                    ->update([
+                        'site_url' => $url,
+                        'site_hash' => hash('sha256', $url),
+                        'connection_status' => 'pending',
+                        'connection_checked_at' => null,
+                        'connection_message' => 'connection_pending',
+                        'updated_at' => $now,
+                    ]);
+            }
         });
 
         if (isset($params['model'])) {
@@ -294,6 +308,18 @@ function driveresource_ValidateMoodleConnection(array $params): string
                 'connection_message' => mb_substr((string) $result['message'], 0, 255),
                 'updated_at' => time(),
             ]);
+
+        if (Capsule::schema()->hasTable('mod_driveresource_installations')) {
+            Capsule::table('mod_driveresource_installations')
+                ->where('service_id', $serviceId)
+                ->where('is_primary', true)
+                ->update([
+                    'connection_status' => $result['connected'] ? 'connected' : 'failed',
+                    'connection_checked_at' => time(),
+                    'connection_message' => mb_substr((string) $result['message'], 0, 255),
+                    'updated_at' => time(),
+                ]);
+        }
 
         driveresource_audit($serviceId, 'moodle_connection_validated', [
             'connected' => (bool) $result['connected'],
@@ -545,6 +571,14 @@ function driveresource_provision_moodle_connection(array $params, bool $forcerot
             $values
         );
 
+        driveresource_ensure_commercial_account(
+            $params,
+            $serviceId,
+            $siteUrl,
+            $token,
+            !$existing
+        );
+
         if (!isset($params['model'])) {
             throw new RuntimeException('WHMCS service model is unavailable.');
         }
@@ -737,6 +771,19 @@ function driveresource_ChangePassword(array $params): string
                 'connection_message' => 'connection_pending',
                 'updated_at' => time(),
             ]);
+
+        if (Capsule::schema()->hasTable('mod_driveresource_installations')) {
+            Capsule::table('mod_driveresource_installations')
+                ->where('service_id', $serviceId)
+                ->where('is_primary', true)
+                ->update([
+                    'token_hash' => hash('sha256', $token),
+                    'connection_status' => 'pending',
+                    'connection_checked_at' => null,
+                    'connection_message' => 'connection_pending',
+                    'updated_at' => time(),
+                ]);
+        }
 
         driveresource_audit($serviceId, 'moodle_token_rotated', [
             'source' => 'change_password',
@@ -958,6 +1005,131 @@ function driveresource_sync_service_policy(array $params): void
 }
 
 /**
+ * Create the commercial account and primary Moodle installation exactly once.
+ *
+ * WHMCS invokes CreateAccount after the service activation invoice is paid.
+ * Therefore a newly-created row is considered activation-verified and receives
+ * the configured activation credit. Repairing or rotating an existing service
+ * never resets billing mode, wallet balance, usage or installation limits.
+ *
+ * @param array $params WHMCS module parameters.
+ * @param int $serviceId WHMCS service id.
+ * @param string $siteUrl Canonical primary Moodle URL.
+ * @param string $token Plaintext primary token held by WHMCS only.
+ * @param bool $newService Whether this is the first service provisioning.
+ * @return void
+ */
+function driveresource_ensure_commercial_account(
+    array $params,
+    int $serviceId,
+    string $siteUrl,
+    string $token,
+    bool $newService
+): void {
+    $lib = dirname(__DIR__, 2) . '/addons/driveresource_gateway/lib';
+    require_once $lib . '/Config.php';
+    require_once $lib . '/CommercialAccount.php';
+    require_once $lib . '/WalletService.php';
+
+    $config = '\\WHMCS\\Module\\Addon\\DriveresourceGateway\\Config';
+    $walletClass = '\\WHMCS\\Module\\Addon\\DriveresourceGateway\\WalletService';
+    $now = time();
+    $clientId = 0;
+
+    if (isset($params['clientsdetails']['userid'])) {
+        $clientId = (int) $params['clientsdetails']['userid'];
+    } else if (isset($params['userid'])) {
+        $clientId = (int) $params['userid'];
+    } else {
+        $clientId = (int) (Capsule::table('tblhosting')
+            ->where('id', $serviceId)
+            ->value('userid') ?? 0);
+    }
+
+    $account = Capsule::table('mod_driveresource_accounts')
+        ->where('service_id', $serviceId)
+        ->first();
+
+    if (!$account) {
+        Capsule::table('mod_driveresource_accounts')->insert([
+            'service_id' => $serviceId,
+            'client_id' => $clientId > 0 ? $clientId : null,
+            'billing_mode' => 'free',
+            'activation_verified' => true,
+            'activation_amount_microusd' => $config::activationCreditMicrousd(),
+            'balance_microusd' => 0,
+            'free_storage_bytes' => $config::freeStorageBytes(),
+            'free_transfer_bytes' => $config::freeTransferBytes(),
+            'storage_rate_microusd_per_gb' => $config::storageRateMicrousdPerGb(),
+            'transfer_rate_microusd_per_gb' => $config::transferRateMicrousdPerGb(),
+            'minimum_recharge_microusd' => $config::minimumRechargeMicrousd(),
+            'free_installation_limit' => $config::freeInstallationLimit(),
+            'paid_installation_limit' => $config::paidInstallationLimit(),
+            'status' => 'active',
+            'grace_until' => null,
+            'paid_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $account = Capsule::table('mod_driveresource_accounts')
+            ->where('service_id', $serviceId)
+            ->first();
+    }
+
+    $siteHash = hash('sha256', $siteUrl);
+    $installation = Capsule::table('mod_driveresource_installations')
+        ->where('service_id', $serviceId)
+        ->where('site_hash', $siteHash)
+        ->first();
+
+    if (!$installation) {
+        $primaryExists = Capsule::table('mod_driveresource_installations')
+            ->where('service_id', $serviceId)
+            ->where('is_primary', true)
+            ->exists();
+
+        Capsule::table('mod_driveresource_installations')->insert([
+            'service_id' => $serviceId,
+            'label' => $primaryExists ? 'Moodle' : 'Primary Moodle',
+            'site_url' => $siteUrl,
+            'site_hash' => $siteHash,
+            'token_hash' => hash('sha256', $token),
+            'status' => 'active',
+            'is_primary' => !$primaryExists,
+            'connection_status' => 'pending',
+            'connection_checked_at' => null,
+            'connection_message' => 'connection_pending',
+            'last_seen_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    } else if ((bool) $installation->is_primary) {
+        Capsule::table('mod_driveresource_installations')
+            ->where('id', (int) $installation->id)
+            ->update([
+                'token_hash' => hash('sha256', $token),
+                'status' => 'active',
+                'updated_at' => $now,
+            ]);
+    }
+
+    if ($newService && (int) $account->balance_microusd === 0) {
+        $activationCredit = $config::activationCreditMicrousd();
+        if ($activationCredit > 0) {
+            $wallet = new $walletClass();
+            $wallet->credit(
+                $serviceId,
+                $activationCredit,
+                'activation',
+                'activation:' . $serviceId,
+                'whmcs-service:' . $serviceId,
+                ['source' => 'create_account']
+            );
+        }
+    }
+}
+
+/**
  * Set service status.
  *
  * @param int $serviceId WHMCS service id.
@@ -1027,6 +1199,18 @@ function driveresource_require_gateway(): void
         throw new RuntimeException(
             'Elearning Stream Gateway usage schema is missing.'
         );
+    }
+    foreach ([
+        'mod_driveresource_accounts',
+        'mod_driveresource_installations',
+        'mod_driveresource_wallet_ledger',
+        'mod_driveresource_usage_daily',
+    ] as $table) {
+        if (!$schema->hasTable($table)) {
+            throw new RuntimeException(
+                'Elearning Stream Gateway 0.6.0 commercial schema upgrade is required.'
+            );
+        }
     }
     if (
         !$schema->hasTable('mod_driveresource_uploads')
