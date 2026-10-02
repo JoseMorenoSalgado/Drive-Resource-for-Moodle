@@ -1,6 +1,6 @@
 # Changelog
 
-## Elearning Stream 1.3.0-rc1-m45 + Gateway 0.6.0 — 2026-10-01
+## Elearning Stream 1.3.0-rc2-m45 + Gateway 0.6.0 — 2026-10-02
 
 - Renames the commercial/customer-facing Moodle product to **Elearning Stream** while retaining `mod_videoplayer` only as the Moodle compatibility component.
 - Removes Google Drive from the active runtime: new/editable production activities use Elearning Stream, protected delivery no longer resolves Google URLs, and the upstream proxy no longer accepts Google hosts.
@@ -13,12 +13,18 @@
 - Adds PAYG promotion after a qualifying US$10+ paid recharge, with unlimited Moodle installations by default.
 - Adds prepaid rates of US$0.03/GB-month storage and US$0.12/GB transfer above the included allowances.
 - Adds WHMCS invoice-backed wallet recharges; balance is credited only by `InvoicePaid` and reversed idempotently on refunded/unpaid transitions.
+- Restricts activation verification and the one-time US$1 credit to the WHMCS `CreateAccount` provisioning path; repair and token rotation cannot mint activation credit.
+- Rejects gateway authentication, upload and playback for non-legacy accounts whose activation has not been verified.
+- Carries insufficient PAYG storage/transfer charges as negative wallet debt instead of silently dropping uncovered provider cost.
+- Adds 0.6 migration postcondition checks for commercial tables, critical columns, installation attribution and service-to-account backfill.
+- Replaces active Moodle runtime use of the historical `drive` helper with provider-neutral `resource_compatibility`; the old class remains only as a deprecated compatibility shim.
+- Adds a commercial wallet CI contract gate covering activation, FREE/PAYG boundaries, invoice idempotency, migration behavior and debt preservation.
 - Prevents duplicate billing by suppressing legacy WHMCS Usage Billing metrics for FREE/PAYG wallet accounts while retaining them for migration-only legacy tenants.
 - Preserves negative wallet debt when already-consumed credit is refunded, so future recharges must cover the reversal before paid overage resumes.
 - Adds daily storage settlement and idempotent transfer charging using integer micro-USD accounting.
 - Adds secondary Moodle creation, one-time token display, token rotation and safe revocation.
 - Enforces FREE installation limits during authentication so a refund/downgrade cannot retain excess Moodle access.
-- Bumps Moodle build to `2026100101` and gateway to `0.6.0`.
+- Bumps Moodle build to `2026100201` and gateway remains `0.6.0`.
 
 ## Elearning Stream Gateway 0.5.8 — 2026-09-28
 - Adds a nullable `display_name` column for provider assets while preserving the original source `filename`.
