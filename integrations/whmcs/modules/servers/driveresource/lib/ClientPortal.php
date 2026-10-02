@@ -285,7 +285,6 @@ final class ClientPortal
                         . ' <a class="alert-link" href="viewinvoice.php?id=' . $invoiceId . '">'
                         . $this->e($this->translator->t('open_invoice')) . '</a></div>';
                 }
-                unset($_SESSION['elearning_stream_recharge_invoice']);
             }
 
             $html .= '<div class="panel panel-default dr-panel">';
@@ -309,7 +308,129 @@ final class ClientPortal
             sort($amounts, SORT_NUMERIC);
             foreach ($amounts as $amount) {
                 $formatted = number_format((float) $amount, 2, '.', '');
-                $html .= '<option value="' . $this->e($formatted) . '">US            . '<span class="text-muted"> · '
+                $displayAmount = $this->formatMoney((int) round(((float) $amount) * 1000000));
+                $html .= '<option value="' . $this->e($formatted) . '">'
+                    . $this->e($displayAmount) . '</option>';
+            }
+            $html .= '</select><span class="input-group-btn"><button type="submit" class="btn btn-primary">'
+                . $this->e($this->translator->t('recharge')) . '</button></span></div>';
+            $html .= '</form></div></div>';
+            $html .= '</div></div>';
+        }
+
+        $secret = $_SESSION['elearning_stream_installation_secret'] ?? null;
+        if (
+            is_array($secret)
+            && (int) ($secret['service_id'] ?? 0) === $serviceId
+            && time() - (int) ($secret['created_at'] ?? 0) <= 600
+        ) {
+            $secretId = 'dr-installation-token-' . (int) ($secret['installation_id'] ?? 0);
+            $html .= '<div class="alert alert-warning dr-secret">';
+            $html .= '<strong>' . $this->e($this->translator->t('installation_secret_title')) . '</strong>';
+            $html .= '<p>' . $this->e($this->translator->t('installation_secret_help')) . '</p>';
+            $html .= '<div class="form-group"><label>'
+                . $this->e($this->translator->t('installation_url'))
+                . '</label><input class="form-control" readonly value="'
+                . $this->e((string) ($secret['site_url'] ?? '')) . '"></div>';
+            $html .= '<div class="form-group"><label>'
+                . $this->e($this->translator->t('service_token'))
+                . '</label><div class="input-group"><input id="' . $this->e($secretId)
+                . '" class="form-control" type="text" readonly value="'
+                . $this->e((string) ($secret['token'] ?? '')) . '">';
+            $html .= '<span class="input-group-btn"><button type="button" class="btn btn-default" '
+                . 'onclick="drCopyField(&quot;' . $this->e($secretId) . '&quot;)">'
+                . $this->e($this->translator->t('copy')) . '</button></span></div></div></div>';
+        }
+
+        if ($account) {
+            $html .= '<div class="panel panel-default dr-panel">';
+            $html .= '<div class="panel-heading"><strong>'
+                . $this->e($this->translator->t('installations_title')) . '</strong>'
+                . '<span class="text-muted"> · '
+                . $this->e($this->translator->t('installations_count', ['count' => $installationCount]))
+                . '</span></div>';
+            $html .= '<div class="table-responsive"><table class="table table-striped dr-table">';
+            $html .= '<thead><tr><th>' . $this->e($this->translator->t('installation_name'))
+                . '</th><th>' . $this->e($this->translator->t('installation_url'))
+                . '</th><th>' . $this->e($this->translator->t('installation_status'))
+                . '</th><th>' . $this->e($this->translator->t('installation_last_seen'))
+                . '</th><th></th></tr></thead><tbody>';
+
+            foreach ($installations as $installation) {
+                $html .= '<tr><td><strong>' . $this->e((string) ($installation->label ?: 'Moodle'))
+                    . '</strong>';
+                if ((bool) $installation->is_primary) {
+                    $html .= ' <span class="label label-default">'
+                        . $this->e($this->translator->t('installation_primary')) . '</span>';
+                }
+                $html .= '</td><td>' . $this->e((string) $installation->site_url) . '</td>';
+
+                $connectionState = (string) ($installation->connection_status ?? 'pending');
+                $stateClass = $connectionState === 'connected'
+                    ? 'success'
+                    : ($connectionState === 'failed' ? 'danger' : 'warning');
+                $stateLabel = $connectionState === 'connected'
+                    ? $this->translator->t('connection_connected')
+                    : ($connectionState === 'failed'
+                        ? $this->translator->t('connection_failed')
+                        : $this->translator->t('connection_pending'));
+
+                $html .= '<td><span class="label label-' . $stateClass . '">'
+                    . $this->e($stateLabel) . '</span></td>';
+                $html .= '<td>' . (!empty($installation->last_seen_at)
+                    ? date('Y-m-d H:i', (int) $installation->last_seen_at)
+                    : $this->e($this->translator->t('never_seen'))) . '</td>';
+                $html .= '<td class="text-right">';
+
+                if (!(bool) $installation->is_primary) {
+                    $html .= '<form method="post" action="' . $this->formAction()
+                        . '" style="display:inline-block;margin-right:6px">'
+                        . $this->customActionFields('RotateMoodleInstallationToken')
+                        . '<input type="hidden" name="installationid" value="' . (int) $installation->id . '">'
+                        . '<button type="submit" class="btn btn-xs btn-warning">'
+                        . $this->e($this->translator->t('rotate_installation')) . '</button></form>';
+                    $html .= '<form method="post" action="' . $this->formAction()
+                        . '" style="display:inline-block">'
+                        . $this->customActionFields('RemoveMoodleInstallation')
+                        . '<input type="hidden" name="installationid" value="' . (int) $installation->id . '">'
+                        . '<button type="submit" class="btn btn-xs btn-danger" onclick="return confirm(&quot;'
+                        . $this->e($this->translator->t('remove_installation_confirm')) . '&quot;)">'
+                        . $this->e($this->translator->t('remove_installation')) . '</button></form>';
+                }
+
+                $html .= '</td></tr>';
+            }
+
+            $html .= '</tbody></table></div>';
+            $html .= '<div class="panel-body dr-installation-add">';
+
+            if ($canAddInstallation) {
+                $html .= '<p class="text-muted">'
+                    . $this->e($this->translator->t('installation_add_help')) . '</p>';
+                $html .= '<form method="post" action="' . $this->formAction() . '">'
+                    . $this->customActionFields('AddMoodleInstallation')
+                    . '<div class="row"><div class="col-sm-4"><div class="form-group"><label>'
+                    . $this->e($this->translator->t('installation_label')) . '</label>'
+                    . '<input class="form-control" name="label" maxlength="191"></div></div>'
+                    . '<div class="col-sm-6"><div class="form-group"><label>'
+                    . $this->e($this->translator->t('installation_url')) . '</label>'
+                    . '<input class="form-control" type="url" name="moodleurl" required placeholder="'
+                    . $this->e($this->translator->t('installation_url_input')) . '"></div></div>'
+                    . '<div class="col-sm-2"><div class="form-group"><label>&nbsp;</label>'
+                    . '<button type="submit" class="btn btn-primary btn-block">'
+                    . $this->e($this->translator->t('installation_add')) . '</button></div></div></div></form>';
+            } else if ($billingMode === 'free') {
+                $html .= '<p class="text-muted" style="margin:0">'
+                    . $this->e($this->translator->t('installation_limit_free')) . '</p>';
+            }
+
+            $html .= '</div></div>';
+        }
+
+        $html .= '<div class="panel panel-default dr-panel">';
+        $html .= '<div class="panel-heading"><strong>'
+            . $this->e($this->translator->t('videos_title')) . '</strong>'
+            . '<span class="text-muted"> · '
             . $this->e($this->translator->t('videos_registered', ['count' => $videoTotal]))
             . '</span></div>';
         $html .= '<div class="table-responsive"><table class="table table-striped table-hover dr-table">';
