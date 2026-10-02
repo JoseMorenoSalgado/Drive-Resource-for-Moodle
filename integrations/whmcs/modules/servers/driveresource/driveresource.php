@@ -176,6 +176,10 @@ function driveresource_ClientAreaAllowedFunctions(): array
         'ProvisionMoodleConnection',
         'RotateMoodleToken',
         'ValidateMoodleConnection',
+        'AddMoodleInstallation',
+        'RotateMoodleInstallationToken',
+        'RemoveMoodleInstallation',
+        'CreateWalletRecharge',
         'DeleteVideo',
     ];
 }
@@ -674,6 +678,312 @@ function driveresource_TerminateAccount(array $params): string
                 'terminated_at' => $now,
                 'updated_at' => $now,
             ]);
+
+        return 'success';
+    } catch (Throwable $exception) {
+        return $exception->getMessage();
+    }
+}
+
+/**
+ * Register an additional Moodle installation under this commercial account.
+ *
+ * FREE is limited by the account policy (one installation by default). PAYG
+ * can use an unlimited installation limit when paid_installation_limit = 0.
+ * The plaintext token is stored only in the current authenticated WHMCS
+ * session and is displayed once by ClientPortal.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return string
+ */
+function driveresource_AddMoodleInstallation(array $params): string
+{
+    try {
+        driveresource_require_post();
+        driveresource_require_gateway();
+
+        $serviceId = (int) ($params['serviceid'] ?? 0);
+        driveresource_require_client_service_ownership($serviceId);
+
+        $lib = dirname(__DIR__, 2) . '/addons/driveresource_gateway/lib';
+        require_once $lib . '/CommercialAccount.php';
+
+        $account = WHMCSModuleAddonDriveresourceGatewayCommercialAccount::find($serviceId);
+        if (!$account || !(bool) $account->activation_verified) {
+            throw new RuntimeException('Elearning Stream account activation is required.');
+        }
+        if (!WHMCSModuleAddonDriveresourceGatewayCommercialAccount::canAddInstallation($serviceId)) {
+            throw new RuntimeException(
+                'Your current Elearning Stream tier has reached its Moodle installation limit.'
+            );
+        }
+
+        $siteUrl = driveresource_normalize_site_url((string) ($_POST['moodleurl'] ?? ''));
+        $label = trim((string) ($_POST['label'] ?? ''));
+        $label = mb_substr($label !== '' ? $label : parse_url($siteUrl, PHP_URL_HOST), 0, 191);
+        $siteHash = hash('sha256', $siteUrl);
+
+        $exists = Capsule::table('mod_driveresource_installations')
+            ->where('service_id', $serviceId)
+            ->where('site_hash', $siteHash)
+            ->where('status', '<>', 'revoked')
+            ->exists();
+        if ($exists) {
+            throw new RuntimeException('This Moodle installation is already registered.');
+        }
+
+        $token = bin2hex(random_bytes(32));
+        $now = time();
+        $installationId = (int) Capsule::table('mod_driveresource_installations')->insertGetId([
+            'service_id' => $serviceId,
+            'label' => $label,
+            'site_url' => $siteUrl,
+            'site_hash' => $siteHash,
+            'token_hash' => hash('sha256', $token),
+            'status' => 'active',
+            'is_primary' => false,
+            'connection_status' => 'pending',
+            'connection_checked_at' => null,
+            'connection_message' => 'connection_pending',
+            'last_seen_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $_SESSION['elearning_stream_installation_secret'] = [
+            'service_id' => $serviceId,
+            'installation_id' => $installationId,
+            'site_url' => $siteUrl,
+            'token' => $token,
+            'created_at' => $now,
+        ];
+
+        driveresource_audit($serviceId, 'moodle_installation_created', [
+            'installation_id' => $installationId,
+            'site_url' => $siteUrl,
+            'label' => $label,
+        ]);
+
+        return 'success';
+    } catch (Throwable $exception) {
+        return $exception->getMessage();
+    }
+}
+
+/**
+ * Rotate a secondary Moodle installation token.
+ *
+ * Primary credentials continue to use RotateMoodleToken because WHMCS stores
+ * that token in the protected service password field.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return string
+ */
+function driveresource_RotateMoodleInstallationToken(array $params): string
+{
+    try {
+        driveresource_require_post();
+        driveresource_require_gateway();
+
+        $serviceId = (int) ($params['serviceid'] ?? 0);
+        driveresource_require_client_service_ownership($serviceId);
+        $installationId = (int) ($_POST['installationid'] ?? 0);
+
+        $installation = Capsule::table('mod_driveresource_installations')
+            ->where('id', $installationId)
+            ->where('service_id', $serviceId)
+            ->where('status', 'active')
+            ->first();
+        if (!$installation || (bool) $installation->is_primary) {
+            throw new RuntimeException('Secondary Moodle installation was not found.');
+        }
+
+        $token = bin2hex(random_bytes(32));
+        $now = time();
+        Capsule::table('mod_driveresource_installations')
+            ->where('id', $installationId)
+            ->update([
+                'token_hash' => hash('sha256', $token),
+                'connection_status' => 'pending',
+                'connection_checked_at' => null,
+                'connection_message' => 'connection_pending',
+                'updated_at' => $now,
+            ]);
+
+        $_SESSION['elearning_stream_installation_secret'] = [
+            'service_id' => $serviceId,
+            'installation_id' => $installationId,
+            'site_url' => (string) $installation->site_url,
+            'token' => $token,
+            'created_at' => $now,
+        ];
+
+        driveresource_audit($serviceId, 'moodle_installation_token_rotated', [
+            'installation_id' => $installationId,
+            'site_url' => (string) $installation->site_url,
+        ]);
+
+        return 'success';
+    } catch (Throwable $exception) {
+        return $exception->getMessage();
+    }
+}
+
+/**
+ * Revoke an unused secondary Moodle installation.
+ *
+ * Active asset references prevent revocation so a customer cannot strand
+ * videos that still belong to course activities on that site.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return string
+ */
+function driveresource_RemoveMoodleInstallation(array $params): string
+{
+    try {
+        driveresource_require_post();
+        driveresource_require_gateway();
+
+        $serviceId = (int) ($params['serviceid'] ?? 0);
+        driveresource_require_client_service_ownership($serviceId);
+        $installationId = (int) ($_POST['installationid'] ?? 0);
+
+        $installation = Capsule::table('mod_driveresource_installations')
+            ->where('id', $installationId)
+            ->where('service_id', $serviceId)
+            ->where('status', 'active')
+            ->first();
+        if (!$installation || (bool) $installation->is_primary) {
+            throw new RuntimeException('Secondary Moodle installation was not found.');
+        }
+
+        $activeRefs = (int) Capsule::table('mod_driveresource_asset_refs')
+            ->where('service_id', $serviceId)
+            ->where('site_hash', (string) $installation->site_hash)
+            ->where('active', true)
+            ->count();
+        if ($activeRefs > 0) {
+            throw new RuntimeException(
+                'This Moodle installation still owns active video references and cannot be revoked.'
+            );
+        }
+
+        Capsule::table('mod_driveresource_installations')
+            ->where('id', $installationId)
+            ->update([
+                'status' => 'revoked',
+                'updated_at' => time(),
+            ]);
+
+        driveresource_audit($serviceId, 'moodle_installation_revoked', [
+            'installation_id' => $installationId,
+            'site_url' => (string) $installation->site_url,
+        ]);
+
+        return 'success';
+    } catch (Throwable $exception) {
+        return $exception->getMessage();
+    }
+}
+
+/**
+ * Create a WHMCS invoice that funds the dedicated Elearning Stream wallet.
+ *
+ * The wallet is credited only by the InvoicePaid hook. Creating an invoice
+ * never grants service capacity by itself.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return string
+ */
+function driveresource_CreateWalletRecharge(array $params): string
+{
+    try {
+        driveresource_require_post();
+        driveresource_require_gateway();
+
+        $serviceId = (int) ($params['serviceid'] ?? 0);
+        $clientId = driveresource_require_client_service_ownership($serviceId);
+        $account = Capsule::table('mod_driveresource_accounts')
+            ->where('service_id', $serviceId)
+            ->first();
+        if (!$account) {
+            throw new RuntimeException('Elearning Stream account is not provisioned.');
+        }
+
+        $amount = driveresource_parse_usd_microusd((string) ($_POST['amount'] ?? ''));
+        if ($amount < (int) $account->minimum_recharge_microusd) {
+            throw new RuntimeException(
+                'The minimum Elearning Stream recharge is '
+                    . driveresource_format_microusd((int) $account->minimum_recharge_microusd)
+                    . '.'
+            );
+        }
+        if ($amount > 5000000000) {
+            throw new RuntimeException('The maximum online wallet recharge is US$5,000.00.');
+        }
+
+        $now = time();
+        $orderId = (int) Capsule::table('mod_driveresource_wallet_orders')->insertGetId([
+            'service_id' => $serviceId,
+            'client_id' => $clientId,
+            'invoice_id' => null,
+            'amount_microusd' => $amount,
+            'currency' => 'USD',
+            'status' => 'pending',
+            'created_at' => $now,
+            'paid_at' => null,
+            'refunded_at' => null,
+            'updated_at' => $now,
+        ]);
+
+        $invoiceParams = [
+            'userid' => $clientId,
+            'status' => 'Unpaid',
+            'sendinvoice' => true,
+            'itemdescription1' => 'Elearning Stream wallet recharge #' . $orderId,
+            'itemamount1' => driveresource_microusd_decimal($amount),
+            'itemtaxed1' => false,
+            'autoapplycredit' => false,
+        ];
+        $paymentMethod = trim((string) ($params['paymentmethod'] ?? ''));
+        if ($paymentMethod !== '') {
+            $invoiceParams['paymentmethod'] = $paymentMethod;
+        }
+
+        $result = localAPI('CreateInvoice', $invoiceParams);
+        if (
+            !is_array($result)
+            || strtolower((string) ($result['result'] ?? '')) !== 'success'
+            || (int) ($result['invoiceid'] ?? 0) <= 0
+        ) {
+            Capsule::table('mod_driveresource_wallet_orders')
+                ->where('id', $orderId)
+                ->update([
+                    'status' => 'failed',
+                    'updated_at' => time(),
+                ]);
+            throw new RuntimeException('WHMCS could not create the Elearning Stream recharge invoice.');
+        }
+
+        $invoiceId = (int) $result['invoiceid'];
+        Capsule::table('mod_driveresource_wallet_orders')
+            ->where('id', $orderId)
+            ->update([
+                'invoice_id' => $invoiceId,
+                'updated_at' => time(),
+            ]);
+
+        $_SESSION['elearning_stream_recharge_invoice'] = [
+            'service_id' => $serviceId,
+            'invoice_id' => $invoiceId,
+            'created_at' => time(),
+        ];
+
+        driveresource_audit($serviceId, 'wallet_recharge_invoice_created', [
+            'order_id' => $orderId,
+            'invoice_id' => $invoiceId,
+            'amount_microusd' => $amount,
+        ]);
 
         return 'success';
     } catch (Throwable $exception) {
@@ -1204,6 +1514,7 @@ function driveresource_require_gateway(): void
         'mod_driveresource_accounts',
         'mod_driveresource_installations',
         'mod_driveresource_wallet_ledger',
+        'mod_driveresource_wallet_orders',
         'mod_driveresource_usage_daily',
     ] as $table) {
         if (!$schema->hasTable($table)) {
@@ -1308,6 +1619,72 @@ function driveresource_stream_client()
     require_once $lib . '/BunnyClient.php';
 
     return new \WHMCS\Module\Addon\DriveresourceGateway\BunnyClient();
+}
+
+/**
+ * Verify that the current WHMCS client owns the service.
+ *
+ * @param int $serviceId WHMCS service id.
+ * @return int Client id.
+ */
+function driveresource_require_client_service_ownership(int $serviceId): int
+{
+    $clientId = (int) ($_SESSION['uid'] ?? 0);
+    if ($serviceId <= 0 || $clientId <= 0) {
+        throw new RuntimeException('Authenticated client session is required.');
+    }
+
+    $owned = Capsule::table('tblhosting as h')
+        ->join('tblproducts as p', 'p.id', '=', 'h.packageid')
+        ->where('h.id', $serviceId)
+        ->where('h.userid', $clientId)
+        ->where('p.servertype', 'driveresource')
+        ->exists();
+    if (!$owned) {
+        throw new RuntimeException('Elearning Stream service does not belong to this client.');
+    }
+
+    return $clientId;
+}
+
+/**
+ * Parse a positive USD decimal into integer micro-USD.
+ *
+ * @param string $raw Decimal USD.
+ * @return int
+ */
+function driveresource_parse_usd_microusd(string $raw): int
+{
+    $raw = trim($raw);
+    if (!preg_match('/^(\\d+)(?:\\.(\\d{1,2}))?$/', $raw, $matches)) {
+        throw new RuntimeException('Recharge amount must be a valid USD amount with at most two decimals.');
+    }
+
+    $whole = (int) $matches[1];
+    $cents = (int) str_pad((string) ($matches[2] ?? ''), 2, '0');
+    return ($whole * 1000000) + ($cents * 10000);
+}
+
+/**
+ * Convert micro-USD to a WHMCS-compatible decimal amount.
+ *
+ * @param int $microusd Amount.
+ * @return string
+ */
+function driveresource_microusd_decimal(int $microusd): string
+{
+    return number_format(max(0, $microusd) / 1000000, 2, '.', '');
+}
+
+/**
+ * Human-readable USD wallet amount.
+ *
+ * @param int $microusd Amount.
+ * @return string
+ */
+function driveresource_format_microusd(int $microusd): string
+{
+    return 'US$' . driveresource_microusd_decimal($microusd);
 }
 
 /**
