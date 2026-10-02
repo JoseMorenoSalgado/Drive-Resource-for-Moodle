@@ -840,14 +840,20 @@ function driveresource_gateway_ensure_commercial_account_schema(): void
             ->where('id', $serviceId)
             ->value('userid');
 
-        Capsule::table('mod_driveresource_accounts')->updateOrInsert(
-            ['service_id' => $serviceId],
-            [
+        $account = Capsule::table('mod_driveresource_accounts')
+            ->where('service_id', $serviceId)
+            ->first();
+
+        if (!$account) {
+            Capsule::table('mod_driveresource_accounts')->insert([
+                'service_id' => $serviceId,
                 'client_id' => $clientId !== null ? (int) $clientId : null,
                 // Preserve existing commercial behavior until explicitly
                 // migrated to the new prepaid PAYG contract.
                 'billing_mode' => 'legacy',
                 'activation_verified' => true,
+                'activation_amount_microusd' => 0,
+                'balance_microusd' => 0,
                 'free_storage_bytes' => max(0, (int) ($service->quota_bytes ?? 7000000000)),
                 'free_transfer_bytes' => 20000000000,
                 'storage_rate_microusd_per_gb' => 30000,
@@ -858,10 +864,12 @@ function driveresource_gateway_ensure_commercial_account_schema(): void
                 'status' => (string) ($service->status ?? 'active') === 'active'
                     ? 'active'
                     : 'suspended',
+                'grace_until' => null,
+                'paid_at' => null,
                 'updated_at' => $now,
                 'created_at' => (int) ($service->created_at ?? $now),
-            ]
-        );
+            ]);
+        }
 
         $siteUrl = trim((string) ($service->site_url ?? ''));
         $siteHash = trim((string) ($service->site_hash ?? ''));
