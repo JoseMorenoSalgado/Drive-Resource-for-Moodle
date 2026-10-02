@@ -73,7 +73,7 @@ The protected object-storage lane remains independent and is not production-enab
 
 ## Existing services
 
-Gateway 0.6.0 backfills existing services into `legacy` commercial mode and creates their primary Moodle installation from the existing site/token binding. It does not reset current quota, wallet state or media ownership. Migration postconditions verify all critical commercial columns, installation attribution and one account row per existing service before the gateway is considered usable.
+Gateway 0.6.0 backfills existing services into `legacy` commercial mode and creates their primary Moodle installation from the existing site/token binding. Its migration repair pass is idempotent and runs on every upgrade invocation. It does not reset current quota, wallet state or media ownership. Migration postconditions verify all critical commercial columns, installation attribution, one account row per existing service, a primary installation for every fully provisioned legacy binding, and zero fabricated activation credit.
 
 ## No Google Drive dependency
 
