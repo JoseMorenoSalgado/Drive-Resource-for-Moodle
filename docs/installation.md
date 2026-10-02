@@ -64,7 +64,7 @@ Gateway 0.6.0 defaults:
 - FREE Moodle Installations: 1;
 - PAYG Moodle Installations: 0 (unlimited).
 
-Configure the WHMCS product as the **US$1 one-time activation** product. In **Module Settings → Automatic Setup**, select the WHMCS option that provisions the module only after the first payment is received. Do not use immediate-on-order provisioning for this product. Once WHMCS invokes CreateAccount after payment, the gateway creates the FREE account and grants the US$1 wallet credit exactly once.
+Configure the WHMCS product as the **US$1 one-time activation** product. In **Module Settings → Automatic Setup**, select the WHMCS option that provisions the module only after the first payment is received. Gateway 0.6 also validates the linked order invoice itself, so manually invoking Create on an unpaid service cannot grant activation. Do not use immediate-on-order provisioning for this product. Once WHMCS invokes CreateAccount after payment, the gateway creates the FREE account and grants the US$1 wallet credit exactly once.
 
 ## Gateway 0.5.9 → 0.6.0 upgrade validation
 
