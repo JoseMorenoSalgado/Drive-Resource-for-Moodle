@@ -30,6 +30,15 @@ jobs:
           test -f dist/videoplayer/amd/build/nativevideo.min.js
           test -f dist/videoplayer/thirdpartylibs/pdfjs/pdf.min.mjs
           test -f dist/videoplayer/thirdpartylibs/pdfjs/pdf.worker.min.mjs
+          test -f dist/videoplayer/thirdpartylibs/pdfjs/readme_moodle.txt
+          test -f dist/videoplayer/thirdpartylibs.xml
+          test -f dist/videoplayer/LICENSE
+          test -f dist/videoplayer/classes/privacy/provider.php
+          test -f dist/videoplayer/backup/moodle2/backup_videoplayer_stepslib.php
+          test -f dist/videoplayer/backup/moodle2/restore_videoplayer_stepslib.php
+          test ! -d dist/videoplayer/integrations
+          test ! -d dist/videoplayer/tests
+          test ! -d dist/videoplayer/.github
 
           (
             cd dist
