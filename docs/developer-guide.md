@@ -71,8 +71,11 @@ Never use floating-point values as stored money.
 - persisted unit: micro-USD;
 - 1 USD = 1,000,000 micro-USD;
 - every wallet mutation requires a deterministic idempotency key;
+- lock the commercial-account row before consulting the idempotency ledger so concurrent repeats serialize correctly;
+- an existing idempotency key must match the same service, entry type and signed amount;
 - invoice creation does not credit a wallet;
-- `InvoicePaid` is the credit authority;
+- `InvoicePaid` is the credit authority only after the invoice client, currency and frozen converted total are verified;
+- wallet accounting is USD-denominated even when the WHMCS client invoice uses another configured currency;
 - refund/unpaid hooks reverse the entitlement;
 - FREE/PAYG transition is based on a qualifying paid recharge.
 
