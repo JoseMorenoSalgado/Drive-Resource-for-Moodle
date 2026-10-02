@@ -19,7 +19,7 @@ namespace mod_videoplayer\local;
 use mod_videoplayer\local\stream\upstream_url_policy;
 
 /**
- * Resilient HTTP byte-range proxy for protected Drive resources.
+ * Resilient HTTP byte-range proxy for protected Elearning Stream resources.
  *
  * Keeps Moodle as the only browser-visible endpoint, validates upstream
  * responses and streams one byte range without buffering the complete media
@@ -41,12 +41,6 @@ final class http_range_proxy {
 
     /** @var int Seconds below LOW_SPEED_LIMIT before cURL aborts the upstream transfer. */
     private const LOW_SPEED_TIME = 20;
-
-    /** @var int Maximum Drive warning HTML captured for confirmation parsing. */
-    private const MAX_WARNING_HTML_BYTES = 131072;
-
-    /** @var int Maximum number of server-side Drive confirmation hops. */
-    private const MAX_CONFIRMATION_HOPS = 2;
 
     /** @var int Maximum validated upstream redirect hops. */
     private const MAX_REDIRECT_HOPS = 5;
@@ -87,7 +81,7 @@ final class http_range_proxy {
         ?callable $ontransfer = null
     ): never {
         if (!upstream_url_policy::is_allowed($url)) {
-            debugging('Drive Resource proxy rejected a non-allowlisted upstream URL.', DEBUG_DEVELOPER);
+            debugging('Elearning Stream proxy rejected a non-allowlisted upstream URL.', DEBUG_DEVELOPER);
             self::send_bad_gateway('UPSTREAM_URL_REJECTED');
         }
 
@@ -96,7 +90,6 @@ final class http_range_proxy {
         $validator = self::stable_validator($url);
         $currenturl = $url;
         $requestcookies = [];
-        $confirmationhops = 0;
         $redirecthops = 0;
         $lastresponse = null;
 
@@ -107,7 +100,6 @@ final class http_range_proxy {
             $rangemodes = $range === ''
                 ? [self::RANGE_MODE_NONE]
                 : [self::RANGE_MODE_CURL, self::RANGE_MODE_HEADER, self::RANGE_MODE_SYNTHETIC];
-            $resolvedwarning = false;
             $resolvedredirect = false;
 
             foreach ($rangemodes as $rangemode) {
@@ -130,7 +122,7 @@ final class http_range_proxy {
                             $ontransfer($transferbytes);
                         } catch (\Throwable $exception) {
                             debugging(
-                                'Drive Resource transfer metering callback failed: '
+                                'Elearning Stream transfer metering callback failed: '
                                     . $exception->getMessage(),
                                 DEBUG_DEVELOPER
                             );
@@ -149,7 +141,7 @@ final class http_range_proxy {
                     $location = (string)($lastresponse['headers']['location'] ?? '');
                     $redirecturl = upstream_url_policy::resolve_redirect($currenturl, $location);
                     if ($redirecturl === null || $redirecthops >= self::MAX_REDIRECT_HOPS) {
-                        debugging('Drive Resource proxy rejected an unsafe upstream redirect.', DEBUG_DEVELOPER);
+                        debugging('Elearning Stream proxy rejected an unsafe upstream redirect.', DEBUG_DEVELOPER);
                         self::send_bad_gateway('UPSTREAM_REDIRECT_REJECTED');
                     }
 
@@ -160,20 +152,9 @@ final class http_range_proxy {
                 }
 
                 if ($lastresponse['invalidcontent']) {
-                    $followupurl = drive::resolve_download_warning_url(
-                        (string) ($lastresponse['warningbody'] ?? ''),
-                        (string) ($lastresponse['effectiveurl'] ?? $currenturl)
-                    );
-
-                    if ($followupurl !== null && $confirmationhops < self::MAX_CONFIRMATION_HOPS) {
-                        $currenturl = $followupurl;
-                        $confirmationhops++;
-                        $resolvedwarning = true;
-                        break;
-                    }
-
                     debugging(
-                        'Drive Resource proxy rejected an incompatible upstream content type for ' . $fallbacktype . '.',
+                        'Elearning Stream proxy rejected an incompatible upstream content type for '
+                            . $fallbacktype . '.',
                         DEBUG_DEVELOPER
                     );
                     self::send_bad_gateway('UPSTREAM_CONTENT_REJECTED');
@@ -194,7 +175,7 @@ final class http_range_proxy {
                 }
             }
 
-            if ($resolvedwarning || $resolvedredirect) {
+            if ($resolvedredirect) {
                 continue;
             }
 
@@ -203,7 +184,7 @@ final class http_range_proxy {
 
         $status = (int) ($lastresponse['status'] ?? 0);
         $curlerror = (string) ($lastresponse['error'] ?? '');
-        debugging('Drive Resource proxy failed: HTTP ' . $status . ' ' . $curlerror, DEBUG_DEVELOPER);
+        debugging('Elearning Stream proxy failed: HTTP ' . $status . ' ' . $curlerror, DEBUG_DEVELOPER);
 
         if ($range !== '' && $status === 200) {
             self::send_bad_gateway('UPSTREAM_RANGE_UNSUPPORTED');
@@ -222,7 +203,7 @@ final class http_range_proxy {
      * @param string $range Validated browser Range header.
      * @param string $rangemode Range transmission strategy.
      * @param bool $ishead Whether this is a HEAD request.
-     * @param array $requestcookies Domain-scoped cookies obtained from Drive responses.
+     * @param array $requestcookies Domain-scoped cookies obtained from approved upstream responses.
      * @return array{
      *     sent: bool,
      *     result: bool,
@@ -377,7 +358,7 @@ final class http_range_proxy {
             CURLOPT_LOW_SPEED_TIME => self::LOW_SPEED_TIME,
             CURLOPT_HTTPHEADER => $requestheaders,
             CURLOPT_HEADERFUNCTION => $headercallback,
-            CURLOPT_USERAGENT => 'DriveResourceMoodleProxy/1.1.32',
+            CURLOPT_USERAGENT => 'ElearningStreamMoodleProxy/1.2.0',
             CURLOPT_COOKIEFILE => '',
             CURLOPT_WRITEFUNCTION => static function (
                 $curl,
