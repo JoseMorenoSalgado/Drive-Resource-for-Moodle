@@ -38,9 +38,9 @@ A WHMCS service is one commercial account. Multiple Moodle installations share t
 
 ## Recharge billing
 
-`CreateWalletRecharge` creates a normal WHMCS invoice. The wallet is not credited until the official `InvoicePaid` hook fires.
+`CreateWalletRecharge` creates a normal WHMCS invoice. The wallet is USD-denominated, but the invoice is converted into the client’s configured WHMCS currency. The converted amount and currency are frozen on the wallet order. The wallet is not credited until the official `InvoicePaid` hook fires and verifies that the paid invoice still matches those frozen values.
 
-`InvoiceRefunded` and `InvoiceUnpaid` reverse the recharge with a stable idempotency key. If no paid recharge remains, PAYG entitlement is removed and FREE installation limits are enforced again.
+`InvoiceRefunded` and `InvoiceUnpaid` reverse the recharge with a stable idempotency key. Wallet operations serialize on the commercial-account row before idempotency lookup, and a reused key with mismatched service/type/amount fails closed. If no paid recharge remains, PAYG entitlement is removed and FREE installation limits are enforced again; debt-free accounts return to active FREE while negative balances remain restricted.
 
 This design works with PayPal and other WHMCS payment gateways without storing gateway credentials in Elearning Stream.
 
