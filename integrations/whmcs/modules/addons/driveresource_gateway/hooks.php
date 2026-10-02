@@ -233,9 +233,183 @@ function driveresource_gateway_reverse_recharge(int $invoiceId, string $reason):
     });
 }
 
+/**
+ * Restore a non-legacy activation when its original invoice returns to Paid.
+ *
+ * An activation invoice that reached Refunded is terminal. An invoice merely
+ * marked Unpaid may be paid again; each restoration gets a new settlement
+ * version and therefore a distinct idempotency key.
+ *
+ * @param int $invoiceId WHMCS invoice id.
+ * @return void
+ */
+function driveresource_gateway_restore_paid_activation(int $invoiceId): void
+{
+    if (
+        $invoiceId <= 0
+        || !\WHMCS\Database\Capsule::schema()->hasTable('mod_driveresource_accounts')
+    ) {
+        return;
+    }
+
+    \WHMCS\Database\Capsule::connection()->transaction(static function () use ($invoiceId): void {
+        $account = \WHMCS\Database\Capsule::table('mod_driveresource_accounts')
+            ->where('activation_invoice_id', $invoiceId)
+            ->where('billing_mode', '<>', 'legacy')
+            ->lockForUpdate()
+            ->first();
+        if (
+            !$account
+            || (bool) $account->activation_verified
+            || !empty($account->activation_refunded_at)
+        ) {
+            return;
+        }
+
+        $invoice = \WHMCS\Billing\Invoice::find($invoiceId);
+        if (
+            !$invoice
+            || (int) $invoice->clientId !== (int) $account->client_id
+            || strtolower((string) $invoice->status) !== 'paid'
+        ) {
+            return;
+        }
+
+        $containsService = \WHMCS\Database\Capsule::table('tblinvoiceitems')
+            ->where('invoiceid', $invoiceId)
+            ->where('type', 'Hosting')
+            ->where('relid', (int) $account->service_id)
+            ->exists();
+        if (!$containsService) {
+            throw new RuntimeException(
+                'Elearning Stream activation invoice no longer contains its service.'
+            );
+        }
+
+        require_once __DIR__ . '/lib/CommercialAccount.php';
+        require_once __DIR__ . '/lib/CommercialPolicy.php';
+        require_once __DIR__ . '/lib/WalletService.php';
+
+        $settlementVersion = (int) ($account->activation_settlement_version ?? 0) + 1;
+        $activationCredit = max(0, (int) $account->activation_amount_microusd);
+        if ($activationCredit > 0) {
+            $wallet = new \WHMCS\Module\Addon\DriveresourceGateway\WalletService();
+            $wallet->credit(
+                (int) $account->service_id,
+                $activationCredit,
+                'activation',
+                hash(
+                    'sha256',
+                    'activation-credit|' . (int) $account->service_id . '|' . $invoiceId
+                        . '|v' . $settlementVersion
+                ),
+                'invoice:' . $invoiceId,
+                [
+                    'source' => 'invoice_paid_reactivation',
+                    'activation_invoice_id' => $invoiceId,
+                    'settlement_version' => $settlementVersion,
+                ]
+            );
+        }
+
+        \WHMCS\Database\Capsule::table('mod_driveresource_accounts')
+            ->where('service_id', (int) $account->service_id)
+            ->update([
+                'activation_verified' => true,
+                'activation_settlement_version' => $settlementVersion,
+                'updated_at' => time(),
+            ]);
+    });
+}
+
+/**
+ * Reverse the activation credit when its activation invoice leaves Paid.
+ *
+ * @param int $invoiceId WHMCS invoice id.
+ * @param string $reason Either refunded or unpaid.
+ * @return void
+ */
+function driveresource_gateway_reverse_activation(int $invoiceId, string $reason): void
+{
+    if (
+        $invoiceId <= 0
+        || !\WHMCS\Database\Capsule::schema()->hasTable('mod_driveresource_accounts')
+    ) {
+        return;
+    }
+    if (!in_array($reason, ['refunded', 'unpaid'], true)) {
+        throw new RuntimeException('Invalid activation reversal reason.');
+    }
+
+    \WHMCS\Database\Capsule::connection()->transaction(static function () use (
+        $invoiceId,
+        $reason
+    ): void {
+        $account = \WHMCS\Database\Capsule::table('mod_driveresource_accounts')
+            ->where('activation_invoice_id', $invoiceId)
+            ->where('billing_mode', '<>', 'legacy')
+            ->lockForUpdate()
+            ->first();
+        if (!$account) {
+            return;
+        }
+
+        if ((bool) $account->activation_verified) {
+            require_once __DIR__ . '/lib/CommercialAccount.php';
+            require_once __DIR__ . '/lib/CommercialPolicy.php';
+            require_once __DIR__ . '/lib/WalletService.php';
+
+            $activationCredit = max(0, (int) $account->activation_amount_microusd);
+            $settlementVersion = max(0, (int) ($account->activation_settlement_version ?? 0));
+
+            if ($activationCredit > 0) {
+                $wallet = new \WHMCS\Module\Addon\DriveresourceGateway\WalletService();
+                $wallet->debit(
+                    (int) $account->service_id,
+                    $activationCredit,
+                    'activation_refund',
+                    hash(
+                        'sha256',
+                        'activation-reversal|' . (int) $account->service_id . '|' . $invoiceId
+                            . '|v' . $settlementVersion
+                    ),
+                    [
+                        'activation_invoice_id' => $invoiceId,
+                        'reason' => $reason,
+                        'settlement_version' => $settlementVersion,
+                    ]
+                );
+            }
+
+            \WHMCS\Database\Capsule::table('mod_driveresource_accounts')
+                ->where('service_id', (int) $account->service_id)
+                ->update([
+                    'activation_verified' => false,
+                    'activation_refunded_at' => $reason === 'refunded' ? time() : null,
+                    'updated_at' => time(),
+                ]);
+            return;
+        }
+
+        if ($reason === 'refunded' && empty($account->activation_refunded_at)) {
+            // An Unpaid event may have already reversed the credit. A later
+            // Refunded event makes the same activation invoice terminal
+            // without applying a second debit.
+            \WHMCS\Database\Capsule::table('mod_driveresource_accounts')
+                ->where('service_id', (int) $account->service_id)
+                ->update([
+                    'activation_refunded_at' => time(),
+                    'updated_at' => time(),
+                ]);
+        }
+    });
+}
+
 add_hook('InvoicePaid', 1, static function (array $vars): void {
     try {
-        driveresource_gateway_credit_paid_recharge((int) ($vars['invoiceid'] ?? 0));
+        $invoiceId = (int) ($vars['invoiceid'] ?? 0);
+        driveresource_gateway_credit_paid_recharge($invoiceId);
+        driveresource_gateway_restore_paid_activation($invoiceId);
     } catch (Throwable $exception) {
         logModuleCall(
             'driveresource_gateway',
@@ -250,10 +424,9 @@ add_hook('InvoicePaid', 1, static function (array $vars): void {
 
 add_hook('InvoiceRefunded', 1, static function (array $vars): void {
     try {
-        driveresource_gateway_reverse_recharge(
-            (int) ($vars['invoiceid'] ?? 0),
-            'refunded'
-        );
+        $invoiceId = (int) ($vars['invoiceid'] ?? 0);
+        driveresource_gateway_reverse_recharge($invoiceId, 'refunded');
+        driveresource_gateway_reverse_activation($invoiceId, 'refunded');
     } catch (Throwable $exception) {
         logModuleCall(
             'driveresource_gateway',
@@ -268,10 +441,9 @@ add_hook('InvoiceRefunded', 1, static function (array $vars): void {
 
 add_hook('InvoiceUnpaid', 1, static function (array $vars): void {
     try {
-        driveresource_gateway_reverse_recharge(
-            (int) ($vars['invoiceid'] ?? 0),
-            'unpaid'
-        );
+        $invoiceId = (int) ($vars['invoiceid'] ?? 0);
+        driveresource_gateway_reverse_recharge($invoiceId, 'unpaid');
+        driveresource_gateway_reverse_activation($invoiceId, 'unpaid');
     } catch (Throwable $exception) {
         logModuleCall(
             'driveresource_gateway',
