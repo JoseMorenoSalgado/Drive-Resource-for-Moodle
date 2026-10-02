@@ -348,9 +348,9 @@ final class GatewayMaintenance
                         return;
                     }
 
-                    $balance = max(0, (int) $account->balance_microusd);
-                    $debited = min($balance, $charge);
-                    $nextBalance = $balance - $debited;
+                    $balance = (int) $account->balance_microusd;
+                    $debited = $charge;
+                    $nextBalance = $balance - $charge;
                     $nextStatus = $nextBalance > 0
                         ? (string) $account->status
                         : CommercialAccount::STATUS_UPLOAD_RESTRICTED;
@@ -375,7 +375,7 @@ final class GatewayMaintenance
                             'usage_date' => $usageDate,
                             'billable_bytes' => $billableBytes,
                             'calculated_charge_microusd' => $charge,
-                            'uncovered_microusd' => max(0, $charge - $debited),
+                            'debt_after_microusd' => max(0, -$nextBalance),
                         ], JSON_UNESCAPED_SLASHES),
                         'created_at' => $now,
                     ]);
