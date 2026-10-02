@@ -252,7 +252,7 @@ final class protected_stream {
     /**
      * Retired remote-PDF cache warmer.
      *
-     * Elearning Stream no longer downloads documents from Google or any other
+     * Elearning Stream no longer downloads documents from retired remote providers or any other
      * remote document source through this compatibility service.
      *
      * @param string $url Ignored legacy argument.
