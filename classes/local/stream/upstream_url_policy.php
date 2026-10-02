@@ -61,7 +61,7 @@ final class upstream_url_policy {
     }
 
     /**
-     * Whether one HTTPS URL is safe for the Drive Resource proxy.
+     * Whether one HTTPS URL is safe for the Elearning Stream proxy.
      *
      * @param string $url
      * @return bool
@@ -83,26 +83,6 @@ final class upstream_url_policy {
         $host = strtolower((string)($parts['host'] ?? ''));
         if ($host === '') {
             return false;
-        }
-
-        $exact = [
-            'drive.google.com',
-            'docs.google.com',
-            'drive.usercontent.google.com',
-            'content-workspacevideo-pa.googleapis.com',
-        ];
-        if (in_array($host, $exact, true)) {
-            return true;
-        }
-
-        foreach (['googlevideo.com', 'googleusercontent.com'] as $suffix) {
-            if ($host === $suffix || str_ends_with($host, '.' . $suffix)) {
-                return true;
-            }
-        }
-
-        if (str_ends_with($host, '.c.drive.google.com')) {
-            return true;
         }
 
         // Elearning Stream playback is resolved by WHMCS to the configured
