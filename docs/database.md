@@ -1,125 +1,102 @@
-# Drive Resource database model
+# Elearning Stream database model
 
-## `videoplayer`
+## Moodle tables
 
-Stores one activity instance. Runtime-critical fields include course, name, source, Drive URL, canonical type, protection/presentation flags and completion threshold.
+### `videoplayer`
 
-A set of historical columns is retained for upgrade/backup compatibility with earlier `mod_videoplayer` releases. New runtime code should not add dependencies to obsolete player/viewer fields.
+One row per activity. The table name is historical and remains unchanged for Moodle upgrade compatibility.
 
-## `videoplayer_views`
+Production activities use the managed Elearning Stream video source. Historical Moodle-local PDF rows remain supported. Historical remote Google source values may remain in upgraded data but are not executable runtime providers.
 
-One row per `(videoplayerid, userid)` enforced by a unique key.
+### `videoplayer_views`
 
-Key fields:
-
-| Field | Purpose |
-| --- | --- |
-| `progress` | Generic/max progress value retained for compatibility |
-| `completed` | Persisted completion transition |
-| `completionpercentage` | Highest recorded completion percentage |
-| `lastpage` | Current PDF resume page |
-| `totalpages` | Known PDF page count |
-| `timespent` | Cumulative active seconds |
-| `lastposition` | Current video/audio resume position in seconds |
-| `duration` | Known media duration in seconds |
-| `watchedranges` | Bounded JSON union of video intervals actually reproduced; completion ignores skipped seek gaps |
-| `points` | Optional gamification total |
-| `timemodified` | Last progress write |
-
-`lastposition` and `duration` were added in schema version `2026092013`. `watchedranges` was added in `2026092016` to separate resume position from seek-safe video completion.
-
-## `videoplayer_rewards`
-
-Stores optional one-time gamification rewards keyed by activity, user, reward type and reward key.
-
-## `videoplayer_transfer_events`
-
-Operational queue for Elearning Stream bytes actually emitted through Moodle protected playback. It contains no Moodle user id.
-
-| Field | Purpose |
-| --- | --- |
-| `serviceid` | WHMCS service identity active when bytes were delivered |
-| `videoid` | Provider video GUID for operational attribution |
-| `bytes` | Actual bytes emitted to the learner browser for one protected request |
-| `periodkey` | UTC billing month `YYYY-MM` |
-| `timecreated` | Queue timestamp |
-
-The scheduled transfer task sends bounded idempotent batches to WHMCS and removes successfully acknowledged events. Events belonging to a stale Service ID are never reattributed to a newly configured service.
-
-## Data lifecycle
-
-Activity deletion removes related views/rewards and Moodle File API data. Privacy API operations can export/delete user-owned view/reward records by module context. Backup & Restore includes user data only when the backup is configured to include it.
-
-
-## WHMCS companion tables
-
-The WHMCS companion owns a separate commercial/control-plane schema inside the WHMCS database. These tables are not Moodle tables and are not included in Moodle backup/restore.
-
-### `mod_driveresource_services`
-
-One row per provisioned WHMCS service. This is the tenant boundary for one independently authenticated Moodle installation.
+One row per `(videoplayerid, userid)`.
 
 Important fields:
 
 | Field | Purpose |
 | --- | --- |
-| `service_id` | WHMCS service id; primary tenant key |
-| `site_url` / `site_hash` | Exact Moodle site binding |
-| `token_hash` | Hash of the service-scoped Moodle↔WHMCS token |
-| `status` | Active/suspended/terminated control-plane state |
-| `backend_key` | Provider-neutral backend identity; defaults to `elearningstream` |
-| `backend_profile` | Backend profile selector; defaults to `default` |
-| `connection_status` | Pending/connected/failed Moodle validation state |
-| `connection_checked_at` | Last signed Moodle probe time |
-| `connection_message` | Bounded operational connection message |
-| `transfer_period` | Current UTC transfer month |
-| `transfer_bytes` | Protected playback bytes reported for that month |
-| `transfer_updated_at` | Last transfer update |
-| `quota_bytes` | Included storage allowance |
-| `used_bytes` | Authoritative accounted storage |
-| `reserved_bytes` | Storage reserved by in-progress uploads |
-| `overage_allowed` | Whether service may exceed included storage |
-| `retention_days` | Orphan retention policy |
+| `progress` | compatibility progress value |
+| `completed` | persisted completion state |
+| `completionpercentage` | highest saved completion percentage |
+| `timespent` | cumulative active seconds |
+| `lastposition` | media resume position |
+| `duration` | known media duration |
+| `watchedranges` | canonical union of actually reproduced video intervals |
+| `lastpage` / `totalpages` | local-PDF reading progress |
+| `points` | optional gamification total |
 
-Gateway 0.3.0 adds `backend_key` and `backend_profile` idempotently. Existing services are normalized to `elearningstream/default`.
+### `videoplayer_transfer_events`
 
-### `mod_driveresource_uploads`
+Queue of protected playback bytes emitted by Moodle. Events are aggregated and sent to WHMCS with idempotent report ids.
 
-Tracks upload reservations and provider assets by `service_id`, including source size, accounted bytes, state, binding and retention timestamps.
+## WHMCS control-plane tables
 
-### `mod_driveresource_asset_refs`
+### `mod_driveresource_services`
 
-Tracks active Moodle activity references to provider assets. The unique service/site/instance tuple prevents reference collisions while allowing the central WHMCS gateway to serve many customers.
+Compatibility aggregate keyed by WHMCS `service_id`. It retains provider assignment, aggregate storage/reservations, transfer counters and historical primary connection fields.
 
-### `mod_driveresource_nonces`
+Gateway 0.6.0 no longer treats this row as one Moodle site.
 
-Stores short-lived per-service request nonces for replay protection.
+### `mod_driveresource_accounts`
 
-The future S3-compatible adapter will reuse the same service/tenant/accounting boundary; provider-specific object metadata may be added in a backend-specific table rather than overloading Moodle activity data.
-
-
-### `mod_driveresource_usage_reports`
-
-Deduplication ledger for Moodle transfer batches. The unique `(service_id, report_id)` constraint makes WHMCS ingestion idempotent when Moodle retries after a network timeout. Old report ids are pruned after the operational retention window.
-
-Gateway 0.4.0 adds the connection-state and transfer-accounting fields plus this table.
-
-
-### `mod_driveresource_audit`
-
-WHMCS-only redacted control-plane audit table introduced in companion 0.4.1.
+Commercial account row keyed by `service_id`.
 
 | Field | Purpose |
 | --- | --- |
-| `service_id` | Tenant/service affected by the action |
-| `actor_type` | `admin`, `client` or `system` |
-| `actor_id` | WHMCS actor id when available |
-| `action` | Stable non-localised action key |
-| `metadata_json` | Bounded redacted operational metadata |
-| `created_at` | Audit timestamp |
+| `client_id` | WHMCS customer |
+| `billing_mode` | `free`, `payg`, or migration-only `legacy` |
+| `activation_verified` | commercial service activation completed |
+| `balance_microusd` | prepaid wallet balance |
+| `free_storage_bytes` | included storage |
+| `free_transfer_bytes` | included monthly transfer |
+| `storage_rate_microusd_per_gb` | PAYG storage rate |
+| `transfer_rate_microusd_per_gb` | PAYG transfer rate |
+| `minimum_recharge_microusd` | PAYG promotion threshold |
+| `free_installation_limit` | FREE Moodle limit |
+| `paid_installation_limit` | PAYG limit; 0 means unlimited |
+| `status` | commercial enforcement state |
 
-Tokens, passwords, API keys, secrets, signatures and credentials must never be written to `metadata_json`.
+### `mod_driveresource_installations`
 
-## RC7 implementation note
+Independent Moodle identities under one commercial account.
 
-No new Moodle tables or fields are introduced in 1.2.0-rc7-m45; the bundled rc6 schema remains the baseline.
+Unique constraints bind one site and token hash per service. Plaintext secondary tokens are never persisted.
+
+### `mod_driveresource_wallet_ledger`
+
+Append-only financial ledger using integer micro-USD.
+
+Each entry has a globally unique `idempotency_key`, signed amount and resulting balance.
+
+### `mod_driveresource_wallet_orders`
+
+Maps customer recharge requests to WHMCS invoices. The wallet is credited only after the corresponding invoice reaches Paid state.
+
+### `mod_driveresource_usage_daily`
+
+UTC daily usage snapshots and computed PAYG charges.
+
+### `mod_driveresource_uploads`
+
+Upload reservations and provider assets. Gateway 0.6.0 adds nullable `installation_id` for attribution while ownership remains account-wide by `service_id`.
+
+### `mod_driveresource_asset_refs`
+
+Activity references keyed by account, site, Moodle instance and provider video. Physical deletion is allowed only when no active reference remains.
+
+### `mod_driveresource_usage_reports`
+
+Idempotency ledger for Moodle transfer batches. Gateway 0.6.0 adds optional installation attribution.
+
+### `mod_driveresource_nonces`
+
+Short-lived HMAC request replay protection.
+
+### `mod_driveresource_audit`
+
+Redacted control-plane audit events.
+
+## Migration rule
+
+Schema upgrades must be idempotent and must never reset an existing account's billing mode, wallet balance, installation limits or paid status. Pre-0.6.0 services are created as `legacy` only when no account row exists.
