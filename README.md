@@ -57,7 +57,7 @@ Money is stored as integer micro-USD. Only the WHMCS `CreateAccount` provisionin
 
 The former Google Drive provider is fully retired from the Elearning Stream runtime. Elearning Stream does not resolve, download, preview or proxy that provider.
 
-Historical database values such as `googledrive`, the Moodle component name `mod_videoplayer`, WHMCS table prefixes such as `mod_driveresource_*`, and some upgrade migrations remain only for compatibility with previously installed builds. They are not production provider paths.
+Historical database values such as `googledrive`, the Moodle component name `mod_videoplayer`, WHMCS table prefixes such as `mod_driveresource_*`, and some upgrade migrations remain only for compatibility with previously installed builds. The old `classes/local/drive.php` helper is no longer shipped; the retired source key is isolated in `resource_compatibility` and is never executable provider logic.
 
 When an activity backed by the retired remote provider is edited, Moodle requires migration to Elearning Stream before it can be saved. Runtime access to that retired remote source fails closed.
 
