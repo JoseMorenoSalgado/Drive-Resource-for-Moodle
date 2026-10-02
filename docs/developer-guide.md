@@ -85,7 +85,7 @@ Never use floating-point values as stored money.
 - a Refunded wallet order is terminal and must not be silently reopened by `InvoicePaid`;
 - FREE/PAYG transition is based on a qualifying paid recharge.
 
-Usage calculations may use byte integers. Convert to charges only at the accounting boundary.
+Usage calculations may use byte integers. Convert to charges only at the accounting boundary. Financial parsing and formatting must use the Gateway `Money` helper; do not use PHP floating-point casts for invoice totals, Hosting lines, wallet balances or settlement comparisons.
 
 ## Upload reservations
 
