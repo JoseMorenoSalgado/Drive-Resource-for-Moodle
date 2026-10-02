@@ -67,7 +67,7 @@ Unique constraints bind one site and token hash per service. Plaintext secondary
 
 Append-only financial ledger using integer micro-USD.
 
-Each entry has a globally unique `idempotency_key`, signed amount and resulting balance.
+Each entry has a globally unique `idempotency_key`, signed amount and resulting balance. The balance may be negative when already-consumed PAYG provider cost exceeds remaining prepaid credit or a previously consumed recharge is reversed; the deficit must be covered by later recharges.
 
 ### `mod_driveresource_wallet_orders`
 
@@ -98,5 +98,9 @@ Short-lived HMAC request replay protection.
 Redacted control-plane audit events.
 
 ## Migration rule
+
+Gateway 0.6 migration postconditions are checked before the commercial control plane is considered usable: all commercial tables and critical columns must exist, upload/usage rows must support installation attribution, and every compatibility service row must have a commercial account row. Existing services are inserted as `legacy` with zero fabricated activation credit.
+
+
 
 Schema upgrades must be idempotent and must never reset an existing account's billing mode, wallet balance, installation limits or paid status. Pre-0.6.0 services are created as `legacy` only when no account row exists.
