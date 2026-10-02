@@ -2,6 +2,7 @@
 
 namespace WHMCS\Module\Addon\DriveresourceGateway;
 
+use RuntimeException;
 use WHMCS\Database\Capsule;
 
 /**
@@ -65,6 +66,11 @@ final class CommercialAccount
         $projected = $used + $reserved + $incomingBytes;
 
         $account = self::find($serviceId, true);
+        if (!$account && Capsule::schema()->hasTable('mod_driveresource_accounts')) {
+            throw new RuntimeException(
+                'Elearning Stream commercial account migration is incomplete.'
+            );
+        }
         if (!$account) {
             $included = max(0, (int) ($service->quota_bytes ?? 0));
             $overage = max(0, $projected - $included);
