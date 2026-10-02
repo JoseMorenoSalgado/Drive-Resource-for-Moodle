@@ -16,10 +16,8 @@
 
 namespace mod_videoplayer\local;
 
-use mod_videoplayer\local\stream\upstream_url_policy;
-
 /**
- * Local protected streaming and PDF cache service for Drive Resource.
+ * Local protected streaming service for Elearning Stream.
  *
  * This service owns trusted local/cache file delivery and PDF cache lifecycle.
  * Upstream HTTP delivery belongs exclusively to http_range_proxy.
@@ -37,18 +35,6 @@ final class protected_stream {
 
     /** @var int Temporary cache file stale lifetime. */
     private const STALE_TMP_TTL = 3600;
-
-    /** @var int Abort PDF cache downloads that remain effectively stalled. */
-    private const LOW_SPEED_LIMIT = 1024;
-
-    /** @var int Seconds below LOW_SPEED_LIMIT before aborting a cache download. */
-    private const LOW_SPEED_TIME = 20;
-
-    /** @var int Maximum validated redirects while warming the PDF cache. */
-    private const MAX_REDIRECT_HOPS = 5;
-
-    /** @var int Maximum Drive warning body read for confirmation resolution. */
-    private const MAX_WARNING_HTML_BYTES = 1048576;
 
     /**
      * Return the configured PDF cache TTL.
@@ -76,9 +62,9 @@ final class protected_stream {
     }
 
     /**
-     * Build the stable cache key for a protected Drive PDF.
+     * Build the stable cache key for a protected PDF.
      *
-     * @param string $fileid Google Drive file id.
+     * @param string $fileid legacy cache identifier.
      * @param string $type Resource type.
      * @return string Cache key.
      */
@@ -89,7 +75,7 @@ final class protected_stream {
     /**
      * Build the final PDF cache file path.
      *
-     * @param string $fileid Google Drive file id.
+     * @param string $fileid legacy cache identifier.
      * @param string $type Resource type.
      * @return string Absolute cache file path.
      */
@@ -98,9 +84,9 @@ final class protected_stream {
     }
 
     /**
-     * Invalidate one cached Google Drive PDF representation.
+     * Invalidate one cached PDF representation.
      *
-     * @param string $fileid Google Drive file id.
+     * @param string $fileid legacy cache identifier.
      * @param string $type Resource type.
      * @return void
      */
@@ -189,7 +175,7 @@ final class protected_stream {
         }
 
         if (!self::is_pdf_file($path)) {
-            debugging('Drive Resource local PDF did not contain a PDF signature near the beginning.', DEBUG_DEVELOPER);
+            debugging('Elearning Stream local PDF did not contain a PDF signature near the beginning.', DEBUG_DEVELOPER);
             throw new \moodle_exception('protectedresourceunavailable', 'mod_videoplayer');
         }
 
@@ -264,103 +250,18 @@ final class protected_stream {
     }
 
     /**
-     * Warm a Google Drive PDF into local cache.
+     * Retired remote-PDF cache warmer.
      *
-     * The full PDF is downloaded to a unique temporary file and atomically
-     * renamed only after PDF signature validation succeeds.
+     * Elearning Stream no longer downloads documents from Google or any other
+     * remote document source through this compatibility service.
      *
-     * @param string $url Resolved upstream download URL.
-     * @param string $cachefile Final cache file path.
-     * @return bool Whether a valid PDF was cached.
+     * @param string $url Ignored legacy argument.
+     * @param string $cachefile Ignored legacy argument.
+     * @return bool Always false.
      */
     public static function warm_drive_pdf_cache(string $url, string $cachefile): bool {
-        if (!upstream_url_policy::is_allowed($url)) {
-            debugging('Drive Resource PDF cache rejected a non-allowlisted upstream URL.', DEBUG_DEVELOPER);
-            return false;
-        }
-
-        $cachedir = dirname($cachefile);
-        if (!is_dir($cachedir)) {
-            make_writable_directory($cachedir);
-        }
-        if (!is_writable($cachedir)) {
-            debugging('Drive Resource PDF cache warm failed: cache directory is not writable.', DEBUG_DEVELOPER);
-            return false;
-        }
-
-        $lockfile = $cachefile . '.lock';
-        $lockhandle = fopen($lockfile, 'c');
-        if ($lockhandle === false) {
-            debugging('Drive Resource PDF cache warm failed: lock file is not writable.', DEBUG_DEVELOPER);
-            return false;
-        }
-
-        if (!flock($lockhandle, LOCK_EX)) {
-            fclose($lockhandle);
-            debugging('Drive Resource PDF cache warm failed: lock could not be acquired.', DEBUG_DEVELOPER);
-            return false;
-        }
-
-        try {
-            clearstatcache(true, $cachefile);
-            if (self::is_fresh_pdf_cache($cachefile)) {
-                return true;
-            }
-
-            $tmpfile = $cachefile . '.tmp.' . getmypid();
-            $cookiejar = $cachefile . '.cookies.' . getmypid();
-            self::delete_if_file($tmpfile);
-            self::delete_if_file($cookiejar);
-
-            $download = self::download_to_file($url, $tmpfile, $cookiejar);
-            $valid = $download['ok'] && self::is_pdf_file($tmpfile);
-
-            if (!$valid && is_file($tmpfile)) {
-                $warningbody = file_get_contents(
-                    $tmpfile,
-                    false,
-                    null,
-                    0,
-                    self::MAX_WARNING_HTML_BYTES
-                );
-                $confirmedurl = is_string($warningbody)
-                    ? drive::resolve_download_warning_url(
-                        $warningbody,
-                        (string)($download['effectiveurl'] ?? $url)
-                    )
-                    : null;
-
-                if ($confirmedurl !== null) {
-                    self::delete_if_file($tmpfile);
-                    $download = self::download_to_file($confirmedurl, $tmpfile, $cookiejar);
-                    $valid = $download['ok'] && self::is_pdf_file($tmpfile);
-                }
-            }
-
-            if (!$valid) {
-                self::delete_if_file($tmpfile);
-                debugging(
-                    'Drive Resource PDF cache warm failed: HTTP ' . ($download['httpcode'] ?? 0) . ' ' .
-                    ($download['error'] ?? '') . ' content-type=' . ($download['contenttype'] ?? ''),
-                    DEBUG_DEVELOPER
-                );
-                return false;
-            }
-
-            if (!@rename($tmpfile, $cachefile)) {
-                self::delete_if_file($tmpfile);
-                debugging('Drive Resource PDF cache warm failed: atomic cache rename failed.', DEBUG_DEVELOPER);
-                return false;
-            }
-
-            return true;
-        } finally {
-            if (isset($cookiejar)) {
-                self::delete_if_file($cookiejar);
-            }
-            flock($lockhandle, LOCK_UN);
-            fclose($lockhandle);
-        }
+        unset($url, $cachefile);
+        return false;
     }
 
     /**
