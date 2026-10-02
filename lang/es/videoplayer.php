@@ -79,6 +79,7 @@ $string['invalidpointsperpage'] = 'Los puntos deben estar entre 0 y 100.';
 $string['invalidstreamurl'] = 'Ingrese una URL válida de Elearning Stream.';
 $string['invalidurl'] = 'La URL proporcionada no es válida.';
 $string['lastposition'] = 'Posición de reanudación';
+$string['legacygooglesourcenotsupported'] = 'Esta actividad utiliza un origen remoto heredado que ya no forma parte de Elearning Stream. Para continuar, suba o vincule el video mediante Elearning Stream y guarde la actividad.';
 $string['loadingpdf'] = 'Cargando PDF...';
 $string['localpdffile'] = 'Archivo PDF local';
 $string['localpdffile_help'] = 'Suba un único archivo PDF. El archivo se almacena en Moodle y se entrega únicamente mediante las verificaciones de acceso de Elearning Stream.';
@@ -221,5 +222,4 @@ $string['whmcsgatewaynotconfigured'] = 'Elearning Stream no está configurado en
 $string['whmcsgatewayremoteerror'] = 'La pasarela de Elearning Stream rechazó la solicitud: {$a}';
 $string['whmcsgatewayrequestfailed'] = 'La pasarela de Elearning Stream no pudo procesar la solicitud.';
 $string['zoomin'] = 'Acercar';
-$string['zoomout'] = 'Alejar';$string['legacygooglesourcenotsupported'] = 'Esta actividad utiliza un origen remoto heredado que ya no forma parte de Elearning Stream. Para continuar, suba o vincule el video mediante Elearning Stream y guarde la actividad.';
-
+$string['zoomout'] = 'Alejar';
