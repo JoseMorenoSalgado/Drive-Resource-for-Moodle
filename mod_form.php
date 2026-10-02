@@ -50,7 +50,7 @@ class mod_videoplayer_mod_form extends moodleform_mod {
         $mform->addRule('name', null, 'required', null, 'client');
 
         // Production UI is Elearning Stream-first. Moodle-local PDFs remain
-        // available only for backward compatibility. Historical Google-backed
+        // available only for backward compatibility. Historical remote-provider
         // records must be migrated to Elearning Stream before they can be saved.
         $currentsource = bunny_stream::SOURCE;
         $legacyremotesource = false;
