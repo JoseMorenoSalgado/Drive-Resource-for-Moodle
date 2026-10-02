@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: drive-resource-${{ github.workflow }}-${{ github.ref }}
+  group: elearning-stream-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
