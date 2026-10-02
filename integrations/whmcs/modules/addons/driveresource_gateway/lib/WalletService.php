@@ -75,12 +75,14 @@ final class WalletService
                 && $amountMicrousd >= (int) $account->minimum_recharge_microusd
             ) {
                 $mode = CommercialAccount::MODE_PAYG;
-                if (in_array($status, [
+                if ($balance > 0 && in_array($status, [
                     CommercialAccount::STATUS_UPLOAD_RESTRICTED,
                     CommercialAccount::STATUS_GRACE_PERIOD,
                     CommercialAccount::STATUS_LOW_BALANCE,
                 ], true)) {
                     $status = CommercialAccount::STATUS_ACTIVE;
+                } else if ($balance <= 0) {
+                    $status = CommercialAccount::STATUS_UPLOAD_RESTRICTED;
                 }
             }
 
@@ -162,7 +164,10 @@ final class WalletService
                 throw new RuntimeException('Elearning Stream commercial account was not found.');
             }
 
-            $balance = max(0, (int) $account->balance_microusd - $amountMicrousd);
+            // Reversals must preserve debt. If previously consumed credit is
+            // refunded, the negative balance is carried forward and future
+            // recharges must cover it before paid overage is available again.
+            $balance = (int) $account->balance_microusd - $amountMicrousd;
             $status = $balance > 0
                 ? (string) $account->status
                 : CommercialAccount::STATUS_UPLOAD_RESTRICTED;
