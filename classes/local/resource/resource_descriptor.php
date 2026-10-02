@@ -20,10 +20,12 @@ use mod_videoplayer\local\drive;
 use mod_videoplayer\local\provider\bunny_stream;
 
 /**
- * Normalised, browser-safe description of a Drive Resource instance.
+ * Normalised, browser-safe description of an Elearning Stream instance.
  *
- * The descriptor deliberately exposes only Moodle protected endpoints. Google
- * file ids and upstream URLs remain server-side implementation details.
+ * Production descriptors support Elearning Stream managed video and the
+ * historical Moodle-local PDF source. Legacy Google-backed records are
+ * recognized only so they can fail closed and be migrated; no Google URL is
+ * resolved or contacted by the runtime.
  *
  * @package    mod_videoplayer
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
@@ -42,7 +44,7 @@ final class resource_descriptor {
     /** @var string Canonical type. */
     private string $type;
 
-    /** @var string|null Google Drive file id. */
+    /** @var string|null Legacy upstream identifier; unused in production. */
     private ?string $fileid;
 
     /** @var \stored_file|null Local protected PDF. */
@@ -82,7 +84,7 @@ final class resource_descriptor {
      * @return self
      */
     public static function from_instance(\stdClass $instance, \context_module $context): self {
-        $source = clean_param($instance->source ?? drive::SOURCE_GOOGLEDRIVE, PARAM_ALPHANUMEXT);
+        $source = clean_param($instance->source ?? bunny_stream::SOURCE, PARAM_ALPHANUMEXT);
 
         if ($source === drive::SOURCE_LOCALPDF) {
             $localfile = videoplayer_get_localpdf_file($context);
@@ -107,12 +109,10 @@ final class resource_descriptor {
             );
         }
 
-        $source = drive::SOURCE_GOOGLEDRIVE;
-        $url = trim((string)($instance->videourl ?? ''));
-        $fileid = drive::is_supported_url($url) ? drive::extract_file_id($url) : null;
-        $type = drive::resolve_record_type($instance);
-
-        return new self($instance, $context, $source, $type, $fileid, null);
+        // Fail closed for historical remote-source records. Keeping the
+        // persisted source value makes migration diagnostics possible without
+        // restoring any dependency on the former provider.
+        return new self($instance, $context, $source, drive::TYPE_FILE, null, null);
     }
 
     /**
@@ -166,8 +166,6 @@ final class resource_descriptor {
     /**
      * Whether this resource can be rendered with local PDF.js.
      *
-     * Google Docs, Sheets and Slides are exported to PDF server-side.
-     *
      * @return bool
      */
     public function is_pdf_like(): bool {
@@ -202,7 +200,7 @@ final class resource_descriptor {
     }
 
     /**
-     * Google Drive file id for server-side resolution.
+     * Legacy upstream identifier. Production sources return null.
      *
      * @return string|null
      */
@@ -231,7 +229,7 @@ final class resource_descriptor {
         if ($this->source === bunny_stream::SOURCE) {
             return $this->provider_asset_id() !== null;
         }
-        return $this->fileid !== null && $this->fileid !== '';
+        return false;
     }
 
     /**
@@ -265,7 +263,7 @@ final class resource_descriptor {
     public function filename(): string {
         $name = clean_filename(format_string($this->instance->name, true, ['context' => $this->context]));
         if ($name === '') {
-            $name = 'drive-resource';
+            $name = 'elearning-stream';
         }
 
         $extension = $this->extension();
