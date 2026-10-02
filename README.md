@@ -12,7 +12,7 @@ Elearning Stream is a protected managed-video activity for Moodle. The historica
 - PHP baseline: PHP 8.1+
 - Player: native HTML5 Media API
 - Provider management secrets in Moodle: **none**
-- Google Drive dependency: **none**
+- Retired external viewer/provider dependency: **none**
 
 ## Production architecture
 
