@@ -17,10 +17,10 @@
 namespace mod_videoplayer\local;
 
 /**
- * Persisted resource compatibility constants and type helpers.
+ * Persisted source identifiers retained for upgrade compatibility.
  *
- * Provider-specific network resolution is deliberately excluded from this
- * class. Retired source values are treated only as migration metadata.
+ * Network resolution and presentation decisions deliberately do not live here.
+ * The retired source key is data migration metadata only.
  *
  * @package    mod_videoplayer
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
@@ -30,84 +30,6 @@ final class resource_compatibility {
     /** @var string Retired remote-source key retained only for migration. */
     public const SOURCE_RETIRED_REMOTE = 'googledrive';
 
-    /** @var string Moodle-local protected PDF source. */
+    /** @var string Historical Moodle-local protected PDF source. */
     public const SOURCE_LOCALPDF = 'localpdf';
-
-    /** @var string Automatic resource type retained for older records. */
-    public const TYPE_AUTO = 'auto';
-
-    /** @var string Video resource type. */
-    public const TYPE_VIDEO = 'video';
-
-    /** @var string Generic unsupported file type. */
-    public const TYPE_FILE = 'file';
-
-    /** Canonical historical resource types accepted in persisted data. */
-    public const RESOURCE_TYPES = [
-        self::TYPE_VIDEO,
-        'audio',
-        'pdf',
-        'image',
-        'document',
-        'spreadsheet',
-        'presentation',
-        self::TYPE_FILE,
-    ];
-
-    /**
-     * Resolve the persisted resource type without inspecting an external URL.
-     *
-     * @param object $record Activity record.
-     * @return string
-     */
-    public static function resolve_record_type(object $record): string {
-        if (($record->source ?? '') === self::SOURCE_LOCALPDF) {
-            return 'pdf';
-        }
-
-        $configured = clean_param((string)($record->type ?? self::TYPE_AUTO), PARAM_ALPHANUMEXT);
-        if ($configured !== '' && $configured !== self::TYPE_AUTO) {
-            return in_array($configured, self::RESOURCE_TYPES, true)
-                ? $configured
-                : self::TYPE_FILE;
-        }
-
-        return self::TYPE_VIDEO;
-    }
-
-    /**
-     * Validate a persisted resource type.
-     *
-     * @param string $type Resource type.
-     * @return bool
-     */
-    public static function is_supported_configured_type(string $type): bool {
-        return $type === self::TYPE_AUTO || in_array($type, self::RESOURCE_TYPES, true);
-    }
-
-    /**
-     * Whether the type uses the local PDF.js reader.
-     *
-     * @param string $type Resource type.
-     * @return bool
-     */
-    public static function is_pdf_type(string $type): bool {
-        return in_array($type, ['pdf', 'document', 'spreadsheet', 'presentation'], true);
-    }
-
-    /**
-     * Default MIME type for retained resource types.
-     *
-     * @param string $type Resource type.
-     * @return string
-     */
-    public static function default_mimetype(string $type): string {
-        return match ($type) {
-            'pdf', 'document', 'spreadsheet', 'presentation' => 'application/pdf',
-            'video' => 'video/mp4',
-            'audio' => 'audio/mpeg',
-            'image' => 'image/jpeg',
-            default => 'application/octet-stream',
-        };
-    }
 }
