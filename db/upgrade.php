@@ -666,5 +666,61 @@ function xmldb_videoplayer_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026092501, 'videoplayer');
     }
 
+    // Remove retired presentation/gamification schema. These fields had no
+    // production UI in Elearning Stream and keeping them increased Privacy,
+    // Backup/Restore and future migration surface without serving the current
+    // video/PDF product.
+    if ($oldversion < 2026100203) {
+        $table = new xmldb_table('videoplayer');
+        if ($dbman->table_exists($table)) {
+            $typeindex = new xmldb_index('type_idx', XMLDB_INDEX_NOTUNIQUE, ['type']);
+            if ($dbman->index_exists($table, $typeindex)) {
+                $dbman->drop_index($table, $typeindex);
+            }
+
+            foreach ([
+                'videourl',
+                'type',
+                'displaymode',
+                'disabledownload',
+                'enablegamification',
+                'pointsperpage',
+                'video',
+                'endscreentext',
+                'displayasstartscreen',
+                'starttime',
+                'endtime',
+                'grade',
+                'displayoptions',
+                'posterimage',
+                'extendedcompletion',
+            ] as $fieldname) {
+                $field = new xmldb_field($fieldname);
+                if ($dbman->field_exists($table, $field)) {
+                    $dbman->drop_field($table, $field);
+                }
+            }
+        }
+
+        $viewstable = new xmldb_table('videoplayer_views');
+        if ($dbman->table_exists($viewstable)) {
+            $pointsfield = new xmldb_field('points');
+            if ($dbman->field_exists($viewstable, $pointsfield)) {
+                $dbman->drop_field($viewstable, $pointsfield);
+            }
+        }
+
+        $rewardstable = new xmldb_table('videoplayer_rewards');
+        if ($dbman->table_exists($rewardstable)) {
+            $dbman->drop_table($rewardstable);
+        }
+
+        unset_config('defaultrequiredseconds', 'mod_videoplayer');
+        unset_config('pdfcacheenabled', 'mod_videoplayer');
+        unset_config('pdfcachettl', 'mod_videoplayer');
+
+        upgrade_mod_savepoint(true, 2026100203, 'videoplayer');
+    }
+
     return true;
 }
