@@ -79,6 +79,8 @@ Never use floating-point values as stored money.
 - `InvoicePaid` is the credit authority only after the invoice client, currency and frozen converted total are verified;
 - wallet accounting is USD-denominated even when the WHMCS client invoice uses another configured currency;
 - refund/unpaid hooks reverse the entitlement;
+- every recharge settlement uses `settlement_version`; a Paid-after-Unpaid event must create a new versioned credit key rather than reuse a previously reversed ledger key;
+- a Refunded wallet order is terminal and must not be silently reopened by `InvoicePaid`;
 - FREE/PAYG transition is based on a qualifying paid recharge.
 
 Usage calculations may use byte integers. Convert to charges only at the accounting boundary.
