@@ -24,7 +24,7 @@
 
 namespace mod_videoplayer;
 
-use mod_videoplayer\local\drive;
+use mod_videoplayer\local\resource_compatibility;
 use mod_videoplayer\local\provider\bunny_asset_lifecycle;
 use mod_videoplayer\local\provider\bunny_stream;
 
@@ -95,7 +95,7 @@ final class bunny_asset_lifecycle_test extends \advanced_testcase {
 
         $oldinstance = $this->bunny_instance();
         $newinstance = clone $oldinstance;
-        $newinstance->source = drive::SOURCE_GOOGLEDRIVE;
+        $newinstance->source = resource_compatibility::SOURCE_RETIRED_REMOTE;
         $newinstance->providerassetid = null;
         $newinstance->provideruploadid = null;
 
@@ -128,7 +128,7 @@ final class bunny_asset_lifecycle_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         $instance = $this->bunny_instance();
-        $instance->source = drive::SOURCE_GOOGLEDRIVE;
+        $instance->source = resource_compatibility::SOURCE_RETIRED_REMOTE;
 
         $service = new bunny_asset_lifecycle();
         $service->after_create($instance);
