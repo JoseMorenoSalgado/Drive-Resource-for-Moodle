@@ -141,7 +141,7 @@ function driveresource_BackendLoader(array $params): array
  */
 function driveresource_CreateAccount(array $params): string
 {
-    return driveresource_provision_moodle_connection($params, false);
+    return driveresource_provision_moodle_connection($params, false, true);
 }
 
 /**
@@ -479,7 +479,7 @@ function driveresource_DeleteVideo(array $params): string
  */
 function driveresource_ProvisionMoodleConnection(array $params): string
 {
-    return driveresource_provision_moodle_connection($params, false);
+    return driveresource_provision_moodle_connection($params, false, false);
 }
 
 /**
@@ -493,7 +493,7 @@ function driveresource_ProvisionMoodleConnection(array $params): string
  */
 function driveresource_RotateMoodleToken(array $params): string
 {
-    return driveresource_provision_moodle_connection($params, true);
+    return driveresource_provision_moodle_connection($params, true, false);
 }
 
 /**
@@ -501,9 +501,14 @@ function driveresource_RotateMoodleToken(array $params): string
  *
  * @param array $params WHMCS module parameters.
  * @param bool $forcerotation Whether to replace an existing valid token.
+ * @param bool $activationeligible Whether this call may verify activation and grant the one-time credit.
  * @return string
  */
-function driveresource_provision_moodle_connection(array $params, bool $forcerotation): string
+function driveresource_provision_moodle_connection(
+    array $params,
+    bool $forcerotation,
+    bool $activationeligible
+): string
 {
     try {
         driveresource_require_gateway();
@@ -545,7 +550,9 @@ function driveresource_provision_moodle_connection(array $params, bool $forcerot
             'site_url' => $siteUrl,
             'site_hash' => hash('sha256', $siteUrl),
             'token_hash' => hash('sha256', $token),
-            'status' => 'active',
+            'status' => $activationeligible
+                ? \WHMCS\Module\Addon\DriveresourceGateway\CommercialAccount::STATUS_ACTIVE
+                : \WHMCS\Module\Addon\DriveresourceGateway\CommercialAccount::STATUS_UPLOAD_RESTRICTED,
             // Legacy backend fields mirror the video provider for API compatibility.
             'backend_key' => $videoBackendKey,
             'backend_profile' => $videoBackendProfile,
@@ -580,7 +587,7 @@ function driveresource_provision_moodle_connection(array $params, bool $forcerot
             $serviceId,
             $siteUrl,
             $token,
-            !$existing
+            $activationeligible
         );
 
         if (!isset($params['model'])) {
@@ -711,7 +718,26 @@ function driveresource_AddMoodleInstallation(array $params): string
         $siteUrl = driveresource_normalize_site_url((string) ($_POST['moodleurl'] ?? ''));
         $label = trim((string) ($_POST['label'] ?? ''));
         $label = mb_substr($label !== '' ? $label : (string) parse_url($siteUrl, PHP_URL_HOST), 0, 191);
-        $siteHash = hash('sha256', $siteUrl);
+        if (
+        $account
+        && !(bool) $account->activation_verified
+        && $activationeligible
+        && (string) $account->billing_mode !== 'legacy'
+    ) {
+        Capsule::table('mod_driveresource_accounts')
+            ->where('service_id', $serviceId)
+            ->update([
+                'activation_verified' => true,
+                'activation_amount_microusd' => $config::activationCreditMicrousd(),
+                'status' => \WHMCS\Module\Addon\DriveresourceGateway\CommercialAccount::STATUS_ACTIVE,
+                'updated_at' => $now,
+            ]);
+        $account = Capsule::table('mod_driveresource_accounts')
+            ->where('service_id', $serviceId)
+            ->first();
+    }
+
+    $siteHash = hash('sha256', $siteUrl);
         $token = bin2hex(random_bytes(32));
         $now = time();
         $installationId = 0;
@@ -1110,7 +1136,7 @@ function driveresource_ChangePassword(array $params): string
         $token = strtolower(trim((string) ($params['password'] ?? '')));
         if (!preg_match('/^[a-f0-9]{64}$/', $token)) {
             throw new RuntimeException(
-                'Gateway token must be a 64-character hexadecimal Drive Resource token.'
+                'Gateway token must be a 64-character hexadecimal Elearning Stream token.'
             );
         }
 
@@ -1369,7 +1395,7 @@ function driveresource_sync_service_policy(array $params): void
  * @param int $serviceId WHMCS service id.
  * @param string $siteUrl Canonical primary Moodle URL.
  * @param string $token Plaintext primary token held by WHMCS only.
- * @param bool $newService Whether this is the first service provisioning.
+ * @param bool $activationeligible Whether WHMCS CreateAccount authorizes activation credit.
  * @return void
  */
 function driveresource_ensure_commercial_account(
@@ -1377,7 +1403,7 @@ function driveresource_ensure_commercial_account(
     int $serviceId,
     string $siteUrl,
     string $token,
-    bool $newService
+    bool $activationeligible
 ): void {
     $lib = dirname(__DIR__, 2) . '/addons/driveresource_gateway/lib';
     require_once $lib . '/Config.php';
@@ -1408,7 +1434,7 @@ function driveresource_ensure_commercial_account(
             'service_id' => $serviceId,
             'client_id' => $clientId > 0 ? $clientId : null,
             'billing_mode' => 'free',
-            'activation_verified' => true,
+            'activation_verified' => $activationeligible,
             'activation_amount_microusd' => $config::activationCreditMicrousd(),
             'balance_microusd' => 0,
             'free_storage_bytes' => $config::freeStorageBytes(),
@@ -1467,7 +1493,8 @@ function driveresource_ensure_commercial_account(
     }
 
     if (
-        (bool) $account->activation_verified
+        $activationeligible
+        && (bool) $account->activation_verified
         && (string) $account->billing_mode !== 'legacy'
     ) {
         $activationCredit = $config::activationCreditMicrousd();
@@ -1482,7 +1509,7 @@ function driveresource_ensure_commercial_account(
                 'activation',
                 'activation:' . $serviceId,
                 'whmcs-service:' . $serviceId,
-                ['source' => $newService ? 'create_account' : 'provision_repair']
+                ['source' => 'create_account']
             );
         }
     }
