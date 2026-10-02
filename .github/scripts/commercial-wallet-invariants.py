@@ -25,6 +25,7 @@ addon = read("integrations/whmcs/modules/addons/driveresource_gateway/driveresou
 wallet = read("integrations/whmcs/modules/addons/driveresource_gateway/lib/WalletService.php")
 policy = read("integrations/whmcs/modules/addons/driveresource_gateway/lib/CommercialPolicy.php")
 money = read("integrations/whmcs/modules/addons/driveresource_gateway/lib/Money.php")
+migration = read("integrations/whmcs/modules/addons/driveresource_gateway/lib/CommercialMigrationPolicy.php")
 commercial = read("integrations/whmcs/modules/addons/driveresource_gateway/lib/CommercialAccount.php")
 auth = read("integrations/whmcs/modules/addons/driveresource_gateway/lib/RequestAuthenticator.php")
 gateway = read("integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php")
@@ -118,6 +119,27 @@ require(
     addon,
     "$invalidLegacyActivation",
     "Gateway upgrade must reject fabricated activation credit on legacy accounts.",
+)
+require(
+    addon,
+    "CommercialMigrationPolicy::legacyAccountValues",
+    "Gateway migration must use the executable legacy account mapping policy.",
+)
+require(
+    addon,
+    "CommercialMigrationPolicy::primaryInstallationValues",
+    "Gateway migration must use the executable primary-installation mapping policy.",
+)
+require(migration, "MODE_LEGACY", "Legacy migration policy must preserve legacy commercial mode.")
+require(
+    migration,
+    "'activation_amount_microusd' => 0",
+    "Legacy migration policy must never fabricate activation credit.",
+)
+require(
+    migration,
+    "'balance_microusd' => 0",
+    "Legacy migration policy must never fabricate wallet balance.",
 )
 for table in (
     "mod_driveresource_accounts",
