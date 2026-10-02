@@ -31,9 +31,43 @@ function assert_wallet(bool $condition, string $message): void
     }
 }
 
+/**
+ * @param callable $callback Operation expected to fail.
+ * @param string $message Failure message.
+ * @return void
+ */
+function assert_wallet_throws(callable $callback, string $message): void
+{
+    try {
+        $callback();
+    } catch (RuntimeException $exception) {
+        return;
+    }
+
+    fwrite(STDERR, "FAIL: {$message}\n");
+    exit(1);
+}
+
 assert_wallet(Money::decimalToMicrounits('10.00') === 10000000, 'US$10 decimal parsing');
 assert_wallet(Money::decimalToMicrounits('367.50') === 367500000, 'Converted invoice parsing');
 assert_wallet(Money::microunitsToDecimal(10000000) === '10.00', 'US$10 decimal formatting');
+assert_wallet(Money::decimalToMicrounits('0.000001') === 1, 'One micro-unit parsing');
+assert_wallet(Money::decimalToMicrounits('999999.999999') === 999999999999, 'Six-decimal parsing');
+assert_wallet(Money::microunitsToDecimal(1, 6) === '0.000001', 'One micro-unit exact formatting');
+assert_wallet(Money::microunitsToDecimal(367500001, 6) === '367.500001', 'Exact six-decimal formatting');
+assert_wallet(Money::microunitsToDecimal(367500001, 2) === '367.50', 'Invoice formatting truncates only at requested precision');
+assert_wallet_throws(
+    static fn(): int => Money::decimalToMicrounits('-1.00'),
+    'Negative wallet amounts must be rejected'
+);
+assert_wallet_throws(
+    static fn(): int => Money::decimalToMicrounits('1.0000001'),
+    'More than six decimal places must be rejected'
+);
+assert_wallet_throws(
+    static fn(): int => Money::decimalToMicrounits((string) PHP_INT_MAX . '.999999'),
+    'Currency parser must reject integer overflow'
+);
 
 $now = 1700000000;
 
@@ -77,6 +111,22 @@ assert_wallet(
 assert_wallet(
     CommercialPolicy::nextRechargeSettlementVersion('paid', 2) === null,
     'Duplicate InvoicePaid must not create another settlement'
+);
+assert_wallet(
+    CommercialPolicy::rechargeReversalVersion('reversed', 1) === null,
+    'Duplicate InvoiceUnpaid must not debit the same settlement twice'
+);
+assert_wallet(
+    CommercialPolicy::rechargeReversalVersion('refunded', 1) === null,
+    'Refunded recharge must not be reversed twice'
+);
+assert_wallet(
+    CommercialPolicy::nextRechargeSettlementVersion('reversed', 1) === 2,
+    'Unpaid recharge may settle exactly once again when the invoice returns to Paid'
+);
+assert_wallet(
+    CommercialPolicy::nextRechargeSettlementVersion('refunded', 1) === null,
+    'Refunded recharge must never reopen on a later Paid event'
 );
 
 $activation = CommercialPolicy::afterCredit(
