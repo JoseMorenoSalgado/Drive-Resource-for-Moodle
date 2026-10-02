@@ -21,16 +21,21 @@ require_file "amd/build/pdfviewer.min.js"
 require_file "amd/build/pdfviewer.min.js.map"
 require_file "protected.php"
 
-echo "Checking browser-facing URL confidentiality..."
-if grep -RniE     'drive\.google\.com|docs\.google\.com|googleusercontent\.com|googlevideo\.com|content-workspacevideo-pa\.googleapis\.com'     templates amd/src; then
-    fail "Browser-facing templates/AMD source contain a Google upstream host."
+echo "Checking retired Google runtime isolation..."
+if grep -RniE 'drive\.google\.com|docs\.google\.com|googleusercontent\.com|googlevideo\.com|content-workspacevideo-pa\.googleapis\.com' \
+    classes amd/src templates mod_form.php lib.php protected.php view.php; then
+    fail "Production Moodle runtime contains a retired Google upstream host."
+fi
+if grep -RniE 'drive::(extract_file_id|is_supported_url|protected_content_url|resolve_download_warning_url)|drive_stream_resolver' \
+    classes amd/src templates mod_form.php lib.php protected.php view.php; then
+    fail "Production Moodle runtime contains retired Google resolver logic."
 fi
 
 if grep -RniE 'b-cdn\.net|mediadelivery\.net' templates amd/src/nativevideo.js; then
     fail "Learner-facing video code contains an Elearning Stream upstream host."
 fi
 
-echo "Checking that Google/iframe viewers cannot re-enter presentation code..."
+echo "Checking that retired remote/iframe viewers cannot re-enter presentation code..."
 if grep -RniE "<iframe|/preview([?\"'[:space:]]|$)" templates amd/src; then
     fail "Browser-facing presentation code contains an iframe/preview viewer path."
 fi
@@ -51,8 +56,7 @@ fi
 echo "Checking upstream redirect confinement..."
 if grep -n "CURLOPT_FOLLOWLOCATION => true" \
     classes/local/http_range_proxy.php \
-    classes/local/protected_stream.php \
-    classes/local/drive_stream_resolver.php; then
+    classes/local/protected_stream.php; then
     fail "Automatic cURL redirect following bypasses per-hop upstream allow-list validation."
 fi
 
@@ -83,10 +87,11 @@ if grep -A12 "new xmldb_field('watchedranges'" db/upgrade.php | grep -q "'durati
     fail "watchedranges DDL must not depend on AFTER duration column ordering."
 fi
 
-echo "Checking canonical resource type resolution..."
-if grep -nE 'drive::detect_type\(' lib.php index.php classes/local/resource/resource_descriptor.php classes/task/precache_pdf.php; then
-    fail "Runtime code bypasses drive::resolve_record_type() and duplicates resource type resolution."
-fi
+echo "Checking resource compatibility boundary..."
+grep -q "no longer parses, resolves or generates Google" classes/local/drive.php \
+    || fail "Historical resource helper no longer documents the retired provider boundary."
+grep -q "fail closed" classes/local/resource/resource_descriptor.php \
+    || fail "Legacy remote resources must fail closed."
 
 echo "Checking Moodle 4.5 completion form API compatibility..."
 if grep -n 'get_suffixed_name' mod_form.php; then
@@ -98,4 +103,4 @@ echo "Checking release metadata..."
 grep -q "\$plugin->supported = \[405, 405\]" version.php     || fail "Moodle 4.5 support declaration changed unexpectedly."
 grep -q 'MATURITY_RC' version.php     || fail "The Moodle release candidate must declare RC maturity."
 
-echo "Drive Resource release invariants: PASS"
+echo "Elearning Stream release invariants: PASS"
