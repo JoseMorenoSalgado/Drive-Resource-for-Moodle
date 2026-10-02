@@ -48,6 +48,9 @@ assert_migration($account['client_id'] === 77, 'Legacy account must preserve cli
 assert_migration($account['billing_mode'] === CommercialAccount::MODE_LEGACY, 'Legacy mode must be preserved');
 assert_migration($account['activation_verified'] === true, 'Legacy service must remain operational');
 assert_migration($account['activation_amount_microusd'] === 0, 'Migration must not fabricate activation credit');
+assert_migration($account['activation_invoice_id'] === null, 'Legacy account must stay outside paid activation invoice lifecycle');
+assert_migration($account['activation_settlement_version'] === 0, 'Legacy account must not fabricate activation settlement history');
+assert_migration($account['activation_refunded_at'] === null, 'Legacy account must not fabricate activation refund state');
 assert_migration($account['balance_microusd'] === 0, 'Migration must not fabricate wallet balance');
 assert_migration($account['free_storage_bytes'] === 9876543210, 'Legacy quota must be preserved');
 assert_migration($account['status'] === CommercialAccount::STATUS_ACTIVE, 'Active legacy service must stay active');
