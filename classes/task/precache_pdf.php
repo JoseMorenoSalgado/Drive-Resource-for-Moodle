@@ -19,7 +19,7 @@ namespace mod_videoplayer\task;
 /**
  * Compatibility no-op for queued remote-PDF cache tasks from older releases.
  *
- * Elearning Stream no longer has a remote Google document data plane. Keeping
+ * Elearning Stream no longer has a retired remote-document data plane. Keeping
  * the class allows Moodle cron to consume historical ad-hoc task rows safely
  * after an upgrade instead of failing because the task class disappeared.
  *
