@@ -22,13 +22,20 @@ final class BunnyClient
      * Create an empty Bunny video object for a direct TUS upload.
      *
      * @param string $title Video title.
+     * @param string|null $collectionId Optional virtual-classroom collection.
      * @return string Video GUID.
      */
-    public function createVideo(string $title): string
+    public function createVideo(string $title, ?string $collectionId = null): string
     {
-        $response = $this->request('POST', '/library/' . $this->libraryId . '/videos', [
-            'title' => mb_substr(trim($title) ?: 'Drive Resource video', 0, 255),
-        ]);
+        $body = [
+            'title' => mb_substr(trim($title) ?: 'Elearning Stream video', 0, 255),
+        ];
+        if ($collectionId !== null && $collectionId !== '') {
+            $this->assertProviderGuid($collectionId, 'collection');
+            $body['collectionId'] = $collectionId;
+        }
+
+        $response = $this->request('POST', '/library/' . $this->libraryId . '/videos', $body);
 
         $videoId = trim((string) ($response['guid'] ?? ''));
         if (!preg_match('/^[a-f0-9-]{32,64}$/i', $videoId)) {
@@ -36,6 +43,76 @@ final class BunnyClient
         }
 
         return $videoId;
+    }
+
+    /**
+     * Create one Bunny collection used as the service's virtual classroom.
+     *
+     * @param string $name Collection display name.
+     * @return array{id:string,name:string}
+     */
+    public function createCollection(string $name): array
+    {
+        $name = mb_substr(trim($name), 0, 191);
+        if ($name === '') {
+            throw new RuntimeException('Virtual classroom collection name is required.');
+        }
+
+        $response = $this->request(
+            'POST',
+            '/library/' . $this->libraryId . '/collections',
+            ['name' => $name]
+        );
+        $collectionId = trim((string) ($response['guid'] ?? $response['id'] ?? ''));
+        $this->assertProviderGuid($collectionId, 'collection');
+
+        return [
+            'id' => strtolower($collectionId),
+            'name' => trim((string) ($response['name'] ?? $name)),
+        ];
+    }
+
+    /**
+     * Delete a Bunny collection created by a losing concurrent initializer.
+     *
+     * @param string $collectionId Collection GUID.
+     * @return void
+     */
+    public function deleteCollection(string $collectionId): void
+    {
+        $this->assertProviderGuid($collectionId, 'collection');
+        $this->request(
+            'DELETE',
+            '/library/' . $this->libraryId . '/collections/' . rawurlencode($collectionId),
+            null,
+            [200, 204, 404]
+        );
+    }
+
+    /**
+     * Move one video into a virtual-classroom collection and attach safe tags.
+     *
+     * @param string $videoId Video GUID.
+     * @param string $collectionId Collection GUID.
+     * @param array<int,array{property:string,value:string}> $metaTags Non-secret metadata.
+     * @return void
+     */
+    public function setVideoCollection(string $videoId, string $collectionId, array $metaTags = []): void
+    {
+        $this->assertProviderGuid($videoId, 'video');
+        $this->assertProviderGuid($collectionId, 'collection');
+
+        $body = ['collectionId' => strtolower($collectionId)];
+        if ($metaTags !== []) {
+            $body['metaTags'] = array_values($metaTags);
+        }
+
+        $this->request(
+            'POST',
+            '/library/' . $this->libraryId . '/videos/' . rawurlencode($videoId),
+            $body,
+            [200]
+        );
     }
 
     /**
@@ -50,6 +127,20 @@ final class BunnyClient
     }
 
     /**
+     * Change a video title in the service-owned Bunny library.
+     *
+     * @param string $videoId Video GUID.
+     * @param string $title New display title.
+     * @return void
+     */
+    public function renameVideo(string $videoId, string $title): void
+    {
+        $this->assertProviderGuid($videoId, 'video');
+        $this->request('POST', '/library/' . $this->libraryId . '/videos/' . rawurlencode($videoId),
+            ['title' => $title], [200]);
+    }
+
+    /**
      * Delete a Bunny video.
      *
      * @param string $videoId Video GUID.
@@ -57,7 +148,12 @@ final class BunnyClient
      */
     public function deleteVideo(string $videoId): void
     {
-        $this->request('DELETE', '/library/' . $this->libraryId . '/videos/' . rawurlencode($videoId), null, [200, 204]);
+        $this->request(
+            'DELETE',
+            '/library/' . $this->libraryId . '/videos/' . rawurlencode($videoId),
+            null,
+            [200, 204, 404]
+        );
     }
 
     /**
@@ -115,14 +211,133 @@ final class BunnyClient
             '='
         );
 
+        $url = 'https://' . Config::cdnHostname()
+            . $path
+            . '?token=' . rawurlencode($token)
+            . '&expires=' . $expires;
+
+        // Validate the exact URL that Moodle will proxy. This catches a wrong
+        // CDN hostname/token key, disabled Direct Play, referrer restrictions,
+        // or a missing MP4 object before the learner sees a generic player
+        // failure. Only one byte is requested and the URL never leaves WHMCS.
+        $this->assertPlaybackUrlAccessible($url);
+
         return [
-            'url' => 'https://' . Config::cdnHostname()
-                . $path
-                . '?token=' . rawurlencode($token)
-                . '&expires=' . $expires,
+            'url' => $url,
             'expires' => $expires,
             'resolution' => $resolution,
         ];
+    }
+
+    /**
+     * Verify that Bunny accepts the signed progressive MP4 URL.
+     *
+     * The probe intentionally mirrors Moodle's server-side request: no browser
+     * referrer is supplied, HTTPS is mandatory and redirects are rejected.
+     * Downloaded bytes are discarded and at most the first byte is requested.
+     *
+     * @param string $url Signed provider playback URL.
+     * @return void
+     */
+    private function assertPlaybackUrlAccessible(string $url): void
+    {
+        $curl = curl_init($url);
+        if ($curl === false) {
+            throw new RuntimeException(
+                'Elearning Stream CDN playback probe could not be initialized.'
+            );
+        }
+
+        $responseHeaders = [];
+        curl_setopt_array($curl, [
+            CURLOPT_RETURNTRANSFER => false,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT => 15,
+            CURLOPT_NOSIGNAL => true,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
+            CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS,
+            CURLOPT_RANGE => '0-0',
+            CURLOPT_HTTPHEADER => [
+                'Accept: video/mp4,application/octet-stream;q=0.9,*/*;q=0.1',
+                'Accept-Encoding: identity',
+            ],
+            CURLOPT_HEADERFUNCTION => static function ($curl, string $header) use (&$responseHeaders): int {
+                $length = strlen($header);
+                $trimmed = trim($header);
+                if (preg_match('/^Content-Range:\\s*(.+)$/i', $trimmed, $matches)) {
+                    $responseHeaders['content-range'] = trim($matches[1]);
+                } else if (preg_match('/^Accept-Ranges:\\s*(.+)$/i', $trimmed, $matches)) {
+                    $responseHeaders['accept-ranges'] = strtolower(trim($matches[1]));
+                }
+
+                return $length;
+            },
+            CURLOPT_WRITEFUNCTION => static function ($curl, string $data): int {
+                return strlen($data);
+            },
+        ]);
+
+        $result = curl_exec($curl);
+        $error = curl_error($curl);
+        $status = (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
+        $contentType = strtolower(trim((string) curl_getinfo($curl, CURLINFO_CONTENT_TYPE)));
+        curl_close($curl);
+
+        if ($result === false || $error !== '') {
+            throw new RuntimeException(
+                'Elearning Stream CDN playback probe could not connect.'
+            );
+        }
+
+        if ($status === 206) {
+            $contentRange = trim((string) ($responseHeaders['content-range'] ?? ''));
+            if (!preg_match('/^bytes\\s+0-0\\/\\d+$/i', $contentRange)) {
+                throw new RuntimeException(
+                    'Elearning Stream CDN returned HTTP 206 without a valid Content-Range for protected seeking.'
+                );
+            }
+
+            if (
+                $contentType === ''
+                || str_starts_with($contentType, 'video/')
+                || str_starts_with($contentType, 'application/octet-stream')
+            ) {
+                return;
+            }
+
+            throw new RuntimeException(
+                'Elearning Stream CDN returned an unexpected playback content type.'
+            );
+        }
+
+        if ($status === 200) {
+            throw new RuntimeException(
+                'Elearning Stream CDN ignored the byte-range playback probe (HTTP 200). '
+                    . 'Enable Cache Slicing in the Bunny Pull Zone cache settings so uncached MP4 requests return HTTP 206.'
+            );
+        }
+
+        if (in_array($status, [401, 403], true)) {
+            throw new RuntimeException(
+                'Elearning Stream CDN rejected protected playback (HTTP '
+                    . $status
+                    . '). Verify the CDN hostname, CDN/embed token key, Direct Play, and referrer restrictions.'
+            );
+        }
+
+        if ($status === 404) {
+            throw new RuntimeException(
+                'Elearning Stream CDN could not locate the MP4 fallback (HTTP 404). '
+                    . 'Verify the CDN hostname, Direct Play, and the encoded fallback resolution.'
+            );
+        }
+
+        throw new RuntimeException(
+            'Elearning Stream CDN playback probe failed with HTTP ' . $status . '.'
+        );
     }
 
     /**
@@ -151,6 +366,20 @@ final class BunnyClient
     public function libraryId(): int
     {
         return $this->libraryId;
+    }
+
+    /**
+     * Validate provider GUIDs before constructing management API paths.
+     *
+     * @param string $value Provider identifier.
+     * @param string $kind Human-readable resource kind.
+     * @return void
+     */
+    private function assertProviderGuid(string $value, string $kind): void
+    {
+        if (!preg_match('/^[a-f0-9-]{32,64}$/i', trim($value))) {
+            throw new RuntimeException('Elearning Stream returned an invalid ' . $kind . ' GUID.');
+        }
     }
 
     /**

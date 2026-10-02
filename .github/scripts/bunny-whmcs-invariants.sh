@@ -15,6 +15,7 @@ require_file() {
 echo "Checking Elearning Stream/WHMCS required files..."
 require_file "classes/local/provider/bunny_stream.php"
 require_file "classes/local/whmcs_gateway_client.php"
+require_file "classes/local/gateway/upload_authorisation.php"
 require_file "classes/external/create_bunny_upload.php"
 require_file "classes/external/refresh_bunny_upload.php"
 require_file "classes/external/complete_bunny_upload.php"
@@ -23,6 +24,8 @@ require_file "amd/build/bunnyupload.min.js"
 require_file "integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php"
 require_file "integrations/whmcs/modules/addons/driveresource_gateway/lib/RequestAuthenticator.php"
 require_file "integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php"
+require_file "integrations/whmcs/modules/addons/driveresource_gateway/lib/CommercialAccount.php"
+require_file "integrations/whmcs/modules/addons/driveresource_gateway/lib/WalletService.php"
 require_file "integrations/whmcs/modules/addons/driveresource_gateway/api/asset-import.php"
 require_file "integrations/whmcs/modules/addons/driveresource_gateway/api/playback-authorize.php"
 require_file "integrations/whmcs/modules/servers/driveresource/driveresource.php"
@@ -41,8 +44,8 @@ echo "Checking Moodle/Elearning Stream secret boundary..."
 if grep -RniE 'AccessKey:|bunny_api_key|bunny_token_key' classes amd db lib.php mod_form.php settings.php view.php templates; then
     fail "A Bunny management credential identifier leaked into Moodle runtime code."
 fi
-grep -q "Elearning Stream provider credentials remain exclusively in WHMCS" lang/en/videoplayer.php     || fail "Moodle secret-boundary language invariant is missing."
-grep -q "video\.bunnycdn\.com" classes/local/whmcs_gateway_client.php     || fail "Moodle no longer pins the TUS upload host."
+grep -q "Provider credentials remain protected in the gateway" lang/en/videoplayer.php     || fail "Moodle secret-boundary language invariant is missing."
+grep -q "video\.bunnycdn\.com" classes/local/gateway/upload_authorisation.php     || fail "Moodle no longer pins the TUS upload host."
 if grep -Rni '/library/' classes amd/src amd/build; then
     fail "Moodle runtime contains a Bunny management API path."
 fi
@@ -53,11 +56,31 @@ grep -q "'AccessKey: '" integrations/whmcs/modules/addons/driveresource_gateway/
 grep -q 'hash_hmac' integrations/whmcs/modules/addons/driveresource_gateway/lib/RequestAuthenticator.php     || fail "Moodle-to-WHMCS HMAC verification is missing."
 grep -q 'mod_driveresource_nonces' integrations/whmcs/modules/addons/driveresource_gateway/lib/RequestAuthenticator.php     || fail "Replay nonce protection is missing."
 
-echo "Checking quota and overage controls..."
+grep -q "X-Elearning-Stream-Token" classes/local/whmcs_gateway_client.php \
+    || fail "Moodle no longer sends branded Elearning Stream authentication headers."
+grep -q "gatewayHeader('Token')" integrations/whmcs/modules/addons/driveresource_gateway/lib/RequestAuthenticator.php \
+    || fail "Gateway no longer uses the branded header compatibility reader."
+grep -q "X-Drive-Resource-" integrations/whmcs/modules/addons/driveresource_gateway/lib/RequestAuthenticator.php \
+    || fail "Gateway legacy header fallback was removed before the compatibility window ended."
+if grep -q "X-Drive-Resource-" classes/local/whmcs_gateway_client.php; then
+    fail "Current Moodle client still emits retired gateway header names."
+fi
+
+echo "Checking account, FREE/PAYG and wallet controls..."
 grep -q 'reserved_bytes' integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "Concurrent upload reservation accounting is missing."
-grep -q 'overage_allowed' integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "WHMCS plan overage policy is missing."
-grep -q "'video_storage_gb'" integrations/whmcs/modules/servers/driveresource/lib/MetricsProvider.php     || fail "WHMCS storage usage metric is missing."
-grep -q 'TYPE_SNAPSHOT' integrations/whmcs/modules/servers/driveresource/lib/MetricsProvider.php     || fail "Storage usage must remain a snapshot metric."
+grep -q 'CommercialAccount::uploadPolicy' integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "Upload authorization is not using the commercial account policy."
+grep -q "MODE_FREE = 'free'" integrations/whmcs/modules/addons/driveresource_gateway/lib/CommercialAccount.php     || fail "FREE mode is missing."
+grep -q "MODE_PAYG = 'payg'" integrations/whmcs/modules/addons/driveresource_gateway/lib/CommercialAccount.php     || fail "PAYG mode is missing."
+grep -q 'balance_microusd' integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "Wallet balance schema is missing."
+grep -q 'mod_driveresource_installations' integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "Multi-Moodle installation schema is missing."
+grep -q 'mod_driveresource_wallet_orders' integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "Wallet recharge order schema is missing."
+grep -q "add_hook('InvoicePaid'" integrations/whmcs/modules/addons/driveresource_gateway/hooks.php     || fail "Paid invoice wallet credit hook is missing."
+grep -q "add_hook('InvoiceRefunded'" integrations/whmcs/modules/addons/driveresource_gateway/hooks.php     || fail "Refund wallet reversal hook is missing."
+grep -q "add_hook('InvoiceUnpaid'" integrations/whmcs/modules/addons/driveresource_gateway/hooks.php     || fail "Unpaid wallet reversal hook is missing."
+grep -q 'minimum_recharge_microusd' integrations/whmcs/modules/addons/driveresource_gateway/lib/WalletService.php     || fail "PAYG promotion threshold is missing."
+grep -q 'settleDailyStorageUsage' integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayMaintenance.php     || fail "Daily PAYG storage settlement is missing."
+grep -q "'video_storage_gb'" integrations/whmcs/modules/servers/driveresource/lib/MetricsProvider.php     || fail "WHMCS storage observability metric is missing."
+grep -q 'TYPE_SNAPSHOT' integrations/whmcs/modules/servers/driveresource/lib/MetricsProvider.php     || fail "Storage metric must remain a snapshot metric."
 
 echo "Checking backup/restore reservation policy..."
 if grep -q "'provideruploadid'" backup/moodle2/backup_videoplayer_stepslib.php; then
@@ -79,11 +102,29 @@ grep -q "already assigned to another service" integrations/whmcs/modules/addons/
 grep -q "sourcebunnystream.*Elearning Stream" lang/en/videoplayer.php     || fail "Elearning Stream branding is missing from Moodle."
 grep -q "sourcebunnystream.*Elearning Stream" lang/es/videoplayer.php     || fail "Elearning Stream Spanish branding is missing from Moodle."
 
+echo "Checking retired Google provider boundary..."
+if grep -RniE 'drive\.google\.com|docs\.google\.com|googleusercontent\.com|googlevideo\.com|content-workspacevideo-pa\.googleapis\.com' \
+    classes amd/src templates mod_form.php lib.php protected.php view.php; then
+    fail "Moodle runtime still contains a Google upstream host."
+fi
+grep -q "b-cdn.net" classes/local/stream/upstream_url_policy.php     || fail "Provider CDN SSRF allow-list entry is missing."
+if grep -q "google" classes/local/stream/upstream_url_policy.php; then
+    fail "Retired Google hosts reappeared in the upstream allow-list."
+fi
+
 echo "Checking protected Elearning Stream playback..."
 grep -q "function authorizePlayback" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "WHMCS playback authorization is missing."
 grep -q "function playbackUrl" integrations/whmcs/modules/addons/driveresource_gateway/lib/BunnyClient.php     || fail "Provider playback signer is missing."
 grep -q "hasMP4Fallback" integrations/whmcs/modules/addons/driveresource_gateway/lib/BunnyClient.php     || fail "MP4 fallback verification is missing."
 grep -q "HS256-" integrations/whmcs/modules/addons/driveresource_gateway/lib/BunnyClient.php     || fail "Playback token signing is missing."
+grep -q "assertPlaybackUrlAccessible" integrations/whmcs/modules/addons/driveresource_gateway/lib/BunnyClient.php     || fail "Signed playback preflight is missing."
+grep -q "display_name" integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php     || fail "WHMCS video display-name schema is missing."
+grep -q "'display_name' => \$title" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "WHMCS title synchronization on rename is missing."
+grep -q "\$upload->display_name" integrations/whmcs/modules/servers/driveresource/lib/ClientPortal.php     || fail "WHMCS client portal does not use the synchronized display name."
+grep -q "CURLOPT_RANGE => '0-0'" integrations/whmcs/modules/addons/driveresource_gateway/lib/BunnyClient.php     || fail "Playback preflight must remain a bounded one-byte request."
+grep -q "\$status === 206" integrations/whmcs/modules/addons/driveresource_gateway/lib/BunnyClient.php     || fail "Playback preflight must require HTTP 206."
+grep -q "Content-Range" integrations/whmcs/modules/addons/driveresource_gateway/lib/BunnyClient.php     || fail "Playback preflight must validate Content-Range."
+grep -q "Cache Slicing" integrations/whmcs/modules/addons/driveresource_gateway/lib/BunnyClient.php     || fail "Range failure must include an actionable CDN diagnostic."
 grep -q "function playback_url" classes/local/whmcs_gateway_client.php     || fail "Moodle playback authorization client is missing."
 grep -q "streamplayback" db/caches.php     || fail "Playback authorization cache definition is missing."
 grep -q "ELEARNING_STREAM" classes/local/stream/protected_resource_service.php     || fail "Elearning Stream is not proxied through protected.php."
@@ -96,5 +137,54 @@ echo "Checking direct-upload implementation..."
 grep -q "AuthorizationSignature" amd/src/bunnyupload.js     || fail "Bunny presigned TUS signature header is missing."
 grep -q "mod_videoplayer_refresh_bunny_upload" amd/src/bunnyupload.js     || fail "Long-running TUS authorization refresh is missing."
 grep -q "credentials: 'omit'" amd/src/bunnyupload.js     || fail "Direct Bunny upload must not send Moodle cookies cross-origin."
+grep -q "mod-videoplayer-bunny-dropzone" mod_form.php     || fail "Teacher upload dropzone is missing."
+grep -q "addEventListener('drop'" amd/src/bunnyupload.js     || fail "Drag-and-drop upload handling is missing."
+grep -q "mod-videoplayer-bunny-progress-bytes" mod_form.php     || fail "Byte-level upload progress UI is missing."
+grep -q "selectedFile" amd/src/bunnyupload.js     || fail "Selected-file upload state is missing."
+
+# Guard video title updates behind the authenticated WHMCS reference boundary.
+require_file "integrations/whmcs/modules/addons/driveresource_gateway/api/asset-rename.php"
+grep -q 'renameAsset' integrations/whmcs/modules/addons/driveresource_gateway/api/asset-rename.php || fail "Rename gateway endpoint is missing."
+grep -q "where('active', true)" integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php || fail "Rename reference authorization is missing."
+
+echo "Checking managed-video lifecycle serialization..."
+grep -q "'service_id', 'site_hash', 'instance_id', 'video_id'" \
+    integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php \
+    || fail "Asset references must remain unique per Moodle activity and provider video."
+
+python3 - <<'PY'
+from pathlib import Path
+
+path = Path("integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php")
+source = path.read_text()
+
+def method(name, next_name):
+    start = source.index(f"public function {name}")
+    end = source.index(f"public function {next_name}", start)
+    return source[start:end]
+
+bind = method("bindAsset", "reconcileAsset")
+reconcile = method("reconcileAsset", "renameAsset")
+release = method("releaseAsset", "recordTransfer")
+
+if "lockForUpdate()" not in bind:
+    raise SystemExit("bindAsset must lock the upload row before creating a reference")
+if "lockForUpdate()" not in reconcile:
+    raise SystemExit("reconcileAsset must lock the upload row before restoring a reference")
+if "lockForUpdate()" not in release:
+    raise SystemExit("releaseAsset must lock upload/reference rows before destructive transition")
+if "This activity does not own the video." not in release:
+    raise SystemExit("releaseAsset must reject unknown activity/video references")
+if "where('video_id', $videoId)" not in release:
+    raise SystemExit("releaseAsset must bind authorization to the exact video")
+if "requestedUploadId" not in release or "bound_instance_id" not in release:
+    raise SystemExit("releaseAsset must support reservation proof for a never-bound Moodle activity")
+
+moodle_release = Path("classes/task/release_bunny_asset.php").read_text()
+if "uploadid" not in moodle_release:
+    raise SystemExit("Moodle release task must carry the upload reservation when available")
+
+print("Managed-video lifecycle serialization: PASS")
+PY
 
 echo "Elearning Stream/WHMCS integration invariants: PASS"

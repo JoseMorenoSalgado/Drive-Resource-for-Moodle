@@ -19,7 +19,7 @@ namespace mod_videoplayer\local;
 use mod_videoplayer\local\stream\upstream_url_policy;
 
 /**
- * Resilient HTTP byte-range proxy for protected Drive resources.
+ * Resilient HTTP byte-range proxy for protected Elearning Stream resources.
  *
  * Keeps Moodle as the only browser-visible endpoint, validates upstream
  * responses and streams one byte range without buffering the complete media
@@ -41,12 +41,6 @@ final class http_range_proxy {
 
     /** @var int Seconds below LOW_SPEED_LIMIT before cURL aborts the upstream transfer. */
     private const LOW_SPEED_TIME = 20;
-
-    /** @var int Maximum Drive warning HTML captured for confirmation parsing. */
-    private const MAX_WARNING_HTML_BYTES = 131072;
-
-    /** @var int Maximum number of server-side Drive confirmation hops. */
-    private const MAX_CONFIRMATION_HOPS = 2;
 
     /** @var int Maximum validated upstream redirect hops. */
     private const MAX_REDIRECT_HOPS = 5;
@@ -76,16 +70,18 @@ final class http_range_proxy {
      * @param string $filename Safe browser filename.
      * @param string $fallbacktype Fallback MIME type.
      * @param string $cachestatus Cache diagnostic status.
+     * @param callable|null $ontransfer Optional callback receiving actual emitted bytes.
      * @return never
      */
     public static function proxy(
         string $url,
         string $filename,
         string $fallbacktype,
-        string $cachestatus = 'BYPASS'
+        string $cachestatus = 'BYPASS',
+        ?callable $ontransfer = null
     ): never {
         if (!upstream_url_policy::is_allowed($url)) {
-            debugging('Drive Resource proxy rejected a non-allowlisted upstream URL.', DEBUG_DEVELOPER);
+            debugging('Elearning Stream proxy rejected a non-allowlisted upstream URL.', DEBUG_DEVELOPER);
             self::send_bad_gateway('UPSTREAM_URL_REJECTED');
         }
 
@@ -93,8 +89,6 @@ final class http_range_proxy {
         $ishead = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'HEAD';
         $validator = self::stable_validator($url);
         $currenturl = $url;
-        $requestcookies = [];
-        $confirmationhops = 0;
         $redirecthops = 0;
         $lastresponse = null;
 
@@ -105,7 +99,6 @@ final class http_range_proxy {
             $rangemodes = $range === ''
                 ? [self::RANGE_MODE_NONE]
                 : [self::RANGE_MODE_CURL, self::RANGE_MODE_HEADER, self::RANGE_MODE_SYNTHETIC];
-            $resolvedwarning = false;
             $resolvedredirect = false;
 
             foreach ($rangemodes as $rangemode) {
@@ -117,25 +110,31 @@ final class http_range_proxy {
                     $validator,
                     $range,
                     $rangemode,
-                    $ishead,
-                    $requestcookies
+                    $ishead
                 );
 
                 if ($lastresponse['sent']) {
+                    $transferbytes = max(0, (int)($lastresponse['transferbytes'] ?? 0));
+                    if (!$ishead && $transferbytes > 0 && $ontransfer !== null) {
+                        try {
+                            $ontransfer($transferbytes);
+                        } catch (\Throwable $exception) {
+                            debugging(
+                                'Elearning Stream transfer metering callback failed: '
+                                    . $exception->getMessage(),
+                                DEBUG_DEVELOPER
+                            );
+                        }
+                    }
                     die;
                 }
-
-                $requestcookies = self::merge_cookie_lists(
-                    $requestcookies,
-                    (array) ($lastresponse['cookies'] ?? [])
-                );
 
                 $status = (int)($lastresponse['status'] ?? 0);
                 if ($status >= 300 && $status < 400) {
                     $location = (string)($lastresponse['headers']['location'] ?? '');
                     $redirecturl = upstream_url_policy::resolve_redirect($currenturl, $location);
                     if ($redirecturl === null || $redirecthops >= self::MAX_REDIRECT_HOPS) {
-                        debugging('Drive Resource proxy rejected an unsafe upstream redirect.', DEBUG_DEVELOPER);
+                        debugging('Elearning Stream proxy rejected an unsafe upstream redirect.', DEBUG_DEVELOPER);
                         self::send_bad_gateway('UPSTREAM_REDIRECT_REJECTED');
                     }
 
@@ -146,20 +145,9 @@ final class http_range_proxy {
                 }
 
                 if ($lastresponse['invalidcontent']) {
-                    $followupurl = drive::resolve_download_warning_url(
-                        (string) ($lastresponse['warningbody'] ?? ''),
-                        (string) ($lastresponse['effectiveurl'] ?? $currenturl)
-                    );
-
-                    if ($followupurl !== null && $confirmationhops < self::MAX_CONFIRMATION_HOPS) {
-                        $currenturl = $followupurl;
-                        $confirmationhops++;
-                        $resolvedwarning = true;
-                        break;
-                    }
-
                     debugging(
-                        'Drive Resource proxy rejected an incompatible upstream content type for ' . $fallbacktype . '.',
+                        'Elearning Stream proxy rejected an incompatible upstream content type for '
+                            . $fallbacktype . '.',
                         DEBUG_DEVELOPER
                     );
                     self::send_bad_gateway('UPSTREAM_CONTENT_REJECTED');
@@ -180,7 +168,7 @@ final class http_range_proxy {
                 }
             }
 
-            if ($resolvedwarning || $resolvedredirect) {
+            if ($resolvedredirect) {
                 continue;
             }
 
@@ -189,7 +177,7 @@ final class http_range_proxy {
 
         $status = (int) ($lastresponse['status'] ?? 0);
         $curlerror = (string) ($lastresponse['error'] ?? '');
-        debugging('Drive Resource proxy failed: HTTP ' . $status . ' ' . $curlerror, DEBUG_DEVELOPER);
+        debugging('Elearning Stream proxy failed: HTTP ' . $status . ' ' . $curlerror, DEBUG_DEVELOPER);
 
         if ($range !== '' && $status === 200) {
             self::send_bad_gateway('UPSTREAM_RANGE_UNSUPPORTED');
@@ -208,7 +196,6 @@ final class http_range_proxy {
      * @param string $range Validated browser Range header.
      * @param string $rangemode Range transmission strategy.
      * @param bool $ishead Whether this is a HEAD request.
-     * @param array $requestcookies Domain-scoped cookies obtained from Drive responses.
      * @return array{
      *     sent: bool,
      *     result: bool,
@@ -218,7 +205,7 @@ final class http_range_proxy {
      *     invalidcontent: bool,
      *     warningbody: string,
      *     effectiveurl: string,
-     *     cookies: array
+     *     transferbytes: int
      * }
      */
     private static function execute_attempt(
@@ -229,8 +216,7 @@ final class http_range_proxy {
         string $validator,
         string $range,
         string $rangemode,
-        bool $ishead,
-        array $requestcookies = []
+        bool $ishead
     ): array {
         $requestheaders = [
             'Accept: */*',
@@ -249,6 +235,7 @@ final class http_range_proxy {
         $syntheticwindow = null;
         $syntheticposition = 0;
         $syntheticrangeinvalid = false;
+        $transferbytes = 0;
 
         $headercallback = static function (
             $curl,
@@ -344,7 +331,7 @@ final class http_range_proxy {
                 'invalidcontent' => false,
                 'warningbody' => '',
                 'effectiveurl' => $url,
-                'cookies' => [],
+                'transferbytes' => 0,
             ];
         }
 
@@ -360,8 +347,7 @@ final class http_range_proxy {
             CURLOPT_LOW_SPEED_TIME => self::LOW_SPEED_TIME,
             CURLOPT_HTTPHEADER => $requestheaders,
             CURLOPT_HEADERFUNCTION => $headercallback,
-            CURLOPT_USERAGENT => 'DriveResourceMoodleProxy/1.1.32',
-            CURLOPT_COOKIEFILE => '',
+            CURLOPT_USERAGENT => 'ElearningStreamMoodleProxy/1.2.0',
             CURLOPT_WRITEFUNCTION => static function (
                 $curl,
                 string $data
@@ -373,6 +359,7 @@ final class http_range_proxy {
                 &$warningbody,
                 &$syntheticwindow,
                 &$syntheticposition,
+                &$transferbytes,
                 $fallbacktype,
                 $filename,
                 $cachestatus,
@@ -442,6 +429,7 @@ final class http_range_proxy {
                         $offset = $emitstart - $chunkstart;
                         $emitlength = $emitend - $emitstart + 1;
                         echo substr($data, $offset, $emitlength);
+                        $transferbytes += $emitlength;
                         flush();
                     }
 
@@ -473,6 +461,7 @@ final class http_range_proxy {
 
                 if ($headerssent) {
                     echo $data;
+                    $transferbytes += $datalength;
                     flush();
                 }
 
@@ -500,10 +489,6 @@ final class http_range_proxy {
         }
 
         curl_setopt_array($ch, $options);
-        foreach ($requestcookies as $cookie) {
-            curl_setopt($ch, CURLOPT_COOKIELIST, $cookie);
-        }
-
         $result = curl_exec($ch);
         $curlerror = curl_error($ch);
         $curlcode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -566,14 +551,14 @@ final class http_range_proxy {
             'invalidcontent' => $invalidcontent,
             'warningbody' => $warningbody,
             'effectiveurl' => $effectiveurl !== '' ? $effectiveurl : $url,
-            'cookies' => $responsecookies,
+            'transferbytes' => $transferbytes,
         ];
     }
 
     /**
      * Determine whether an upstream MIME type is compatible with the viewer.
      *
-     * Empty and generic binary responses are accepted because Google may omit
+     * Empty and generic binary responses are accepted because some upstreams may omit
      * a specific media MIME type. HTML, JSON and unrelated text responses are
      * rejected so login, permission and download-warning pages never reach a
      * video, audio, image or PDF element.
@@ -732,7 +717,7 @@ final class http_range_proxy {
     /**
      * Build a stable browser-facing validator for this protected URL.
      *
-     * Google may expose different validators across redirects. A proxy-owned
+     * Upstream services may expose different validators across redirects. A proxy-owned
      * ETag prevents the browser from sending an upstream If-Range validator
      * that turns a seek request into a complete HTTP 200 response.
      *
@@ -778,8 +763,8 @@ final class http_range_proxy {
         header('Expires: ' . gmdate('D, d M Y H:i:s', time() + self::PRIVATE_CACHE_SECONDS) . ' GMT');
         header('Vary: Range');
         header('ETag: ' . $validator);
-        header('X-Drive-Resource-Cache: ' . self::safe_cache_status($cachestatus));
-        header('X-Drive-Resource-Status: MEDIA');
+        header('X-Elearning-Stream-Cache: ' . self::safe_cache_status($cachestatus));
+        header('X-Elearning-Stream-Status: MEDIA');
 
         $acceptranges = strtolower((string) ($headers['accept-ranges'] ?? ''));
         if ($status === 206 || $acceptranges === 'bytes' || !empty($headers['content-length'])) {
@@ -806,8 +791,8 @@ final class http_range_proxy {
         header('Cache-Control: no-store, no-cache, must-revalidate, no-transform');
         header('X-Content-Type-Options: nosniff');
         header('X-Accel-Buffering: no');
-        header('X-Drive-Resource-Cache: ' . self::safe_cache_status($cachestatus));
-        header('X-Drive-Resource-Status: RANGE_INVALID');
+        header('X-Elearning-Stream-Cache: ' . self::safe_cache_status($cachestatus));
+        header('X-Elearning-Stream-Status: RANGE_INVALID');
         if (!empty($headers['content-range'])) {
             header('Content-Range: ' . self::safe_header_value((string) $headers['content-range']));
         }
@@ -825,7 +810,7 @@ final class http_range_proxy {
         header('Cache-Control: no-store, no-cache, must-revalidate, no-transform');
         header('X-Content-Type-Options: nosniff');
         header('X-Accel-Buffering: no');
-        header('X-Drive-Resource-Status: ' . self::safe_cache_status($status));
+        header('X-Elearning-Stream-Status: ' . self::safe_cache_status($status));
         die;
     }
 
@@ -898,56 +883,6 @@ final class http_range_proxy {
         ];
 
         return $types[$extension] ?? null;
-    }
-
-    /**
-     * Merge cURL cookie-list entries while preserving their domain and path.
-     *
-     * Flattening these cookies into one Cookie header can leak a google.com
-     * cookie to a googleusercontent.com redirect and can trigger redirect loops.
-     * Only bounded Google-domain cookie records are retained.
-     *
-     * @param array $existing Existing cURL cookie-list entries.
-     * @param array $incoming New cURL cookie-list entries.
-     * @return array Domain-scoped cookie-list entries.
-     */
-    private static function merge_cookie_lists(array $existing, array $incoming): array {
-        $cookies = [];
-        foreach (array_merge($existing, $incoming) as $line) {
-            $line = (string) $line;
-            if ($line === '' || strlen($line) > 4096) {
-                continue;
-            }
-
-            $parts = explode("\t", $line);
-            if (count($parts) < 7) {
-                continue;
-            }
-
-            $domain = preg_replace('/^#HttpOnly_/', '', trim((string) $parts[0]));
-            $domain = ltrim(strtolower($domain), '.');
-            if (
-                $domain !== 'google.com' &&
-                substr($domain, -11) !== '.google.com' &&
-                $domain !== 'googleusercontent.com' &&
-                substr($domain, -22) !== '.googleusercontent.com'
-            ) {
-                continue;
-            }
-
-            $path = (string) $parts[2];
-            $name = (string) $parts[5];
-            if ($path === '' || $name === '') {
-                continue;
-            }
-
-            $cookies[$domain . '|' . $path . '|' . $name] = $line;
-            if (count($cookies) >= 32) {
-                break;
-            }
-        }
-
-        return array_values($cookies);
     }
 
     /**

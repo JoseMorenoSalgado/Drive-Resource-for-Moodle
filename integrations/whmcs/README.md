@@ -1,59 +1,89 @@
-# Drive Resource WHMCS companion
+# Elearning Stream WHMCS companion
 
-This directory contains the commercial control-plane components used by the Moodle Drive Resource plugin.
-
-It is **not part of the Moodle plugin runtime package**.
+This directory contains the Elearning Stream commercial control plane. Internal module/table names retain the historical `driveresource` prefix for compatibility only.
 
 ## Deployables
 
-Copy these directories into WHMCS:
+Copy to WHMCS:
 
 ```text
 modules/addons/driveresource_gateway/
 modules/servers/driveresource/
 ```
 
-The addon owns the Elearning Stream management credentials and Moodle-facing media gateway. The provisioning module owns the WHMCS product/service lifecycle and exposes the storage metric used by Usage Billing.
+Gateway 0.6.0 owns:
+
+- provider credentials;
+- account and Moodle-installation authentication;
+- upload reservations and provider assets;
+- prepaid wallet;
+- FREE/PAYG enforcement;
+- transfer/storage accounting;
+- retention/deletion;
+- customer portal.
+
+## Default commercial model
+
+- US$1 one-time activation;
+- US$1 activation credit;
+- FREE: 7 GB storage;
+- FREE: 20 GB transfer/month;
+- FREE: 1 Moodle;
+- PAYG minimum recharge: US$10;
+- PAYG storage: US$0.03/GB-month above free;
+- PAYG transfer: US$0.12/GB above free;
+- PAYG Moodles: unlimited by default.
+
+A WHMCS service is one commercial account. Multiple Moodle installations share that account's wallet and aggregate usage. `CreateAccount` may activate only after the linked order invoice is Paid and contains the exact Hosting service line. The invoice id and activation settlement version are persisted; connection repair and token rotation cannot issue activation credit.
+
+## Recharge billing
+
+`CreateWalletRecharge` creates a normal WHMCS invoice. The wallet is USD-denominated, but the invoice is converted into the client’s configured WHMCS currency. The converted amount and currency are frozen on the wallet order. The wallet is not credited until the official `InvoicePaid` hook fires and verifies that the paid invoice still matches those frozen values.
+
+`InvoiceRefunded` and `InvoiceUnpaid` reverse the current versioned settlement with a stable idempotency key. `Paid → Unpaid → Paid` is supported by incrementing `settlement_version`; a fully Refunded order is terminal and requires a new recharge. Wallet operations serialize on the commercial-account row before idempotency lookup, and a reused key with mismatched service/type/amount fails closed. If no paid recharge remains, PAYG entitlement is removed and FREE installation limits are enforced again; debt-free accounts return to active FREE while negative balances remain restricted.
+
+This design works with PayPal and other WHMCS payment gateways without storing gateway credentials in Elearning Stream. Financial validation uses exact integer micro-units after WHMCS currency conversion; activation and settlement paths do not compare invoice money using PHP floats.
+
+For FREE/PAYG accounts, the module's historical WHMCS Usage Billing metrics deliberately report zero billable usage. The prepaid wallet is the billing authority, preventing an upgraded product with old Usage Billing pricing from charging the same storage/transfer twice. Legacy accounts continue exposing their historical usage metrics until intentionally migrated.
+
+If a paid wallet recharge is later refunded after some credit was consumed, or if PAYG provider usage exceeds the remaining prepaid balance, the wallet may become negative. That debt is carried forward; later recharges must cover it before paid overage becomes available again.
 
 ## Credential boundary
 
-Provider management credentials must be configured only in the WHMCS addon. Moodle receives a service-scoped WHMCS gateway token and short-lived, video-scoped TUS upload authorization. It never receives the provider management `AccessKey`.
+Moodle receives:
 
-## Default commercial policy
+- public gateway URL;
+- Service ID;
+- installation token.
 
-The provisioning module defaults to:
+Provider management credentials remain in WHMCS.
 
-- 7 GB included video storage;
-- soft overage enabled;
-- 30-day retention after the last Moodle reference is released.
+Primary tokens use the WHMCS protected service password. Secondary installation tokens are shown once after creation/rotation and only their hashes are stored in the gateway database.
 
-Configure the WHMCS Usage Billing metric `video_storage_gb` with the same included quantity and your desired per-GB overage price.
+## Provider configuration
 
-## Required WHMCS setup
+Configure:
 
-1. Deploy and activate the addon module.
-2. Configure Elearning Stream Library ID and API key.
-3. Deploy the `driveresource` provisioning module.
-4. Create a WHMCS server and product using that module.
-5. Add a product custom field named `Moodle Site URL` when the Moodle installation URL cannot be represented exactly by the standard service domain field.
-6. Provision the service.
-7. Copy the generated WHMCS service ID and service token into the Drive Resource Moodle administration settings.
-8. Ensure WHMCS cron runs normally; the addon hook performs provider storage reconciliation, abandoned-upload cleanup and retention deletion.
+- managed-video Library ID/API key;
+- CDN hostname;
+- playback token key;
+- playback/direct-upload TTLs.
 
-Do not copy this `integrations/whmcs` directory beneath `mod/videoplayer` on a production Moodle site.
+The protected object-storage lane remains independent and is not production-enabled in Moodle yet.
 
+## Existing services
 
-## Existing video URLs
+Gateway 0.6.0 backfills existing services into `legacy` commercial mode and creates their primary Moodle installation from the existing site/token binding. Its migration repair pass is idempotent and runs on every upgrade invocation. The row mapping lives in `CommercialMigrationPolicy` and is executed in CI against active, suspended and incomplete legacy-service scenarios. It does not reset current quota, wallet state or media ownership. Migration postconditions verify all critical commercial columns, installation attribution, one account row per existing service, a primary installation for every fully provisioned legacy binding, and zero fabricated activation credit.
 
-Moodle can register an existing Elearning Stream video by URL. Moodle sends only the parsed video GUID to `api/asset-import.php`. The gateway verifies the asset in the configured library, rejects a video already owned by another active WHMCS service, accounts its provider storage against the service quota, and returns a normal upload reference for binding.
+## No Google Drive dependency
 
-The full pasted URL is never stored by Moodle or WHMCS.
+The gateway and Moodle production runtime do not use Google Drive. Historical identifiers in upgrade data are compatibility artifacts only.
 
+## Operational requirements
 
-## Protected playback
-
-Configure **Elearning Stream CDN Hostname** and **Elearning Stream Token Key** in the addon in addition to the library ID/API key. The addon generates short-lived HS256 playback URLs only for assets accounted to the authenticated WHMCS service.
-
-Enable MP4 fallback in the provider video library. Drive Resource uses that progressive MP4 representation so Moodle can preserve native HTML5 seek/Range behavior while keeping provider URLs server-side.
-
-Recommended **Elearning Stream Playback TTL**: 300 seconds. Moodle caches the authorization briefly and requests a fresh one when the player explicitly performs stall recovery.
+- WHMCS cron enabled;
+- HTTPS public gateway;
+- reverse proxy preserves signed POST headers/body;
+- provider CDN supports HTTP byte ranges;
+- addon re-saved after hooks.php deployment when required by WHMCS module discovery;
+- integration gate green before deployment.

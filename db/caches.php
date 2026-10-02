@@ -39,4 +39,11 @@ $definitions = [
         'staticacceleration' => true,
         'ttl' => 240,
     ],
+    'gatewaynonces' => [
+        'mode' => cache_store::MODE_APPLICATION,
+        'simplekeys' => true,
+        'simpledata' => true,
+        'staticacceleration' => true,
+        'ttl' => 600,
+    ],
 ];

@@ -24,21 +24,30 @@ jobs:
 
           cp -a integrations/whmcs/modules/addons/driveresource_gateway             dist-whmcs/whmcs-root/modules/addons/
           cp -a integrations/whmcs/modules/servers/driveresource             dist-whmcs/whmcs-root/modules/servers/
-          cp integrations/whmcs/README.md dist-whmcs/whmcs-root/README-Drive-Resource-WHMCS.md
+          cp integrations/whmcs/README.md dist-whmcs/whmcs-root/README-Elearning-Stream-WHMCS.md
 
           test -f dist-whmcs/whmcs-root/modules/addons/driveresource_gateway/driveresource_gateway.php
           test -f dist-whmcs/whmcs-root/modules/addons/driveresource_gateway/api/upload-authorize.php
           test -f dist-whmcs/whmcs-root/modules/servers/driveresource/driveresource.php
+          grep -F "'version' => '0.6.0'" dist-whmcs/whmcs-root/modules/addons/driveresource_gateway/driveresource_gateway.php
 
           (
-            cd dist-whmcs
-            zip -qr driveresource-whmcs-1.2.0-beta7.zip whmcs-root
+            cd dist-whmcs/whmcs-root
+            zip -qr ../elearning-stream-whmcs-0.6.0.zip modules README-Elearning-Stream-WHMCS.md
           )
+
+          package_entries="$(unzip -Z1 dist-whmcs/elearning-stream-whmcs-0.6.0.zip)"
+          grep -q '^modules/addons/driveresource_gateway/' <<<"$package_entries"
+          grep -q '^modules/servers/driveresource/' <<<"$package_entries"
+          if grep -q '^whmcs-root/' <<<"$package_entries"; then
+            echo "::error::WHMCS package must extract directly into the WHMCS document root."
+            exit 1
+          fi
 
       - name: Upload WHMCS package
         uses: actions/upload-artifact@v4
         with:
-          name: driveresource-whmcs-1.2.0-beta7
-          path: dist-whmcs/driveresource-whmcs-1.2.0-beta7.zip
+          name: elearning-stream-whmcs-0.6.0
+          path: dist-whmcs/elearning-stream-whmcs-0.6.0.zip
           if-no-files-found: error
           retention-days: 30

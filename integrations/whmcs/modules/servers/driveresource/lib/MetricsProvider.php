@@ -39,6 +39,12 @@ final class MetricsProvider implements ProviderInterface
                 MetricInterface::TYPE_SNAPSHOT,
                 new GigaBytes('GB')
             ),
+            new Metric(
+                'video_transfer_gb',
+                'Video Transfer',
+                MetricInterface::TYPE_PERIOD_MONTH,
+                new GigaBytes('GB')
+            ),
         ];
     }
 
@@ -52,7 +58,13 @@ final class MetricsProvider implements ProviderInterface
         $rows = Capsule::table('mod_driveresource_services')->get();
         $usage = [];
         foreach ($rows as $row) {
-            $usage['dr-' . (int) $row->service_id] = $this->withStorage((int) $row->used_bytes);
+            $serviceId = (int) $row->service_id;
+            $usage['dr-' . $serviceId] = $this->usesLegacyUsageBilling($serviceId)
+                ? $this->withUsage(
+                    (int) $row->used_bytes,
+                    $this->currentTransferBytes($row)
+                )
+                : $this->withUsage(0, 0);
         }
 
         return $usage;
@@ -73,28 +85,75 @@ final class MetricsProvider implements ProviderInterface
         }
 
         if ($serviceId <= 0) {
-            return $this->withStorage(0);
+            return $this->withUsage(0, 0);
         }
 
         $row = Capsule::table('mod_driveresource_services')
             ->where('service_id', $serviceId)
             ->first();
 
-        return $this->withStorage($row ? (int) $row->used_bytes : 0);
+        if (!$row || !$this->usesLegacyUsageBilling($serviceId)) {
+            return $this->withUsage(0, 0);
+        }
+
+        return $this->withUsage(
+            (int) $row->used_bytes,
+            $this->currentTransferBytes($row)
+        );
     }
 
     /**
-     * Attach usage to the metric.
+     * Whether this service still uses WHMCS Usage Billing.
      *
-     * @param int $bytes Storage bytes.
+     * Gateway 0.6.0 FREE/PAYG accounts are charged through the prepaid wallet.
+     * Returning zero metrics for those accounts prevents accidental duplicate
+     * charges when an upgraded WHMCS product still has historical Usage Billing
+     * pricing attached. Legacy tenants keep the previous metric behavior until
+     * they are intentionally migrated.
+     *
+     * @param int $serviceId WHMCS service id.
+     * @return bool
+     */
+    private function usesLegacyUsageBilling(int $serviceId): bool
+    {
+        if (!Capsule::schema()->hasTable('mod_driveresource_accounts')) {
+            return true;
+        }
+
+        $mode = Capsule::table('mod_driveresource_accounts')
+            ->where('service_id', $serviceId)
+            ->value('billing_mode');
+
+        return $mode === null || strtolower((string) $mode) === 'legacy';
+    }
+
+    /**
+     * Attach storage and current-month transfer usage.
+     *
+     * @param int $storageBytes Storage bytes.
+     * @param int $transferBytes Transfer bytes for the current UTC month.
      * @return MetricInterface[]
      */
-    private function withStorage(int $bytes): array
+    private function withUsage(int $storageBytes, int $transferBytes): array
     {
-        $gb = max(0, $bytes) / 1000000000;
+        $metrics = $this->metrics();
 
         return [
-            $this->metrics()[0]->withUsage(new Usage($gb)),
+            $metrics[0]->withUsage(new Usage(max(0, $storageBytes) / 1000000000)),
+            $metrics[1]->withUsage(new Usage(max(0, $transferBytes) / 1000000000)),
         ];
+    }
+
+    /**
+     * Return transfer only when the stored counter belongs to this month.
+     *
+     * @param object $row Service row.
+     * @return int
+     */
+    private function currentTransferBytes(object $row): int
+    {
+        return (string) ($row->transfer_period ?? '') === gmdate('Y-m')
+            ? max(0, (int) ($row->transfer_bytes ?? 0))
+            : 0;
     }
 }

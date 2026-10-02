@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Administration settings for Drive Resource.
+ * Administration settings for Elearning Stream.
  *
  * @package    mod_videoplayer
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
@@ -35,26 +35,11 @@ if ($ADMIN->fulltree) {
     ));
 
     $settings->add(new admin_setting_configtext(
-        'mod_videoplayer/defaultrequiredseconds',
-        get_string('setting_defaultrequiredseconds', 'mod_videoplayer'),
-        get_string('setting_defaultrequiredseconds_desc', 'mod_videoplayer'),
-        plugin_config::DEFAULT_REQUIRED_SECONDS,
-        PARAM_INT
-    ));
-
-    $settings->add(new admin_setting_configtext(
         'mod_videoplayer/defaultcompletionpercentage',
         get_string('setting_defaultcompletionpercentage', 'mod_videoplayer'),
         get_string('setting_defaultcompletionpercentage_desc', 'mod_videoplayer'),
         plugin_config::DEFAULT_COMPLETION_PERCENTAGE,
         PARAM_INT
-    ));
-
-    $settings->add(new admin_setting_configcheckbox(
-        'mod_videoplayer/showresourcetype',
-        get_string('setting_showresourcetype', 'mod_videoplayer'),
-        get_string('setting_showresourcetype_desc', 'mod_videoplayer'),
-        1
     ));
 
     $settings->add(new admin_setting_configselect(
@@ -74,13 +59,6 @@ if ($ADMIN->fulltree) {
         get_string('setting_playercolor_desc', 'mod_videoplayer'),
         plugin_config::DEFAULT_PLAYER_COLOR,
         PARAM_TEXT
-    ));
-
-    $settings->add(new admin_setting_configcheckbox(
-        'mod_videoplayer/pdfcacheenabled',
-        get_string('setting_pdfcacheenabled', 'mod_videoplayer'),
-        get_string('setting_pdfcacheenabled_desc', 'mod_videoplayer'),
-        1
     ));
 
     $settings->add(new admin_setting_heading(
@@ -120,11 +98,4 @@ if ($ADMIN->fulltree) {
         PARAM_INT
     ));
 
-    $settings->add(new admin_setting_configtext(
-        'mod_videoplayer/pdfcachettl',
-        get_string('setting_pdfcachettl', 'mod_videoplayer'),
-        get_string('setting_pdfcachettl_desc', 'mod_videoplayer'),
-        plugin_config::DEFAULT_PDF_CACHE_TTL,
-        PARAM_INT
-    ));
 }

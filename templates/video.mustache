@@ -17,8 +17,6 @@
         "trackprogress": true,
         "disablecontextmenu": true,
         "playerstyle": "",
-        "showresourcetype": true,
-        "resourcetype": "Video",
         "completionpercent": 25,
         "title": "Protected training video",
         "videourl": "/mod/videoplayer/protected.php?id=42",
@@ -38,19 +36,13 @@
      data-tracking-enabled="{{#trackprogress}}1{{/trackprogress}}{{^trackprogress}}0{{/trackprogress}}"
      data-disable-context-menu="{{#disablecontextmenu}}1{{/disablecontextmenu}}{{^disablecontextmenu}}0{{/disablecontextmenu}}"
      {{#playerstyle}}style="{{playerstyle}}"{{/playerstyle}}>
-    <div class="mod-videoplayer-meta mb-2">
-        {{#showresourcetype}}<span class="mod-videoplayer-meta-item">{{resourcetype}}</span>{{/showresourcetype}}
-        <span class="mod-videoplayer-meta-item">{{#str}} protectedresource, mod_videoplayer {{/str}}</span>
-        <span class="mod-videoplayer-meta-item js-video-progress-label">{{completionpercent}}%</span>
-    </div>
-
     <div class="mod-videoplayer-native-frame mod-videoplayer-own-player js-native-video-frame"
          data-primary-src="{{videourl}}"
          data-fallback-src="{{videofallbackurl}}"
          tabindex="0"
          role="group"
          aria-label="{{title}}">
-        <video class="mod-videoplayer-native-video js-drive-resource-video"
+        <video class="mod-videoplayer-native-video js-elearning-stream-video"
                preload="metadata"
                playsinline
                draggable="false">

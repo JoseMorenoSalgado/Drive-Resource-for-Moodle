@@ -153,3 +153,14 @@ Before signing off this checklist, record the commit SHA, Moodle/PHP/database ve
 - Explicit PDF/image/audio/document/spreadsheet/presentation/file types remain unchanged.
 - An invalid stored explicit type degrades to generic file behavior rather than selecting an unsafe viewer.
 - Deleting a Drive PDF activity invalidates its local cache entry.
+
+## 1.2.0-rc7 video and deletion checks
+
+- [ ] Desktop: play/pause, seek, volume, speed and fullscreen remain on one control row.
+- [ ] Mobile portrait: seek stays on its own row; volume and fullscreen are reachable.
+- [ ] Keyboard: tab through controls; focused controls remain visible and Space/Arrow keys operate the focused input.
+- [ ] Upload a disposable Bunny video, save the activity and run Moodle cron until the bind task succeeds.
+- [ ] Delete the activity, run Moodle cron until the release task succeeds and verify WHMCS reference count and retention policy; verify provider deletion if retention is zero.
+- [ ] Delete an activity before its queued bind runs, then run cron and confirm no orphan reference is created.
+
+- [ ] Rename an existing bound activity, run cron and confirm the Bunny title changes. Ensure an activity in another service cannot rename it.

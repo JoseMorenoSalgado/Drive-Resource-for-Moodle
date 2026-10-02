@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: drive-resource-${{ github.workflow }}-${{ github.ref }}
+  group: elearning-stream-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -95,6 +95,22 @@ jobs:
 
       - name: JavaScript lint and AMD build check
         run: moodle-plugin-ci grunt --max-lint-warnings 0
+
+      - name: Rebuild stale AMD diagnostics
+        if: ${{ failure() && matrix.php == '8.3' && matrix.database == 'mariadb' }}
+        working-directory: moodle
+        run: npx grunt amd --root=mod/videoplayer
+
+      - name: Preserve generated AMD diagnostics
+        if: ${{ failure() && matrix.php == '8.3' && matrix.database == 'mariadb' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-amd-build
+          path: |
+            moodle/mod/videoplayer/amd/build/*.min.js
+            moodle/mod/videoplayer/amd/build/*.min.js.map
+          if-no-files-found: error
+          retention-days: 3
 
       - name: PHPUnit
         run: moodle-plugin-ci phpunit --fail-on-warning

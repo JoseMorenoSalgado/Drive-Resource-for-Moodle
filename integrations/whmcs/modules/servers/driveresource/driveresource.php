@@ -1,17 +1,27 @@
 <?php
 /**
- * Drive Resource WHMCS provisioning module.
+ * Elearning Stream provisioning module.
  *
  * @copyright  2026 Elearning Cloud
- * @license    Proprietary companion module distributed with Drive Resource
+ * @license    Proprietary companion module distributed with Elearning Stream
  */
 
 if (!defined('WHMCS')) {
     die('This file cannot be accessed directly');
 }
 
+require_once __DIR__ . '/lib/Translator.php';
+require_once __DIR__ . '/lib/ClientPortal.php';
+require_once __DIR__ . '/lib/MetricsProvider.php';
+require_once __DIR__ . '/lib/MoodleConnectionProbe.php';
+
+use WHMCS\Billing\Currency;
 use WHMCS\Database\Capsule;
+use WHMCS\Module\Addon\Setting;
+use WHMCS\Module\Server\Driveresource\ClientPortal;
 use WHMCS\Module\Server\Driveresource\MetricsProvider;
+use WHMCS\Module\Server\Driveresource\MoodleConnectionProbe;
+use WHMCS\Module\Server\Driveresource\Translator;
 
 /**
  * Module metadata.
@@ -23,7 +33,7 @@ function driveresource_MetaData(): array
     return [
         'DisplayName' => 'Elearning Stream',
         'APIVersion' => '1.1',
-        'RequiresServer' => true,
+        'RequiresServer' => false,
     ];
 }
 
@@ -35,79 +45,601 @@ function driveresource_MetaData(): array
 function driveresource_ConfigOptions(): array
 {
     return [
-        'Included Storage GB' => [
+        'Legacy Included Storage GB' => [
             'Type' => 'text',
             'Size' => '10',
             'Default' => '7',
-            'Description' => 'Storage included with the service before usage overage applies.',
+            'Description' => 'Compatibility policy for pre-0.6.0 legacy tenants. New FREE/PAYG accounts use gateway commercial settings.',
         ],
-        'Allow Storage Overage' => [
+        'Legacy Storage Overage' => [
             'Type' => 'yesno',
-            'Description' => 'Permit uploads above the included storage quota and bill the excess.',
+            'Description' => 'Compatibility overage switch for legacy tenants only. New FREE/PAYG accounts use the prepaid wallet.',
             'Default' => 'on',
         ],
         'Retention Days' => [
             'Type' => 'text',
             'Size' => '10',
-            'Default' => '30',
-            'Description' => 'Days to retain an unreferenced video before physical deletion.',
+            'Default' => '0',
+            'Description' => '0 deletes the provider video after its final Moodle reference is removed. Use 1-365 only when a recovery grace period is required.',
+        ],
+        'Video Provider' => [
+            'Type' => 'text',
+            'Size' => '30',
+            'Default' => 'elearningstream',
+            'Loader' => 'driveresource_VideoProviderLoader',
+            'SimpleMode' => true,
+            'Description' => 'Managed-video provider assigned to services created from this product.',
+        ],
+        'Video Provider Profile' => [
+            'Type' => 'text',
+            'Size' => '30',
+            'Default' => 'default',
+            'Description' => 'Credential/profile selector for the video provider.',
+        ],
+        'Protected PDF Storage' => [
+            'Type' => 'text',
+            'Size' => '30',
+            'Default' => 'none',
+            'Loader' => 'driveresource_DocumentProviderLoader',
+            'SimpleMode' => true,
+            'Description' => 'Independent object-storage provider for protected PDFs. Video-only plans can keep this disabled.',
+        ],
+        'Object Storage Profile' => [
+            'Type' => 'text',
+            'Size' => '30',
+            'Default' => 'default',
+            'Description' => 'Credential/profile selector for S3-compatible protected document storage.',
         ],
     ];
 }
 
 /**
- * Provision a Drive Resource tenant.
+ * Populate the managed-video provider selector.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return array<string,string>
+ */
+function driveresource_VideoProviderLoader(array $params): array
+{
+    return [
+        'elearningstream' => 'Elearning Stream',
+    ];
+}
+
+/**
+ * Populate the protected-document provider selector.
+ *
+ * The S3 assignment is stored independently from video so the data-plane
+ * adapter can be enabled without migrating the Moodle service identity.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return array<string,string>
+ */
+function driveresource_DocumentProviderLoader(array $params): array
+{
+    return [
+        'none' => 'Disabled (video only)',
+        's3compatible' => 'S3-compatible Object Storage',
+    ];
+}
+
+/**
+ * Backward-compatible alias retained for existing WHMCS product metadata.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return array<string,string>
+ */
+function driveresource_BackendLoader(array $params): array
+{
+    return driveresource_VideoProviderLoader($params);
+}
+
+/**
+ * Provision an Elearning Stream tenant.
  *
  * @param array $params WHMCS module parameters.
  * @return string
  */
 function driveresource_CreateAccount(array $params): string
 {
+    return driveresource_provision_moodle_connection($params, false, true);
+}
+
+/**
+ * Admin-only recovery action for an already-created WHMCS service.
+ *
+ * WHMCS can have a service marked Active before a provisioning command has
+ * ever run (for example after manual product assignment). This action makes
+ * the Moodle credential lifecycle explicit and recoverable.
+ *
+ * @return array<string,string>
+ */
+function driveresource_AdminCustomButtonArray(): array
+{
+    $translator = Translator::fromParams([]);
+
+    return [
+        $translator->t('generate_token') => 'ProvisionMoodleConnection',
+        $translator->t('generate_new_key') => 'RotateMoodleToken',
+        $translator->t('validate_connection') => 'ValidateMoodleConnection',
+        $translator->t('organize_virtual_classroom') => 'OrganizeVideoCollection',
+    ];
+}
+
+/**
+ * Permit self-service functions invoked by the custom client dashboard.
+ *
+ * @return string[]
+ */
+function driveresource_ClientAreaAllowedFunctions(): array
+{
+    return [
+        'ProvisionMoodleConnection',
+        'RotateMoodleToken',
+        'ValidateMoodleConnection',
+        'AddMoodleInstallation',
+        'RotateMoodleInstallationToken',
+        'RemoveMoodleInstallation',
+        'CreateWalletRecharge',
+        'DeleteVideo',
+    ];
+}
+
+/**
+ * Change the Moodle site bound to this customer's service.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return string
+ */
+function driveresource_UpdateMoodleUrl(array $params): string
+{
+    try {
+        driveresource_require_post();
+        driveresource_require_gateway();
+
+        $serviceId = (int) ($params['serviceid'] ?? 0);
+        $url = driveresource_normalize_site_url((string) ($_POST['moodleurl'] ?? ''));
+        $now = time();
+        $previousUrl = '';
+
+        Capsule::connection()->transaction(function () use (
+            $serviceId,
+            $url,
+            $now,
+            $params,
+            &$previousUrl
+        ): void {
+            $service = Capsule::table('mod_driveresource_services')
+                ->where('service_id', $serviceId)
+                ->lockForUpdate()
+                ->first();
+            if (!$service) {
+                throw new RuntimeException('Elearning Stream service is not provisioned.');
+            }
+
+            $currentUrl = rtrim((string) $service->site_url, '/');
+            $previousUrl = $currentUrl;
+            if ($currentUrl !== rtrim($url, '/')) {
+                $activeRefs = (int) Capsule::table('mod_driveresource_asset_refs')
+                    ->where('service_id', $serviceId)
+                    ->where('active', true)
+                    ->count();
+                if ($activeRefs > 0) {
+                    throw new RuntimeException(
+                        Translator::fromParams($params)->t('url_locked_by_refs')
+                    );
+                }
+            }
+
+            Capsule::table('mod_driveresource_services')
+                ->where('service_id', $serviceId)
+                ->update([
+                    'site_url' => $url,
+                    'site_hash' => hash('sha256', $url),
+                    'connection_status' => 'pending',
+                    'connection_checked_at' => null,
+                    'connection_message' => 'connection_pending',
+                    'updated_at' => $now,
+                ]);
+
+            if (Capsule::schema()->hasTable('mod_driveresource_installations')) {
+                Capsule::table('mod_driveresource_installations')
+                    ->where('service_id', $serviceId)
+                    ->where('is_primary', true)
+                    ->update([
+                        'site_url' => $url,
+                        'site_hash' => hash('sha256', $url),
+                        'connection_status' => 'pending',
+                        'connection_checked_at' => null,
+                        'connection_message' => 'connection_pending',
+                        'updated_at' => $now,
+                    ]);
+            }
+        });
+
+        if (isset($params['model'])) {
+            $params['model']->serviceProperties->save([
+                'Moodle Site URL' => $url,
+            ]);
+        }
+
+        if ($previousUrl !== rtrim($url, '/')) {
+            driveresource_audit($serviceId, 'moodle_url_changed', [
+                'old_url' => $previousUrl,
+                'new_url' => rtrim($url, '/'),
+            ]);
+        }
+
+        return 'success';
+    } catch (Throwable $exception) {
+        return $exception->getMessage();
+    }
+}
+
+/**
+ * Test that Moodle has the same site URL, Service ID and token.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return string
+ */
+function driveresource_ValidateMoodleConnection(array $params): string
+{
+    try {
+        driveresource_require_post();
+        driveresource_require_gateway();
+
+        $serviceId = (int) ($params['serviceid'] ?? 0);
+        driveresource_sync_service_policy($params);
+        $service = Capsule::table('mod_driveresource_services')
+            ->where('service_id', $serviceId)
+            ->first();
+        if (!$service) {
+            throw new RuntimeException('Elearning Stream service is not provisioned.');
+        }
+
+        $token = driveresource_service_token($params);
+        $translator = Translator::fromParams($params);
+        $result = (new MoodleConnectionProbe($translator))->probe(
+            $serviceId,
+            (string) $service->site_url,
+            $token
+        );
+
+        Capsule::table('mod_driveresource_services')
+            ->where('service_id', $serviceId)
+            ->update([
+                'connection_status' => $result['connected'] ? 'connected' : 'failed',
+                'connection_checked_at' => time(),
+                'connection_message' => mb_substr((string) $result['message'], 0, 255),
+                'updated_at' => time(),
+            ]);
+
+        if (Capsule::schema()->hasTable('mod_driveresource_installations')) {
+            Capsule::table('mod_driveresource_installations')
+                ->where('service_id', $serviceId)
+                ->where('is_primary', true)
+                ->update([
+                    'connection_status' => $result['connected'] ? 'connected' : 'failed',
+                    'connection_checked_at' => time(),
+                    'connection_message' => mb_substr((string) $result['message'], 0, 255),
+                    'updated_at' => time(),
+                ]);
+        }
+
+        driveresource_audit($serviceId, 'moodle_connection_validated', [
+            'connected' => (bool) $result['connected'],
+            'site_url' => (string) $service->site_url,
+            'plugin_version' => (int) ($result['pluginversion'] ?? 0),
+        ]);
+
+        return $result['connected'] ? 'success' : (string) $result['message'];
+    } catch (Throwable $exception) {
+        return $exception->getMessage();
+    }
+}
+
+/**
+ * Create/repair the provider collection for this virtual classroom and move
+ * existing service-owned videos into it.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return string
+ */
+function driveresource_OrganizeVideoCollection(array $params): string
+{
     try {
         driveresource_require_gateway();
-        $serviceId = (int) $params['serviceid'];
+
+        $serviceId = (int) ($params['serviceid'] ?? 0);
+        $service = Capsule::table('mod_driveresource_services')
+            ->where('service_id', $serviceId)
+            ->first();
+        if (!$service) {
+            throw new RuntimeException('Elearning Stream service is not provisioned.');
+        }
+
+        $result = driveresource_gateway_service()->organizeServiceAssets($service, 1000);
+        if ((int) ($result['failed'] ?? 0) > 0) {
+            throw new RuntimeException(
+                'Virtual classroom was created, but '
+                . (int) $result['failed']
+                . ' video(s) could not be organised.'
+            );
+        }
+
+        driveresource_audit($serviceId, 'virtual_classroom_organized', [
+            'collection_id' => (string) ($result['collectionid'] ?? ''),
+            'collection_name' => (string) ($result['collectionname'] ?? ''),
+            'videos_organised' => (int) ($result['organised'] ?? 0),
+        ]);
+
+        return 'success';
+    } catch (Throwable $exception) {
+        return $exception->getMessage();
+    }
+}
+
+/**
+ * Permanently delete one unreferenced video owned by this service.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return string
+ */
+function driveresource_DeleteVideo(array $params): string
+{
+    try {
+        driveresource_require_post();
+        driveresource_require_gateway();
+
+        $serviceId = (int) ($params['serviceid'] ?? 0);
+        $uploadId = strtolower(trim((string) ($_POST['uploadid'] ?? '')));
+        if (!preg_match('/^[a-f0-9]{32}$/', $uploadId)) {
+            throw new RuntimeException(Translator::fromParams($params)->t('video_invalid'));
+        }
+
+        $service = Capsule::table('mod_driveresource_services')
+            ->where('service_id', $serviceId)
+            ->first();
+        if (!$service) {
+            throw new RuntimeException(Translator::fromParams($params)->t('video_not_found'));
+        }
+
+        $videoBackend = (string) ($service->video_backend_key ?? $service->backend_key ?? '');
+        if ($videoBackend !== 'elearningstream') {
+            throw new RuntimeException(Translator::fromParams($params)->t('backend_mismatch'));
+        }
+
+        $upload = Capsule::table('mod_driveresource_uploads')
+            ->where('service_id', $serviceId)
+            ->where('upload_id', $uploadId)
+            ->where('status', '<>', 'deleted')
+            ->first();
+        if (!$upload || empty($upload->video_id)) {
+            throw new RuntimeException(Translator::fromParams($params)->t('video_not_found'));
+        }
+
+        $references = (int) Capsule::table('mod_driveresource_asset_refs')
+            ->where('service_id', $serviceId)
+            ->where('video_id', (string) $upload->video_id)
+            ->where('active', true)
+            ->count();
+        if ($references > 0) {
+            throw new RuntimeException(
+                Translator::fromParams($params)->t('video_still_referenced')
+            );
+        }
+
+        driveresource_stream_client()->deleteVideo((string) $upload->video_id);
+
+        Capsule::connection()->transaction(function () use ($serviceId, $uploadId): void {
+            Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->where('upload_id', $uploadId)
+                ->update([
+                    'status' => 'deleted',
+                    'accounted_bytes' => 0,
+                    'delete_after' => null,
+                    'updated_at' => time(),
+                ]);
+
+            $used = (int) Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->whereIn('status', ['processing', 'ready', 'bound'])
+                ->sum('accounted_bytes');
+
+            Capsule::table('mod_driveresource_services')
+                ->where('service_id', $serviceId)
+                ->update([
+                    'used_bytes' => max(0, $used),
+                    'updated_at' => time(),
+                ]);
+        });
+
+        driveresource_audit($serviceId, 'video_deleted', [
+            'video_id' => (string) $upload->video_id,
+            'upload_id' => $uploadId,
+            'filename' => (string) $upload->filename,
+            'bytes' => (int) $upload->accounted_bytes,
+        ]);
+
+        return 'success';
+    } catch (Throwable $exception) {
+        return $exception->getMessage();
+    }
+}
+
+/**
+ * Provision or repair the Moodle gateway identity for this WHMCS service.
+ *
+ * Existing tokens are preserved when WHMCS still has the plaintext service
+ * password. If the password is missing, a new token is generated and its hash
+ * is atomically replaced in the gateway tenant row.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return string
+ */
+function driveresource_ProvisionMoodleConnection(array $params): string
+{
+    return driveresource_provision_moodle_connection($params, false, false);
+}
+
+/**
+ * Explicitly rotate the Moodle service token.
+ *
+ * Use only when the old token is believed compromised or the administrator
+ * intentionally wants to reconnect Moodle.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return string
+ */
+function driveresource_RotateMoodleToken(array $params): string
+{
+    return driveresource_provision_moodle_connection($params, true, false);
+}
+
+/**
+ * Shared provisioning implementation.
+ *
+ * @param array $params WHMCS module parameters.
+ * @param bool $forcerotation Whether to replace an existing valid token.
+ * @param bool $activationeligible Whether this call may verify activation and grant the one-time credit.
+ * @return string
+ */
+function driveresource_provision_moodle_connection(
+    array $params,
+    bool $forcerotation,
+    bool $activationeligible
+): string
+{
+    try {
+        driveresource_require_gateway();
+
+        $serviceId = (int) ($params['serviceid'] ?? 0);
+        if ($serviceId <= 0) {
+            throw new RuntimeException('WHMCS service ID is missing.');
+        }
+
         $siteUrl = driveresource_site_url($params);
-        $token = bin2hex(random_bytes(32));
         $now = time();
+        $existing = Capsule::table('mod_driveresource_services')
+            ->where('service_id', $serviceId)
+            ->first();
+
+        $token = trim((string) ($params['password'] ?? ''));
+        if ($token === '' && isset($params['model'])) {
+            try {
+                $token = trim((string) $params['model']->serviceProperties->get('Password'));
+            } catch (Throwable $exception) {
+                $token = '';
+            }
+        }
+
+        $tokenisusable = (bool) preg_match('/^[a-f0-9]{64}$/', $token);
+        if ($forcerotation || !$tokenisusable) {
+            $token = bin2hex(random_bytes(32));
+        }
 
         $quotaBytes = driveresource_quota_bytes($params);
         $overageAllowed = driveresource_overage_allowed($params);
         $retentionDays = driveresource_retention_days($params);
+        $videoBackendKey = driveresource_video_backend_key($params);
+        $videoBackendProfile = driveresource_video_backend_profile($params);
+        $objectBackendKey = driveresource_object_backend_key($params);
+        $objectBackendProfile = driveresource_object_backend_profile($params);
+
+        $values = [
+            'site_url' => $siteUrl,
+            'site_hash' => hash('sha256', $siteUrl),
+            'token_hash' => hash('sha256', $token),
+            'status' => 'active',
+            // Legacy backend fields mirror the video provider for API compatibility.
+            'backend_key' => $videoBackendKey,
+            'backend_profile' => $videoBackendProfile,
+            'video_backend_key' => $videoBackendKey,
+            'video_backend_profile' => $videoBackendProfile,
+            'object_backend_key' => $objectBackendKey,
+            'object_backend_profile' => $objectBackendProfile,
+            'connection_status' => 'pending',
+            'connection_checked_at' => null,
+            'connection_message' => 'connection_pending',
+            'quota_bytes' => $quotaBytes,
+            'overage_allowed' => $overageAllowed,
+            'retention_days' => $retentionDays,
+            'updated_at' => $now,
+            'suspended_at' => null,
+            'terminated_at' => null,
+        ];
+
+        if (!$existing) {
+            $values['created_at'] = $now;
+            $values['used_bytes'] = 0;
+            $values['reserved_bytes'] = 0;
+        }
 
         Capsule::table('mod_driveresource_services')->updateOrInsert(
             ['service_id' => $serviceId],
-            [
-                'site_url' => $siteUrl,
-                'site_hash' => hash('sha256', $siteUrl),
-                'token_hash' => hash('sha256', $token),
-                'status' => 'active',
-                'quota_bytes' => $quotaBytes,
-                'overage_allowed' => $overageAllowed,
-                'retention_days' => $retentionDays,
-                'updated_at' => $now,
-                'created_at' => $now,
-                'suspended_at' => null,
-                'terminated_at' => null,
-            ]
+            $values
         );
 
-        // Core service properties use WHMCS-supported protected fields. The
-        // service password is the Moodle-to-WHMCS token, not a Bunny secret.
+        driveresource_ensure_commercial_account(
+            $params,
+            $serviceId,
+            $siteUrl,
+            $token,
+            $activationeligible
+        );
+
+        if (!isset($params['model'])) {
+            throw new RuntimeException('WHMCS service model is unavailable.');
+        }
+
+        // WHMCS Service Properties maps these names to protected core service
+        // fields for directly-created products.
         $params['model']->serviceProperties->save([
             'Username' => 'dr-' . $serviceId,
             'Password' => $token,
         ]);
 
+        logModuleCall(
+            'driveresource',
+            $forcerotation ? 'RotateMoodleToken' : 'ProvisionMoodleConnection',
+            [
+                'serviceid' => $serviceId,
+                'siteurl' => $siteUrl,
+                'video_provider' => $videoBackendKey,
+                'object_provider' => $objectBackendKey,
+            ],
+            [
+                'status' => 'success',
+                'username' => 'dr-' . $serviceId,
+                'tokenrotated' => $forcerotation || !$tokenisusable,
+            ],
+            null,
+            ['Password', 'password', 'token']
+        );
+
+        driveresource_audit(
+            $serviceId,
+            $forcerotation ? 'moodle_token_rotated' : 'moodle_connection_provisioned',
+            [
+                'site_url' => $siteUrl,
+                'video_provider' => $videoBackendKey,
+                'object_provider' => $objectBackendKey,
+                'token_rotated' => (bool) ($forcerotation || !$tokenisusable),
+            ]
+        );
+
         return 'success';
     } catch (Throwable $exception) {
         logModuleCall(
             'driveresource',
-            'CreateAccount',
+            $forcerotation ? 'RotateMoodleToken' : 'ProvisionMoodleConnection',
             ['serviceid' => $params['serviceid'] ?? 0],
             ['error' => $exception->getMessage()],
             null,
-            []
+            ['Password', 'password', 'token']
         );
+
         return $exception->getMessage();
     }
 }
@@ -160,6 +692,360 @@ function driveresource_TerminateAccount(array $params): string
 }
 
 /**
+ * Register an additional Moodle installation under this commercial account.
+ *
+ * FREE is limited by the account policy (one installation by default). PAYG
+ * can use an unlimited installation limit when paid_installation_limit = 0.
+ * The plaintext token is stored only in the current authenticated WHMCS
+ * session and is displayed once by ClientPortal.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return string
+ */
+function driveresource_AddMoodleInstallation(array $params): string
+{
+    try {
+        driveresource_require_post();
+        driveresource_require_gateway();
+
+        $serviceId = (int) ($params['serviceid'] ?? 0);
+        driveresource_require_client_service_ownership($serviceId);
+
+        $lib = dirname(__DIR__, 2) . '/addons/driveresource_gateway/lib';
+        require_once $lib . '/CommercialAccount.php';
+
+        $siteUrl = driveresource_normalize_site_url((string) ($_POST['moodleurl'] ?? ''));
+        $label = trim((string) ($_POST['label'] ?? ''));
+        $label = mb_substr($label !== '' ? $label : (string) parse_url($siteUrl, PHP_URL_HOST), 0, 191);
+        $siteHash = hash('sha256', $siteUrl);
+        $token = bin2hex(random_bytes(32));
+        $now = time();
+        $installationId = 0;
+
+        Capsule::connection()->transaction(function () use (
+            $serviceId,
+            $siteUrl,
+            $siteHash,
+            $label,
+            $token,
+            $now,
+            &$installationId
+        ): void {
+            $account = Capsule::table('mod_driveresource_accounts')
+                ->where('service_id', $serviceId)
+                ->lockForUpdate()
+                ->first();
+            if (!$account || !(bool) $account->activation_verified) {
+                throw new RuntimeException('Elearning Stream account activation is required.');
+            }
+
+            $limit = \WHMCS\Module\Addon\DriveresourceGateway\CommercialAccount::installationLimit(
+                $account
+            );
+            $active = Capsule::table('mod_driveresource_installations')
+                ->where('service_id', $serviceId)
+                ->where('status', 'active')
+                ->lockForUpdate()
+                ->get();
+
+            if ($limit > 0 && count($active) >= $limit) {
+                throw new RuntimeException(
+                    'Your current Elearning Stream tier has reached its Moodle installation limit.'
+                );
+            }
+
+            $existingInstallation = Capsule::table('mod_driveresource_installations')
+                ->where('service_id', $serviceId)
+                ->where('site_hash', $siteHash)
+                ->lockForUpdate()
+                ->first();
+            if ($existingInstallation && (string) $existingInstallation->status !== 'revoked') {
+                throw new RuntimeException('This Moodle installation is already registered.');
+            }
+
+            if ($existingInstallation) {
+                $installationId = (int) $existingInstallation->id;
+                Capsule::table('mod_driveresource_installations')
+                    ->where('id', $installationId)
+                    ->update([
+                        'label' => $label,
+                        'site_url' => $siteUrl,
+                        'token_hash' => hash('sha256', $token),
+                        'status' => 'active',
+                        'is_primary' => false,
+                        'connection_status' => 'pending',
+                        'connection_checked_at' => null,
+                        'connection_message' => 'connection_pending',
+                        'last_seen_at' => null,
+                        'updated_at' => $now,
+                    ]);
+                return;
+            }
+
+            $installationId = (int) Capsule::table('mod_driveresource_installations')->insertGetId([
+                'service_id' => $serviceId,
+                'label' => $label,
+                'site_url' => $siteUrl,
+                'site_hash' => $siteHash,
+                'token_hash' => hash('sha256', $token),
+                'status' => 'active',
+                'is_primary' => false,
+                'connection_status' => 'pending',
+                'connection_checked_at' => null,
+                'connection_message' => 'connection_pending',
+                'last_seen_at' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        });
+
+        $_SESSION['elearning_stream_installation_secret'] = [
+            'service_id' => $serviceId,
+            'installation_id' => $installationId,
+            'site_url' => $siteUrl,
+            'token' => $token,
+            'created_at' => $now,
+        ];
+
+        driveresource_audit($serviceId, 'moodle_installation_created', [
+            'installation_id' => $installationId,
+            'site_url' => $siteUrl,
+            'label' => $label,
+        ]);
+
+        return 'success';
+    } catch (Throwable $exception) {
+        return $exception->getMessage();
+    }
+}
+
+/**
+ * Rotate a secondary Moodle installation token.
+ *
+ * Primary credentials continue to use RotateMoodleToken because WHMCS stores
+ * that token in the protected service password field.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return string
+ */
+function driveresource_RotateMoodleInstallationToken(array $params): string
+{
+    try {
+        driveresource_require_post();
+        driveresource_require_gateway();
+
+        $serviceId = (int) ($params['serviceid'] ?? 0);
+        driveresource_require_client_service_ownership($serviceId);
+        $installationId = (int) ($_POST['installationid'] ?? 0);
+
+        $installation = Capsule::table('mod_driveresource_installations')
+            ->where('id', $installationId)
+            ->where('service_id', $serviceId)
+            ->where('status', 'active')
+            ->first();
+        if (!$installation || (bool) $installation->is_primary) {
+            throw new RuntimeException('Secondary Moodle installation was not found.');
+        }
+
+        $token = bin2hex(random_bytes(32));
+        $now = time();
+        Capsule::table('mod_driveresource_installations')
+            ->where('id', $installationId)
+            ->update([
+                'token_hash' => hash('sha256', $token),
+                'connection_status' => 'pending',
+                'connection_checked_at' => null,
+                'connection_message' => 'connection_pending',
+                'updated_at' => $now,
+            ]);
+
+        $_SESSION['elearning_stream_installation_secret'] = [
+            'service_id' => $serviceId,
+            'installation_id' => $installationId,
+            'site_url' => (string) $installation->site_url,
+            'token' => $token,
+            'created_at' => $now,
+        ];
+
+        driveresource_audit($serviceId, 'moodle_installation_token_rotated', [
+            'installation_id' => $installationId,
+            'site_url' => (string) $installation->site_url,
+        ]);
+
+        return 'success';
+    } catch (Throwable $exception) {
+        return $exception->getMessage();
+    }
+}
+
+/**
+ * Revoke an unused secondary Moodle installation.
+ *
+ * Active asset references prevent revocation so a customer cannot strand
+ * videos that still belong to course activities on that site.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return string
+ */
+function driveresource_RemoveMoodleInstallation(array $params): string
+{
+    try {
+        driveresource_require_post();
+        driveresource_require_gateway();
+
+        $serviceId = (int) ($params['serviceid'] ?? 0);
+        driveresource_require_client_service_ownership($serviceId);
+        $installationId = (int) ($_POST['installationid'] ?? 0);
+
+        $installation = Capsule::table('mod_driveresource_installations')
+            ->where('id', $installationId)
+            ->where('service_id', $serviceId)
+            ->where('status', 'active')
+            ->first();
+        if (!$installation || (bool) $installation->is_primary) {
+            throw new RuntimeException('Secondary Moodle installation was not found.');
+        }
+
+        $activeRefs = (int) Capsule::table('mod_driveresource_asset_refs')
+            ->where('service_id', $serviceId)
+            ->where('site_hash', (string) $installation->site_hash)
+            ->where('active', true)
+            ->count();
+        if ($activeRefs > 0) {
+            throw new RuntimeException(
+                'This Moodle installation still owns active video references and cannot be revoked.'
+            );
+        }
+
+        Capsule::table('mod_driveresource_installations')
+            ->where('id', $installationId)
+            ->update([
+                'status' => 'revoked',
+                'updated_at' => time(),
+            ]);
+
+        driveresource_audit($serviceId, 'moodle_installation_revoked', [
+            'installation_id' => $installationId,
+            'site_url' => (string) $installation->site_url,
+        ]);
+
+        return 'success';
+    } catch (Throwable $exception) {
+        return $exception->getMessage();
+    }
+}
+
+/**
+ * Create a WHMCS invoice that funds the dedicated Elearning Stream wallet.
+ *
+ * The wallet is credited only by the InvoicePaid hook. Creating an invoice
+ * never grants service capacity by itself.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return string
+ */
+function driveresource_CreateWalletRecharge(array $params): string
+{
+    try {
+        driveresource_require_post();
+        driveresource_require_gateway();
+
+        $serviceId = (int) ($params['serviceid'] ?? 0);
+        $clientId = driveresource_require_client_service_ownership($serviceId);
+        $account = Capsule::table('mod_driveresource_accounts')
+            ->where('service_id', $serviceId)
+            ->first();
+        if (!$account) {
+            throw new RuntimeException('Elearning Stream account is not provisioned.');
+        }
+
+        $amount = driveresource_parse_usd_microusd((string) ($_POST['amount'] ?? ''));
+        if ($amount < (int) $account->minimum_recharge_microusd) {
+            throw new RuntimeException(
+                'The minimum Elearning Stream recharge is '
+                    . driveresource_format_microusd((int) $account->minimum_recharge_microusd)
+                    . '.'
+            );
+        }
+        if ($amount > 5000000000) {
+            throw new RuntimeException('The maximum online wallet recharge is US$5,000.00.');
+        }
+
+        $invoiceMoney = driveresource_wallet_invoice_amount($clientId, $amount);
+        $now = time();
+        $orderId = (int) Capsule::table('mod_driveresource_wallet_orders')->insertGetId([
+            'service_id' => $serviceId,
+            'client_id' => $clientId,
+            'invoice_id' => null,
+            'amount_microusd' => $amount,
+            'invoice_amount_microunits' => $invoiceMoney['microunits'],
+            'currency' => $invoiceMoney['currency'],
+            'status' => 'pending',
+            'settlement_version' => 0,
+            'created_at' => $now,
+            'paid_at' => null,
+            'refunded_at' => null,
+            'updated_at' => $now,
+        ]);
+
+        $invoiceParams = [
+            'userid' => $clientId,
+            'status' => 'Unpaid',
+            'sendinvoice' => true,
+            'itemdescription1' => 'Elearning Stream wallet recharge #' . $orderId,
+            'itemamount1' => $invoiceMoney['decimal'],
+            'itemtaxed1' => false,
+            'autoapplycredit' => false,
+        ];
+        $paymentMethod = trim((string) ($params['paymentmethod'] ?? ''));
+        if ($paymentMethod !== '') {
+            $invoiceParams['paymentmethod'] = $paymentMethod;
+        }
+
+        $result = localAPI('CreateInvoice', $invoiceParams);
+        if (
+            !is_array($result)
+            || strtolower((string) ($result['result'] ?? '')) !== 'success'
+            || (int) ($result['invoiceid'] ?? 0) <= 0
+        ) {
+            Capsule::table('mod_driveresource_wallet_orders')
+                ->where('id', $orderId)
+                ->update([
+                    'status' => 'failed',
+                    'updated_at' => time(),
+                ]);
+            throw new RuntimeException('WHMCS could not create the Elearning Stream recharge invoice.');
+        }
+
+        $invoiceId = (int) $result['invoiceid'];
+        Capsule::table('mod_driveresource_wallet_orders')
+            ->where('id', $orderId)
+            ->update([
+                'invoice_id' => $invoiceId,
+                'updated_at' => time(),
+            ]);
+
+        $_SESSION['elearning_stream_recharge_invoice'] = [
+            'service_id' => $serviceId,
+            'invoice_id' => $invoiceId,
+            'created_at' => time(),
+        ];
+
+        driveresource_audit($serviceId, 'wallet_recharge_invoice_created', [
+            'order_id' => $orderId,
+            'invoice_id' => $invoiceId,
+            'amount_microusd' => $amount,
+            'invoice_currency' => $invoiceMoney['currency'],
+            'invoice_amount_microunits' => $invoiceMoney['microunits'],
+        ]);
+
+        return 'success';
+    } catch (Throwable $exception) {
+        return $exception->getMessage();
+    }
+}
+
+/**
  * Apply upgraded/downgraded quota settings.
  *
  * @param array $params WHMCS module parameters.
@@ -169,9 +1055,47 @@ function driveresource_ChangePackage(array $params): string
 {
     try {
         driveresource_require_gateway();
+
+        $serviceId = (int) $params['serviceid'];
+        $service = Capsule::table('mod_driveresource_services')
+            ->where('service_id', $serviceId)
+            ->first();
+        if (!$service) {
+            throw new RuntimeException('Elearning Stream service is not provisioned.');
+        }
+
+        $videoBackendKey = driveresource_video_backend_key($params);
+        $videoBackendProfile = driveresource_video_backend_profile($params);
+        $objectBackendKey = driveresource_object_backend_key($params);
+        $objectBackendProfile = driveresource_object_backend_profile($params);
+        $currentBackend = strtolower(trim((string) (
+            $service->video_backend_key
+            ?? $service->backend_key
+            ?? 'elearningstream'
+        )));
+
+        if ($currentBackend !== $videoBackendKey) {
+            $assets = (int) Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->where('status', '<>', 'deleted')
+                ->count();
+            if ($assets > 0 || (int) $service->used_bytes > 0 || (int) $service->reserved_bytes > 0) {
+                throw new RuntimeException(
+                    'Storage backend cannot be changed while the service owns media. '
+                    . 'A controlled backend migration is required.'
+                );
+            }
+        }
+
         Capsule::table('mod_driveresource_services')
-            ->where('service_id', (int) $params['serviceid'])
+            ->where('service_id', $serviceId)
             ->update([
+                'backend_key' => $videoBackendKey,
+                'backend_profile' => $videoBackendProfile,
+                'video_backend_key' => $videoBackendKey,
+                'video_backend_profile' => $videoBackendProfile,
+                'object_backend_key' => $objectBackendKey,
+                'object_backend_profile' => $objectBackendProfile,
                 'quota_bytes' => driveresource_quota_bytes($params),
                 'overage_allowed' => driveresource_overage_allowed($params),
                 'retention_days' => driveresource_retention_days($params),
@@ -194,17 +1118,40 @@ function driveresource_ChangePassword(array $params): string
 {
     try {
         driveresource_require_gateway();
-        $token = trim((string) ($params['password'] ?? ''));
-        if (strlen($token) < 32) {
-            throw new RuntimeException('Gateway token must contain at least 32 characters.');
+        $token = strtolower(trim((string) ($params['password'] ?? '')));
+        if (!preg_match('/^[a-f0-9]{64}$/', $token)) {
+            throw new RuntimeException(
+                'Gateway token must be a 64-character hexadecimal Elearning Stream token.'
+            );
         }
 
+        $serviceId = (int) $params['serviceid'];
         Capsule::table('mod_driveresource_services')
-            ->where('service_id', (int) $params['serviceid'])
+            ->where('service_id', $serviceId)
             ->update([
                 'token_hash' => hash('sha256', $token),
+                'connection_status' => 'pending',
+                'connection_checked_at' => null,
+                'connection_message' => 'connection_pending',
                 'updated_at' => time(),
             ]);
+
+        if (Capsule::schema()->hasTable('mod_driveresource_installations')) {
+            Capsule::table('mod_driveresource_installations')
+                ->where('service_id', $serviceId)
+                ->where('is_primary', true)
+                ->update([
+                    'token_hash' => hash('sha256', $token),
+                    'connection_status' => 'pending',
+                    'connection_checked_at' => null,
+                    'connection_message' => 'connection_pending',
+                    'updated_at' => time(),
+                ]);
+        }
+
+        driveresource_audit($serviceId, 'moodle_token_rotated', [
+            'source' => 'change_password',
+        ]);
 
         return 'success';
     } catch (Throwable $exception) {
@@ -240,6 +1187,106 @@ function driveresource_MetricProvider(array $params): MetricsProvider
 }
 
 /**
+ * Show Moodle connection details on the WHMCS administrator service page.
+ *
+ * The service password is the service-scoped Moodle gateway token. WHMCS
+ * stores it in its protected service property store; this callback surfaces it
+ * only to authorised WHMCS administrators working on the service.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return array<string,string>
+ */
+function driveresource_AdminServicesTabFields(array $params): array
+{
+    $serviceId = (int) ($params['serviceid'] ?? 0);
+    driveresource_sync_service_policy($params);
+    $translator = Translator::fromParams($params);
+    $gatewayUrl = driveresource_gateway_url_hint($params);
+    $token = driveresource_service_token($params);
+    $service = Capsule::table('mod_driveresource_services')
+        ->where('service_id', $serviceId)
+        ->first();
+
+    $connection = $service ? strtolower((string) ($service->connection_status ?? 'pending')) : 'pending';
+    $connectionLabel = $connection === 'connected'
+        ? '<span class="label label-success">'
+            . htmlspecialchars($translator->t('connection_connected'), ENT_QUOTES, 'UTF-8') . '</span>'
+        : ($connection === 'failed'
+            ? '<span class="label label-danger">'
+                . htmlspecialchars($translator->t('connection_failed'), ENT_QUOTES, 'UTF-8') . '</span>'
+            : '<span class="label label-warning">'
+                . htmlspecialchars($translator->t('connection_pending'), ENT_QUOTES, 'UTF-8') . '</span>');
+
+    $storage = '—';
+    $transfer = '—';
+    if ($service) {
+        $storage = driveresource_format_bytes((int) $service->used_bytes)
+            . ' / ' . driveresource_format_bytes((int) $service->quota_bytes);
+        $transferBytes = (string) ($service->transfer_period ?? '') === gmdate('Y-m')
+            ? (int) ($service->transfer_bytes ?? 0)
+            : 0;
+        $transfer = driveresource_format_bytes($transferBytes) . ' (' . gmdate('Y-m') . ')';
+    }
+
+    return [
+        $translator->t('card_connection') => $connectionLabel,
+        $translator->t('gateway_url') => htmlspecialchars($gatewayUrl, ENT_QUOTES, 'UTF-8'),
+        $translator->t('service_id') => (string) $serviceId,
+        $translator->t('service_token') => $token !== ''
+            ? htmlspecialchars($token, ENT_QUOTES, 'UTF-8')
+            : htmlspecialchars($translator->t('token_missing'), ENT_QUOTES, 'UTF-8'),
+        $translator->t('card_storage') => htmlspecialchars($storage, ENT_QUOTES, 'UTF-8'),
+        $translator->t('monthly_transfer') => htmlspecialchars($transfer, ENT_QUOTES, 'UTF-8'),
+        $translator->t('card_retention') => $service
+            ? htmlspecialchars(
+                (int) $service->retention_days === 0
+                    ? $translator->t('retention_immediate')
+                    : $translator->t('retention_days', ['days' => (int) $service->retention_days]),
+                ENT_QUOTES,
+                'UTF-8'
+            )
+            : '—',
+    ];
+}
+
+/**
+ * Build the addon URL hint from the current WHMCS installation.
+ *
+ * This is display-only. Moodle administrators should still verify the public
+ * WHMCS base URL if WHMCS runs behind a proxy or custom admin topology.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return string
+ */
+function driveresource_gateway_url_hint(array $params): string
+{
+    $configured = trim((string) Setting::getSettingValueForModule(
+        'driveresource_gateway',
+        'public_gateway_url'
+    ));
+
+    if ($configured !== '') {
+        $parts = parse_url($configured);
+        if (
+            is_array($parts)
+            && strtolower((string) ($parts['scheme'] ?? '')) === 'https'
+            && !empty($parts['host'])
+            && empty($parts['query'])
+            && empty($parts['fragment'])
+        ) {
+            return rtrim($configured, '/');
+        }
+    }
+
+    $systemUrl = rtrim((string) ($params['systemurl'] ?? ''), '/');
+    if ($systemUrl === '') {
+        return '/modules/addons/driveresource_gateway';
+    }
+
+    return $systemUrl . '/modules/addons/driveresource_gateway';
+}
+
+/**
  * Client-area summary without exposing the service token.
  *
  * @param array $params WHMCS module parameters.
@@ -249,25 +1296,353 @@ function driveresource_ClientArea(array $params): string
 {
     try {
         driveresource_require_gateway();
-        $service = Capsule::table('mod_driveresource_services')
-            ->where('service_id', (int) $params['serviceid'])
-            ->first();
+        driveresource_sync_service_policy($params);
+        return (new ClientPortal($params))->render();
+    } catch (Throwable $exception) {
+        return '<div class="alert alert-danger">Elearning Stream Gateway is unavailable.</div>';
+    }
+}
 
-        if (!$service) {
-            return '<p>Drive Resource service is not provisioned.</p>';
+/**
+ * Synchronise mutable commercial policy from the WHMCS product into the
+ * gateway tenant row.
+ *
+ * Existing services can otherwise retain historical module defaults after a
+ * code upgrade. Keeping this lightweight sync on normal service views makes
+ * quota/overage/retention behavior match the product configuration without
+ * rotating credentials or changing provider ownership.
+ *
+ * @param array $params WHMCS module parameters.
+ * @return void
+ */
+function driveresource_sync_service_policy(array $params): void
+{
+    $serviceId = (int) ($params['serviceid'] ?? 0);
+    if ($serviceId <= 0 || !Capsule::schema()->hasTable('mod_driveresource_services')) {
+        return;
+    }
+
+    $service = Capsule::table('mod_driveresource_services')
+        ->where('service_id', $serviceId)
+        ->first();
+    if (!$service) {
+        return;
+    }
+
+    $retention = driveresource_retention_days($params);
+    $previousRetention = max(0, (int) ($service->retention_days ?? 0));
+    $now = time();
+
+    Capsule::table('mod_driveresource_services')
+        ->where('service_id', $serviceId)
+        ->update([
+            'quota_bytes' => driveresource_quota_bytes($params),
+            'overage_allowed' => driveresource_overage_allowed($params),
+            'retention_days' => $retention,
+            'updated_at' => $now,
+        ]);
+
+    if ($previousRetention > 0 && $retention === 0) {
+        $candidates = Capsule::table('mod_driveresource_uploads')
+            ->where('service_id', $serviceId)
+            ->whereNotNull('delete_after')
+            ->where('delete_after', '>', $now)
+            ->whereIn('status', ['processing', 'ready', 'bound', 'deleting'])
+            ->get();
+
+        foreach ($candidates as $upload) {
+            $references = (int) Capsule::table('mod_driveresource_asset_refs')
+                ->where('service_id', $serviceId)
+                ->where('video_id', (string) $upload->video_id)
+                ->where('active', true)
+                ->count();
+            if ($references === 0) {
+                Capsule::table('mod_driveresource_uploads')
+                    ->where('upload_id', (string) $upload->upload_id)
+                    ->update([
+                        'delete_after' => $now,
+                        'updated_at' => $now,
+                    ]);
+            }
+        }
+    }
+}
+
+/**
+ * Require a paid WHMCS order invoice that contains this exact service.
+ *
+ * CreateAccount can also be invoked manually by an administrator. The
+ * commercial activation boundary therefore verifies the order/invoice state
+ * instead of trusting the module-command name alone.
+ *
+ * @param int $serviceId WHMCS service id.
+ * @param int $clientId WHMCS client id.
+ * @return int Paid activation invoice id.
+ */
+function driveresource_require_paid_activation_invoice(int $serviceId, int $clientId): int
+{
+    if ($serviceId <= 0 || $clientId <= 0) {
+        throw new RuntimeException('Activation requires a valid WHMCS service and client.');
+    }
+
+    $orderId = (int) (Capsule::table('tblhosting')
+        ->where('id', $serviceId)
+        ->value('orderid') ?? 0);
+    if ($orderId <= 0) {
+        throw new RuntimeException('Elearning Stream activation order was not found.');
+    }
+
+    $invoiceId = (int) (Capsule::table('tblorders')
+        ->where('id', $orderId)
+        ->value('invoiceid') ?? 0);
+    if ($invoiceId <= 0) {
+        throw new RuntimeException('Elearning Stream activation invoice was not found.');
+    }
+
+    $invoice = \WHMCS\Billing\Invoice::find($invoiceId);
+    if (
+        !$invoice
+        || (int) $invoice->clientId !== $clientId
+        || strtolower((string) $invoice->status) !== 'paid'
+    ) {
+        throw new RuntimeException('Elearning Stream activation invoice must be Paid.');
+    }
+
+    $moneyfile = dirname(__DIR__, 2) . '/addons/driveresource_gateway/lib/Money.php';
+    require_once $moneyfile;
+
+    if (
+        \WHMCS\Module\Addon\DriveresourceGateway\Money::decimalToMicrounits(
+            (string) $invoice->total
+        ) <= 0
+    ) {
+        throw new RuntimeException('Elearning Stream activation invoice must have a positive total.');
+    }
+
+    $serviceItem = Capsule::table('tblinvoiceitems')
+        ->where('invoiceid', $invoiceId)
+        ->where('type', 'Hosting')
+        ->where('relid', $serviceId)
+        ->first();
+    if (
+        !$serviceItem
+        || \WHMCS\Module\Addon\DriveresourceGateway\Money::decimalToMicrounits(
+            (string) $serviceItem->amount
+        ) <= 0
+    ) {
+        throw new RuntimeException(
+            'Elearning Stream activation invoice must contain a positive Hosting line for this service.'
+        );
+    }
+
+    return $invoiceId;
+}
+
+/**
+ * Create the commercial account and primary Moodle installation exactly once.
+ *
+ * WHMCS invokes CreateAccount after the service activation invoice is paid.
+ * Therefore a newly-created row is considered activation-verified and receives
+ * the configured activation credit. Repairing or rotating an existing service
+ * never resets billing mode, wallet balance, usage or installation limits.
+ *
+ * @param array $params WHMCS module parameters.
+ * @param int $serviceId WHMCS service id.
+ * @param string $siteUrl Canonical primary Moodle URL.
+ * @param string $token Plaintext primary token held by WHMCS only.
+ * @param bool $activationeligible Whether WHMCS CreateAccount authorizes activation credit.
+ * @return void
+ */
+function driveresource_ensure_commercial_account(
+    array $params,
+    int $serviceId,
+    string $siteUrl,
+    string $token,
+    bool $activationeligible
+): void {
+    $lib = dirname(__DIR__, 2) . '/addons/driveresource_gateway/lib';
+    require_once $lib . '/Config.php';
+    require_once $lib . '/CommercialAccount.php';
+    require_once $lib . '/CommercialPolicy.php';
+    require_once $lib . '/WalletService.php';
+
+    $config = '\\WHMCS\\Module\\Addon\\DriveresourceGateway\\Config';
+    $walletClass = '\\WHMCS\\Module\\Addon\\DriveresourceGateway\\WalletService';
+    $now = time();
+    $clientId = 0;
+
+    if (isset($params['clientsdetails']['userid'])) {
+        $clientId = (int) $params['clientsdetails']['userid'];
+    } else if (isset($params['userid'])) {
+        $clientId = (int) $params['userid'];
+    } else {
+        $clientId = (int) (Capsule::table('tblhosting')
+            ->where('id', $serviceId)
+            ->value('userid') ?? 0);
+    }
+
+    $activationInvoiceId = null;
+    if ($activationeligible) {
+        $activationInvoiceId = driveresource_require_paid_activation_invoice(
+            $serviceId,
+            $clientId
+        );
+    }
+
+    $account = Capsule::table('mod_driveresource_accounts')
+        ->where('service_id', $serviceId)
+        ->first();
+
+    if (!$account) {
+        Capsule::table('mod_driveresource_accounts')->insert([
+            'service_id' => $serviceId,
+            'client_id' => $clientId > 0 ? $clientId : null,
+            'billing_mode' => 'free',
+            'activation_verified' => false,
+            'activation_amount_microusd' => $config::activationCreditMicrousd(),
+            'activation_invoice_id' => $activationInvoiceId,
+            'activation_settlement_version' => 0,
+            'activation_refunded_at' => null,
+            'balance_microusd' => 0,
+            'free_storage_bytes' => $config::freeStorageBytes(),
+            'free_transfer_bytes' => $config::freeTransferBytes(),
+            'storage_rate_microusd_per_gb' => $config::storageRateMicrousdPerGb(),
+            'transfer_rate_microusd_per_gb' => $config::transferRateMicrousdPerGb(),
+            'minimum_recharge_microusd' => $config::minimumRechargeMicrousd(),
+            'free_installation_limit' => $config::freeInstallationLimit(),
+            'paid_installation_limit' => $config::paidInstallationLimit(),
+            'status' => \WHMCS\Module\Addon\DriveresourceGateway\CommercialAccount::STATUS_UPLOAD_RESTRICTED,
+            'grace_until' => null,
+            'paid_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $account = Capsule::table('mod_driveresource_accounts')
+            ->where('service_id', $serviceId)
+            ->first();
+    }
+
+    if (!$account) {
+        throw new RuntimeException('Elearning Stream commercial account could not be created.');
+    }
+
+    if (
+        $activationeligible
+        && (string) $account->billing_mode !== 'legacy'
+    ) {
+        if (!empty($account->activation_refunded_at)) {
+            throw new RuntimeException(
+                'The Elearning Stream activation invoice was refunded. Create a new activation order.'
+            );
         }
 
-        $used = number_format(((int) $service->used_bytes) / 1000000000, 2);
-        $quota = number_format(((int) $service->quota_bytes) / 1000000000, 2);
+        $storedInvoiceId = (int) ($account->activation_invoice_id ?? 0);
+        if ($storedInvoiceId > 0 && $storedInvoiceId !== $activationInvoiceId) {
+            throw new RuntimeException(
+                'Elearning Stream activation invoice does not match the account activation record.'
+            );
+        }
 
-        return '<div class="alert alert-info">'
-            . '<strong>Elearning Stream</strong><br>'
-            . 'Storage: ' . htmlspecialchars($used, ENT_QUOTES, 'UTF-8')
-            . ' GB / ' . htmlspecialchars($quota, ENT_QUOTES, 'UTF-8') . ' GB included.<br>'
-            . 'Status: ' . htmlspecialchars((string) $service->status, ENT_QUOTES, 'UTF-8')
-            . '</div>';
-    } catch (Throwable $exception) {
-        return '<div class="alert alert-danger">Drive Resource gateway is unavailable.</div>';
+        if (!(bool) $account->activation_verified) {
+            $settlementVersion = \WHMCS\Module\Addon\DriveresourceGateway\CommercialPolicy::nextActivationSettlementVersion(
+                (bool) $account->activation_verified,
+                !empty($account->activation_refunded_at) ? (int) $account->activation_refunded_at : null,
+                (int) ($account->activation_settlement_version ?? 0)
+            );
+            if ($settlementVersion === null) {
+                throw new RuntimeException('Elearning Stream activation cannot be settled.');
+            }
+
+            $activationCredit = max(0, (int) $account->activation_amount_microusd);
+
+            if ($activationCredit > 0) {
+                $wallet = new $walletClass();
+                $wallet->credit(
+                    $serviceId,
+                    $activationCredit,
+                    'activation',
+                    hash(
+                        'sha256',
+                        'activation-credit|' . $serviceId . '|' . $activationInvoiceId
+                            . '|v' . $settlementVersion
+                    ),
+                    'invoice:' . $activationInvoiceId,
+                    [
+                        'source' => 'create_account',
+                        'activation_invoice_id' => $activationInvoiceId,
+                        'settlement_version' => $settlementVersion,
+                    ]
+                );
+            }
+
+            $status = (string) $account->status;
+            if (
+                (int) ($account->activation_settlement_version ?? 0) === 0
+                && $status === \WHMCS\Module\Addon\DriveresourceGateway\CommercialAccount::STATUS_UPLOAD_RESTRICTED
+            ) {
+                $status = \WHMCS\Module\Addon\DriveresourceGateway\CommercialAccount::STATUS_ACTIVE;
+            }
+
+            Capsule::table('mod_driveresource_accounts')
+                ->where('service_id', $serviceId)
+                ->update([
+                    'activation_verified' => true,
+                    'activation_invoice_id' => $activationInvoiceId,
+                    'activation_settlement_version' => $settlementVersion,
+                    'activation_refunded_at' => null,
+                    'status' => $status,
+                    'updated_at' => $now,
+                ]);
+
+            $account = Capsule::table('mod_driveresource_accounts')
+                ->where('service_id', $serviceId)
+                ->first();
+        } else if ($storedInvoiceId === 0) {
+            Capsule::table('mod_driveresource_accounts')
+                ->where('service_id', $serviceId)
+                ->update([
+                    'activation_invoice_id' => $activationInvoiceId,
+                    'updated_at' => $now,
+                ]);
+            $account->activation_invoice_id = $activationInvoiceId;
+        }
+    }
+
+    $siteHash = hash('sha256', $siteUrl);
+    $installation = Capsule::table('mod_driveresource_installations')
+        ->where('service_id', $serviceId)
+        ->where('site_hash', $siteHash)
+        ->first();
+
+    if (!$installation) {
+        $primaryExists = Capsule::table('mod_driveresource_installations')
+            ->where('service_id', $serviceId)
+            ->where('is_primary', true)
+            ->exists();
+
+        Capsule::table('mod_driveresource_installations')->insert([
+            'service_id' => $serviceId,
+            'label' => $primaryExists ? 'Moodle' : 'Primary Moodle',
+            'site_url' => $siteUrl,
+            'site_hash' => $siteHash,
+            'token_hash' => hash('sha256', $token),
+            'status' => 'active',
+            'is_primary' => !$primaryExists,
+            'connection_status' => 'pending',
+            'connection_checked_at' => null,
+            'connection_message' => 'connection_pending',
+            'last_seen_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    } else if ((bool) $installation->is_primary) {
+        Capsule::table('mod_driveresource_installations')
+            ->where('id', (int) $installation->id)
+            ->update([
+                'token_hash' => hash('sha256', $token),
+                'status' => 'active',
+                'updated_at' => $now,
+            ]);
     }
 }
 
@@ -311,9 +1686,532 @@ function driveresource_set_status(int $serviceId, string $status): string
  */
 function driveresource_require_gateway(): void
 {
-    if (!Capsule::schema()->hasTable('mod_driveresource_services')) {
-        throw new RuntimeException('Activate the Drive Resource Media Gateway addon before provisioning services.');
+    $schema = Capsule::schema();
+    if (!$schema->hasTable('mod_driveresource_services')) {
+        throw new RuntimeException('Activate the Elearning Stream Gateway addon before provisioning services.');
     }
+
+    $required = [
+        'backend_key',
+        'backend_profile',
+        'video_backend_key',
+        'video_backend_profile',
+        'video_collection_id',
+        'video_collection_name',
+        'object_backend_key',
+        'object_backend_profile',
+        'connection_status',
+        'connection_checked_at',
+        'transfer_period',
+        'transfer_bytes',
+    ];
+    foreach ($required as $column) {
+        if (!$schema->hasColumn('mod_driveresource_services', $column)) {
+            throw new RuntimeException(
+                'Elearning Stream Gateway 0.5.3 schema upgrade is required before using this service.'
+            );
+        }
+    }
+    if (!$schema->hasTable('mod_driveresource_usage_reports')) {
+        throw new RuntimeException(
+            'Elearning Stream Gateway usage schema is missing.'
+        );
+    }
+    foreach ([
+        'mod_driveresource_accounts',
+        'mod_driveresource_installations',
+        'mod_driveresource_wallet_ledger',
+        'mod_driveresource_wallet_orders',
+        'mod_driveresource_usage_daily',
+    ] as $table) {
+        if (!$schema->hasTable($table)) {
+            throw new RuntimeException(
+                'Elearning Stream Gateway 0.6.0 commercial schema upgrade is required.'
+            );
+        }
+    }
+    $commercialcolumns = [
+        'mod_driveresource_accounts' => [
+            'service_id',
+            'billing_mode',
+            'activation_verified',
+            'activation_amount_microusd',
+            'activation_invoice_id',
+            'activation_settlement_version',
+            'activation_refunded_at',
+            'balance_microusd',
+            'free_storage_bytes',
+            'free_transfer_bytes',
+            'minimum_recharge_microusd',
+            'free_installation_limit',
+            'paid_installation_limit',
+            'status',
+        ],
+        'mod_driveresource_installations' => [
+            'id',
+            'service_id',
+            'site_url',
+            'site_hash',
+            'token_hash',
+            'status',
+            'is_primary',
+        ],
+        'mod_driveresource_wallet_ledger' => [
+            'service_id',
+            'amount_microusd',
+            'balance_after_microusd',
+            'idempotency_key',
+        ],
+        'mod_driveresource_wallet_orders' => [
+            'service_id',
+            'client_id',
+            'invoice_id',
+            'amount_microusd',
+            'invoice_amount_microunits',
+            'currency',
+            'status',
+            'settlement_version',
+        ],
+        'mod_driveresource_usage_daily' => [
+            'service_id',
+            'usage_date',
+            'storage_bytes',
+            'transfer_bytes',
+            'charge_microusd',
+        ],
+    ];
+    foreach ($commercialcolumns as $table => $columns) {
+        foreach ($columns as $column) {
+            if (!$schema->hasColumn($table, $column)) {
+                throw new RuntimeException(
+                    'Elearning Stream Gateway 0.6.0 commercial schema is incomplete: '
+                        . $table . '.' . $column
+                );
+            }
+        }
+    }
+    if (!$schema->hasColumn('mod_driveresource_uploads', 'installation_id')) {
+        throw new RuntimeException(
+            'Elearning Stream Gateway 0.6.0 upload installation binding is missing.'
+        );
+    }
+    if (!$schema->hasColumn('mod_driveresource_usage_reports', 'installation_id')) {
+        throw new RuntimeException(
+            'Elearning Stream Gateway 0.6.0 usage installation binding is missing.'
+        );
+    }
+    if (
+        !$schema->hasTable('mod_driveresource_uploads')
+        || !$schema->hasColumn('mod_driveresource_uploads', 'display_name')
+    ) {
+        throw new RuntimeException(
+            'Elearning Stream Gateway 0.5.8+ upload schema upgrade is required.'
+        );
+    }
+}
+
+/**
+ * Require client self-service actions to use POST.
+ *
+ * @return void
+ */
+function driveresource_require_post(): void
+{
+    if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? '')) !== 'POST') {
+        throw new RuntimeException('This action requires POST.');
+    }
+}
+
+/**
+ * Retrieve the current plaintext service token from WHMCS protected fields.
+ *
+ * @param array $params Module parameters.
+ * @return string
+ */
+function driveresource_service_token(array $params): string
+{
+    $token = trim((string) ($params['password'] ?? ''));
+    if (preg_match('/^[a-f0-9]{64}$/', $token)) {
+        return $token;
+    }
+
+    if (!isset($params['model'])) {
+        return '';
+    }
+
+    try {
+        $token = trim((string) $params['model']->serviceProperties->get('Password'));
+        return preg_match('/^[a-f0-9]{64}$/', $token) ? $token : '';
+    } catch (Throwable $exception) {
+        return '';
+    }
+}
+
+/**
+ * Write one redacted Elearning Stream audit event.
+ *
+ * @param int $serviceId WHMCS service id.
+ * @param string $action Stable action key.
+ * @param array $metadata Non-secret metadata.
+ * @return void
+ */
+function driveresource_audit(int $serviceId, string $action, array $metadata = []): void
+{
+    $lib = dirname(__DIR__, 2) . '/addons/driveresource_gateway/lib';
+    require_once $lib . '/AuditLogger.php';
+
+    \WHMCS\Module\Addon\DriveresourceGateway\AuditLogger::log(
+        $serviceId,
+        $action,
+        $metadata
+    );
+}
+
+/**
+ * Resolve the gateway orchestration service from the companion addon.
+ *
+ * @return \WHMCS\Module\Addon\DriveresourceGateway\GatewayService
+ */
+function driveresource_gateway_service()
+{
+    $lib = dirname(__DIR__, 2) . '/addons/driveresource_gateway/lib';
+    require_once $lib . '/Config.php';
+    require_once $lib . '/BackendRegistry.php';
+    require_once $lib . '/GatewayException.php';
+    require_once $lib . '/BunnyClient.php';
+    require_once $lib . '/GatewayService.php';
+
+    return new \WHMCS\Module\Addon\DriveresourceGateway\GatewayService();
+}
+
+/**
+ * Resolve the Elearning Stream management client from the companion addon.
+ *
+ * @return \WHMCS\Module\Addon\DriveresourceGateway\BunnyClient
+ */
+function driveresource_stream_client()
+{
+    $lib = dirname(__DIR__, 2) . '/addons/driveresource_gateway/lib';
+    require_once $lib . '/Config.php';
+    require_once $lib . '/BunnyClient.php';
+
+    return new \WHMCS\Module\Addon\DriveresourceGateway\BunnyClient();
+}
+
+/**
+ * Verify that the current WHMCS client owns the service.
+ *
+ * @param int $serviceId WHMCS service id.
+ * @return int Client id.
+ */
+function driveresource_require_client_service_ownership(int $serviceId): int
+{
+    $clientId = (int) ($_SESSION['uid'] ?? 0);
+    if ($serviceId <= 0 || $clientId <= 0) {
+        throw new RuntimeException('Authenticated client session is required.');
+    }
+
+    $owned = Capsule::table('tblhosting as h')
+        ->join('tblproducts as p', 'p.id', '=', 'h.packageid')
+        ->where('h.id', $serviceId)
+        ->where('h.userid', $clientId)
+        ->where('p.servertype', 'driveresource')
+        ->exists();
+    if (!$owned) {
+        throw new RuntimeException('Elearning Stream service does not belong to this client.');
+    }
+
+    return $clientId;
+}
+
+/**
+ * Parse a positive USD decimal into integer micro-USD.
+ *
+ * @param string $raw Decimal USD.
+ * @return int
+ */
+function driveresource_parse_usd_microusd(string $raw): int
+{
+    $raw = trim($raw);
+    if (!preg_match('/^(\\d+)(?:\\.(\\d{1,2}))?$/', $raw, $matches)) {
+        throw new RuntimeException('Recharge amount must be a valid USD amount with at most two decimals.');
+    }
+
+    $moneyfile = dirname(__DIR__, 2) . '/addons/driveresource_gateway/lib/Money.php';
+    require_once $moneyfile;
+
+    return \WHMCS\Module\Addon\DriveresourceGateway\Money::decimalToMicrounits($raw);
+}
+
+/**
+ * Convert micro-USD to a WHMCS-compatible decimal amount.
+ *
+ * @param int $microusd Amount.
+ * @return string
+ */
+function driveresource_microusd_decimal(int $microusd): string
+{
+    $moneyfile = dirname(__DIR__, 2) . '/addons/driveresource_gateway/lib/Money.php';
+    require_once $moneyfile;
+
+    return \WHMCS\Module\Addon\DriveresourceGateway\Money::microunitsToDecimal(
+        max(0, $microusd),
+        2
+    );
+}
+
+/**
+ * Human-readable USD wallet amount.
+ *
+ * @param int $microusd Amount.
+ * @return string
+ */
+function driveresource_format_microusd(int $microusd): string
+{
+    return 'US$' . driveresource_microusd_decimal($microusd);
+}
+
+/**
+ * Convert the USD wallet value into the exact invoice amount in the client's
+ * WHMCS currency.
+ *
+ * Wallet accounting remains USD. Only the invoice presentation/collection
+ * amount is converted, frozen on the recharge order, and revalidated before
+ * wallet credit is granted.
+ *
+ * @param int $clientId WHMCS client id.
+ * @param int $amountMicrousd Wallet amount in micro-USD.
+ * @return array{currency:string,decimal:string,microunits:int}
+ */
+function driveresource_wallet_invoice_amount(int $clientId, int $amountMicrousd): array
+{
+    if ($clientId <= 0 || $amountMicrousd <= 0) {
+        throw new RuntimeException('Wallet invoice conversion requires a valid client and positive amount.');
+    }
+
+    $clientCurrencyId = (int) (Capsule::table('tblclients')
+        ->where('id', $clientId)
+        ->value('currency') ?? 0);
+    $usd = Currency::code('USD')->first();
+    $clientCurrency = $clientCurrencyId > 0 ? Currency::find($clientCurrencyId) : null;
+
+    if (!$usd || !$clientCurrency) {
+        throw new RuntimeException(
+            'WHMCS must have USD and the client currency configured before creating a wallet recharge.'
+        );
+    }
+
+    $converted = Currency::convertBetween(
+        $usd,
+        $amountMicrousd / 1000000,
+        $clientCurrency
+    );
+    if (!is_finite($converted) || $converted <= 0) {
+        throw new RuntimeException('WHMCS returned an invalid wallet currency conversion.');
+    }
+
+    $decimals = $clientCurrency->isNonFractionalCurrency() ? 0 : 2;
+    $decimal = number_format(round($converted, $decimals), $decimals, '.', '');
+
+    $moneyfile = dirname(__DIR__, 2) . '/addons/driveresource_gateway/lib/Money.php';
+    require_once $moneyfile;
+    $microunits = \WHMCS\Module\Addon\DriveresourceGateway\Money::decimalToMicrounits($decimal);
+
+    return [
+        'currency' => strtoupper($clientCurrency->getCode()),
+        'decimal' => $decimal,
+        'microunits' => $microunits,
+    ];
+}
+
+/**
+ * Normalize one Moodle wwwroot URL.
+ *
+ * @param string $raw Candidate URL.
+ * @return string
+ */
+function driveresource_normalize_site_url(string $raw): string
+{
+    $raw = trim($raw);
+    if ($raw === '') {
+        throw new RuntimeException('Moodle Site URL is required.');
+    }
+    if (!preg_match('#^https?://#i', $raw)) {
+        $raw = 'https://' . $raw;
+    }
+
+    $parts = parse_url($raw);
+    if (
+        !$parts
+        || strtolower((string) ($parts['scheme'] ?? '')) !== 'https'
+        || empty($parts['host'])
+    ) {
+        throw new RuntimeException('Moodle Site URL must be a valid HTTPS URL.');
+    }
+    if (
+        !empty($parts['user'])
+        || !empty($parts['pass'])
+        || !empty($parts['query'])
+        || !empty($parts['fragment'])
+    ) {
+        throw new RuntimeException(
+            'Moodle Site URL must not contain credentials, query parameters or fragments.'
+        );
+    }
+
+    if (isset($parts['port']) && (int) $parts['port'] !== 443) {
+        throw new RuntimeException('Moodle Site URL must use the standard HTTPS port 443.');
+    }
+
+    $port = isset($parts['port']) ? ':443' : '';
+    $path = rtrim((string) ($parts['path'] ?? ''), '/');
+
+    return 'https://' . strtolower((string) $parts['host']) . $port . $path;
+}
+
+/**
+ * Resolve the product video provider while preserving legacy products.
+ *
+ * @param array $params Module parameters.
+ * @return string
+ */
+function driveresource_video_backend_key(array $params): string
+{
+    $key = strtolower(trim((string) ($params['configoption4'] ?? 'elearningstream')));
+    if ($key === '') {
+        $key = 'elearningstream';
+    }
+
+    $supported = driveresource_VideoProviderLoader($params);
+    if (!array_key_exists($key, $supported)) {
+        throw new RuntimeException(
+            'Video provider "' . $key . '" is not provisionable by this module version.'
+        );
+    }
+
+    return $key;
+}
+
+/**
+ * Resolve the video provider profile.
+ *
+ * @param array $params Module parameters.
+ * @return string
+ */
+function driveresource_video_backend_profile(array $params): string
+{
+    return driveresource_normalize_profile((string) ($params['configoption5'] ?? 'default'));
+}
+
+/**
+ * Resolve the protected-document object-storage provider.
+ *
+ * @param array $params Module parameters.
+ * @return string
+ */
+function driveresource_object_backend_key(array $params): string
+{
+    $key = strtolower(trim((string) ($params['configoption6'] ?? 'none')));
+    if ($key === '') {
+        $key = 'none';
+    }
+
+    $supported = driveresource_DocumentProviderLoader($params);
+    if (!array_key_exists($key, $supported)) {
+        throw new RuntimeException(
+            'Object-storage provider "' . $key . '" is not assignable by this module version.'
+        );
+    }
+
+    return $key;
+}
+
+/**
+ * Resolve the object-storage profile.
+ *
+ * @param array $params Module parameters.
+ * @return string
+ */
+function driveresource_object_backend_profile(array $params): string
+{
+    return driveresource_normalize_profile((string) ($params['configoption7'] ?? 'default'));
+}
+
+/**
+ * Normalize one provider profile identifier.
+ *
+ * @param string $profile Profile.
+ * @return string
+ */
+function driveresource_normalize_profile(string $profile): string
+{
+    $profile = strtolower(trim($profile));
+    if ($profile === '') {
+        $profile = 'default';
+    }
+    if (!preg_match('/^[a-z0-9][a-z0-9._-]{0,63}$/', $profile)) {
+        throw new RuntimeException('Provider profile contains unsupported characters.');
+    }
+
+    return $profile;
+}
+
+/**
+ * Backward-compatible video-backend aliases.
+ *
+ * @param array $params Module parameters.
+ * @return string
+ */
+function driveresource_backend_key(array $params): string
+{
+    return driveresource_video_backend_key($params);
+}
+
+/**
+ * @param array $params Module parameters.
+ * @return string
+ */
+function driveresource_backend_profile(array $params): string
+{
+    return driveresource_video_backend_profile($params);
+}
+
+/**
+ * Format decimal storage/transfer bytes.
+ *
+ * @param int $bytes Bytes.
+ * @return string
+ */
+function driveresource_format_bytes(int $bytes): string
+{
+    $bytes = max(0, $bytes);
+    if ($bytes >= 1000000000000) {
+        return number_format($bytes / 1000000000000, 2) . ' TB';
+    }
+    if ($bytes >= 1000000000) {
+        return number_format($bytes / 1000000000, 2) . ' GB';
+    }
+    if ($bytes >= 1000000) {
+        return number_format($bytes / 1000000, 2) . ' MB';
+    }
+
+    return number_format($bytes / 1000, 2) . ' KB';
+}
+
+/**
+ * Human-readable backend name.
+ *
+ * @param string $key Backend key.
+ * @return string
+ */
+function driveresource_backend_label(string $key): string
+{
+    return match ($key) {
+        'elearningstream' => 'Elearning Stream',
+        's3compatible' => 'S3-compatible Object Storage',
+        'none' => 'Disabled',
+        default => $key,
+    };
 }
 
 /**
@@ -327,26 +2225,18 @@ function driveresource_require_gateway(): void
  */
 function driveresource_site_url(array $params): string
 {
-    $raw = trim((string) (($params['customfields']['Moodle Site URL'] ?? '') ?: ($params['domain'] ?? '')));
-    if ($raw === '') {
-        throw new RuntimeException('Moodle Site URL is required.');
-    }
-    if (!preg_match('#^https?://#i', $raw)) {
-        $raw = 'https://' . $raw;
-    }
-
-    $parts = parse_url($raw);
-    if (!$parts || strtolower((string) ($parts['scheme'] ?? '')) !== 'https' || empty($parts['host'])) {
-        throw new RuntimeException('Moodle Site URL must be a valid HTTPS URL.');
-    }
-    if (!empty($parts['user']) || !empty($parts['pass']) || !empty($parts['query']) || !empty($parts['fragment'])) {
-        throw new RuntimeException('Moodle Site URL must not contain credentials, query parameters or fragments.');
+    $serviceId = (int) ($params['serviceid'] ?? 0);
+    if ($serviceId > 0 && Capsule::schema()->hasTable('mod_driveresource_services')) {
+        $existing = Capsule::table('mod_driveresource_services')
+            ->where('service_id', $serviceId)
+            ->value('site_url');
+        if (is_string($existing) && trim($existing) !== '') {
+            return driveresource_normalize_site_url($existing);
+        }
     }
 
-    $port = isset($parts['port']) ? ':' . (int) $parts['port'] : '';
-    $path = rtrim((string) ($parts['path'] ?? ''), '/');
-
-    return 'https://' . strtolower((string) $parts['host']) . $port . $path;
+    $raw = (string) (($params['customfields']['Moodle Site URL'] ?? '') ?: ($params['domain'] ?? ''));
+    return driveresource_normalize_site_url($raw);
 }
 
 /**
@@ -381,5 +2271,5 @@ function driveresource_overage_allowed(array $params): bool
  */
 function driveresource_retention_days(array $params): int
 {
-    return max(0, min(365, (int) ($params['configoption3'] ?? 30)));
+    return max(0, min(365, (int) ($params['configoption3'] ?? 0)));
 }

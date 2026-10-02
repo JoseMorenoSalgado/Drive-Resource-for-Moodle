@@ -17,7 +17,7 @@
 namespace mod_videoplayer\output;
 
 /**
- * Output renderer for Drive Resource.
+ * Output renderer for Elearning Stream.
  *
  * @package    mod_videoplayer
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
@@ -44,6 +44,6 @@ class renderer extends \plugin_renderer_base {
      * @return string
      */
     public function render_invalid_resource(): string {
-        return \html_writer::div(get_string('invaliddriveurl', 'mod_videoplayer'), 'alert alert-danger');
+        return \html_writer::div(get_string('protectedresourceunavailable', 'mod_videoplayer'), 'alert alert-danger');
     }
 }

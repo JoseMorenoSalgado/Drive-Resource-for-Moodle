@@ -1,9 +1,9 @@
 <?php
 /**
- * Drive Resource WHMCS media gateway addon.
+ * Elearning Stream media gateway addon.
  *
  * @copyright  2026 Elearning Cloud
- * @license    Proprietary companion module distributed with Drive Resource
+ * @license    Proprietary companion module distributed with Elearning Stream
  */
 
 if (!defined('WHMCS')) {
@@ -24,16 +24,32 @@ use WHMCS\Database\Capsule;
 function driveresource_gateway_config(): array
 {
     return [
-        'name' => 'Drive Resource Media Gateway',
-        'description' => 'WHMCS authorization, quota and Elearning Stream credential boundary for Drive Resource.',
-        'version' => '0.2.0',
+        'name' => 'Elearning Stream Gateway',
+        'description' => 'Multi-tenant media gateway, quota control and provider credential boundary for Elearning Stream.',
+        'version' => '0.6.0',
         'author' => 'Elearning Cloud',
         'fields' => [
+            'public_gateway_url' => [
+                'FriendlyName' => 'Public Gateway URL',
+                'Type' => 'text',
+                'Size' => '60',
+                'Default' => 'https://stream.elearningcloud.io',
+                'Description' => 'Customer-facing HTTPS URL copied into Moodle. Configure this hostname as a reverse proxy to the addon.',
+            ],
+            'video_provider' => [
+                'FriendlyName' => 'Video Provider',
+                'Type' => 'dropdown',
+                'Options' => [
+                    'elearningstream' => 'Elearning Stream',
+                ],
+                'Default' => 'elearningstream',
+                'Description' => 'Default managed-video provider. More providers can be added without changing Moodle credentials.',
+            ],
             'bunny_library_id' => [
                 'FriendlyName' => 'Elearning Stream Library ID',
                 'Type' => 'text',
                 'Size' => '30',
-                'Description' => 'Video Library used by Drive Resource.',
+                'Description' => 'Video Library used by Elearning Stream.',
             ],
             'bunny_api_key' => [
                 'FriendlyName' => 'Elearning Stream API Key',
@@ -45,13 +61,20 @@ function driveresource_gateway_config(): array
                 'FriendlyName' => 'Elearning Stream CDN Hostname',
                 'Type' => 'text',
                 'Size' => '45',
-                'Description' => 'Provider CDN hostname used by Moodle protected playback. Example: vz-xxxxxxxx-xxx.b-cdn.net.',
+                'Description' => 'Provider CDN hostname used by Moodle protected playback. The Pull Zone must support byte ranges; enable Cache Slicing for uncached MP4 seeking. Example: vz-xxxxxxxx-xxx.b-cdn.net.',
+            ],
+            'bunny_public_aliases' => [
+                'FriendlyName' => 'Elearning Stream Public Aliases',
+                'Type' => 'text',
+                'Size' => '70',
+                'Default' => '',
+                'Description' => 'Optional customer-facing hostnames accepted when pasting existing video URLs. Separate multiple hostnames with commas. Example: video.elearningcloud.io.',
             ],
             'bunny_token_key' => [
                 'FriendlyName' => 'Elearning Stream Token Key',
                 'Type' => 'password',
                 'Size' => '45',
-                'Description' => 'Server-side playback signing key. Never copied to Moodle.',
+                'Description' => 'CDN and embed-view Token Authentication Key for the Bunny Video Library/Pull Zone. Do not use the Stream API key. Server-side only; never copied to Moodle.',
             ],
             'playback_ttl' => [
                 'FriendlyName' => 'Elearning Stream Playback TTL',
@@ -81,6 +104,116 @@ function driveresource_gateway_config(): array
                 'Default' => '24',
                 'Description' => 'Hours to retain a completed upload that was never saved into a Moodle activity.',
             ],
+            'free_storage_gb' => [
+                'FriendlyName' => 'Free Storage GB',
+                'Type' => 'text',
+                'Size' => '10',
+                'Default' => '7',
+                'Description' => 'Video storage included with every activated account before PAYG storage applies.',
+            ],
+            'free_transfer_gb' => [
+                'FriendlyName' => 'Free Monthly Transfer GB',
+                'Type' => 'text',
+                'Size' => '10',
+                'Default' => '20',
+                'Description' => 'Monthly video transfer included with every activated account before PAYG transfer applies.',
+            ],
+            'activation_credit_usd' => [
+                'FriendlyName' => 'Activation Credit USD',
+                'Type' => 'text',
+                'Size' => '10',
+                'Default' => '1',
+                'Description' => 'Credit granted once after WHMCS provisions the paid account activation.',
+            ],
+            'minimum_recharge_usd' => [
+                'FriendlyName' => 'Minimum PAYG Recharge USD',
+                'Type' => 'text',
+                'Size' => '10',
+                'Default' => '10',
+                'Description' => 'Minimum wallet recharge that upgrades a FREE account to PAYG.',
+            ],
+            'storage_rate_usd_per_gb' => [
+                'FriendlyName' => 'PAYG Storage USD / GB-month',
+                'Type' => 'text',
+                'Size' => '10',
+                'Default' => '0.03',
+                'Description' => 'Customer rate for storage above the free allowance.',
+            ],
+            'transfer_rate_usd_per_gb' => [
+                'FriendlyName' => 'PAYG Transfer USD / GB',
+                'Type' => 'text',
+                'Size' => '10',
+                'Default' => '0.12',
+                'Description' => 'Customer rate for transfer above the monthly free allowance.',
+            ],
+            'free_installation_limit' => [
+                'FriendlyName' => 'FREE Moodle Installations',
+                'Type' => 'text',
+                'Size' => '10',
+                'Default' => '1',
+                'Description' => 'Maximum active Moodle installations on FREE.',
+            ],
+            'paid_installation_limit' => [
+                'FriendlyName' => 'PAYG Moodle Installations',
+                'Type' => 'text',
+                'Size' => '10',
+                'Default' => '0',
+                'Description' => 'Maximum active Moodle installations on PAYG. Use 0 for unlimited.',
+            ],
+            'object_storage_provider' => [
+                'FriendlyName' => 'Protected PDF / Object Storage Provider',
+                'Type' => 'dropdown',
+                'Options' => [
+                    'disabled' => 'Disabled',
+                    'aws_s3' => 'Amazon S3',
+                    'cloudflare_r2' => 'Cloudflare R2',
+                    'wasabi' => 'Wasabi',
+                    'backblaze_b2' => 'Backblaze B2 (S3)',
+                    'hetzner' => 'Hetzner Object Storage',
+                    'custom_s3' => 'Custom S3-compatible',
+                ],
+                'Default' => 'disabled',
+                'Description' => 'Provider profile reserved for protected PDF/object storage. Credentials stay only in this gateway.',
+            ],
+            'object_storage_endpoint' => [
+                'FriendlyName' => 'S3 Endpoint',
+                'Type' => 'text',
+                'Size' => '60',
+                'Default' => '',
+                'Description' => 'HTTPS S3-compatible endpoint, for example https://s3.eu-central-1.amazonaws.com or your R2/Wasabi endpoint.',
+            ],
+            'object_storage_region' => [
+                'FriendlyName' => 'S3 Region',
+                'Type' => 'text',
+                'Size' => '25',
+                'Default' => 'auto',
+                'Description' => 'Provider region. Cloudflare R2 commonly uses auto.',
+            ],
+            'object_storage_bucket' => [
+                'FriendlyName' => 'S3 Bucket',
+                'Type' => 'text',
+                'Size' => '40',
+                'Default' => '',
+                'Description' => 'Bucket dedicated to protected documents.',
+            ],
+            'object_storage_access_key' => [
+                'FriendlyName' => 'S3 Access Key',
+                'Type' => 'password',
+                'Size' => '45',
+                'Description' => 'Server-side only. Never copied to Moodle.',
+            ],
+            'object_storage_secret_key' => [
+                'FriendlyName' => 'S3 Secret Key',
+                'Type' => 'password',
+                'Size' => '45',
+                'Description' => 'Server-side only. Never copied to Moodle.',
+            ],
+            'object_storage_path_style' => [
+                'FriendlyName' => 'S3 Path Style',
+                'Type' => 'yesno',
+                'Description' => 'Enable for S3-compatible providers that require bucket names in the URL path.',
+                'Default' => '',
+            ],
         ],
     ];
 }
@@ -102,11 +235,26 @@ function driveresource_gateway_activate(): array
                 $table->char('site_hash', 64)->index();
                 $table->char('token_hash', 64);
                 $table->string('status', 16)->default('active')->index();
+                // Legacy backend fields remain as aliases for the video provider.
+                $table->string('backend_key', 32)->default('elearningstream')->index();
+                $table->string('backend_profile', 64)->default('default');
+                $table->string('video_backend_key', 32)->default('elearningstream')->index();
+                $table->string('video_backend_profile', 64)->default('default');
+                $table->string('video_collection_id', 64)->nullable()->index();
+                $table->string('video_collection_name', 191)->nullable();
+                $table->string('object_backend_key', 32)->default('none')->index();
+                $table->string('object_backend_profile', 64)->default('default');
+                $table->string('connection_status', 16)->default('pending')->index();
+                $table->unsignedInteger('connection_checked_at')->nullable();
+                $table->string('connection_message', 255)->nullable();
+                $table->char('transfer_period', 7)->nullable()->index();
+                $table->unsignedBigInteger('transfer_bytes')->default(0);
+                $table->unsignedInteger('transfer_updated_at')->nullable();
                 $table->unsignedBigInteger('quota_bytes')->default(7000000000);
                 $table->unsignedBigInteger('used_bytes')->default(0);
                 $table->unsignedBigInteger('reserved_bytes')->default(0);
                 $table->boolean('overage_allowed')->default(true);
-                $table->unsignedInteger('retention_days')->default(30);
+                $table->unsignedInteger('retention_days')->default(0);
                 $table->unsignedInteger('created_at');
                 $table->unsignedInteger('updated_at');
                 $table->unsignedInteger('suspended_at')->nullable();
@@ -118,8 +266,10 @@ function driveresource_gateway_activate(): array
             $schema->create('mod_driveresource_uploads', static function (Blueprint $table): void {
                 $table->char('upload_id', 32)->primary();
                 $table->unsignedInteger('service_id')->index();
-                $table->string('video_id', 64)->nullable()->index();
+                $table->string('video_id', 64)->nullable();
+                $table->unique('video_id', 'dr_upload_video_unique');
                 $table->string('filename', 255);
+                $table->string('display_name', 255)->nullable();
                 $table->unsignedBigInteger('source_size')->default(0);
                 $table->unsignedBigInteger('accounted_bytes')->default(0);
                 $table->string('status', 32)->default('reserved')->index();
@@ -145,7 +295,10 @@ function driveresource_gateway_activate(): array
                 $table->boolean('active')->default(true)->index();
                 $table->unsignedInteger('created_at');
                 $table->unsignedInteger('updated_at');
-                $table->unique(['service_id', 'site_hash', 'instance_id'], 'dr_asset_ref_unique');
+                $table->unique(
+                    ['service_id', 'site_hash', 'instance_id', 'video_id'],
+                    'dr_asset_ref_unique'
+                );
             });
         }
 
@@ -159,9 +312,899 @@ function driveresource_gateway_activate(): array
             });
         }
 
-        return ['status' => 'success', 'description' => 'Drive Resource Media Gateway activated.'];
+        if (!$schema->hasTable('mod_driveresource_usage_reports')) {
+            $schema->create('mod_driveresource_usage_reports', static function (Blueprint $table): void {
+                $table->bigIncrements('id');
+                $table->unsignedInteger('service_id')->index();
+                $table->char('report_id', 64);
+                $table->char('period_key', 7)->index();
+                $table->unsignedBigInteger('bytes')->default(0);
+                $table->unsignedInteger('created_at');
+                $table->unique(['service_id', 'report_id'], 'dr_usage_report_unique');
+            });
+        }
+
+        if (!$schema->hasTable('mod_driveresource_audit')) {
+            $schema->create('mod_driveresource_audit', static function (Blueprint $table): void {
+                $table->bigIncrements('id');
+                $table->unsignedInteger('service_id')->index();
+                $table->string('actor_type', 16)->index();
+                $table->unsignedInteger('actor_id')->nullable()->index();
+                $table->string('action', 64)->index();
+                $table->text('metadata_json')->nullable();
+                $table->unsignedInteger('created_at')->index();
+            });
+        }
+
+        driveresource_gateway_ensure_multitenant_schema();
+        driveresource_gateway_ensure_provider_schema();
+        driveresource_gateway_ensure_collection_schema();
+        driveresource_gateway_ensure_asset_reference_schema();
+        driveresource_gateway_ensure_video_ownership_schema();
+        driveresource_gateway_ensure_upload_display_name_schema();
+        driveresource_gateway_ensure_portal_schema();
+        driveresource_gateway_ensure_audit_schema();
+        driveresource_gateway_ensure_commercial_account_schema();
+
+        return ['status' => 'success', 'description' => 'Elearning Stream Gateway activated.'];
     } catch (Throwable $exception) {
         return ['status' => 'error', 'description' => $exception->getMessage()];
+    }
+}
+
+/**
+ * Upgrade addon persistence for multi-tenant backend selection.
+ *
+ * WHMCS invokes this function after detecting a module version change.
+ *
+ * @param array $vars WHMCS addon variables, including previously installed version.
+ * @return void
+ */
+function driveresource_gateway_upgrade(array $vars): void
+{
+    $installed = (string) ($vars['version'] ?? '0.0.0');
+    if (version_compare($installed, '0.3.0', '<')) {
+        driveresource_gateway_ensure_multitenant_schema();
+    }
+    if (version_compare($installed, '0.4.0', '<')) {
+        driveresource_gateway_ensure_portal_schema();
+    }
+    if (version_compare($installed, '0.4.1', '<')) {
+        driveresource_gateway_ensure_audit_schema();
+    }
+    if (version_compare($installed, '0.5.0', '<')) {
+        driveresource_gateway_ensure_provider_schema();
+    }
+    if (version_compare($installed, '0.5.3', '<')) {
+        driveresource_gateway_ensure_collection_schema();
+    }
+    if (version_compare($installed, '0.5.5', '<')) {
+        driveresource_gateway_ensure_asset_reference_schema();
+    }
+    if (version_compare($installed, '0.5.8', '<')) {
+        driveresource_gateway_ensure_upload_display_name_schema();
+    }
+    if (version_compare($installed, '0.5.9', '<')) {
+        driveresource_gateway_ensure_video_ownership_schema();
+    }
+    if (version_compare($installed, '0.6.0', '<')) {
+        driveresource_gateway_ensure_commercial_account_schema();
+    }
+
+    // The 0.6 migration is deliberately idempotent. Always run its repair
+    // pass so an interrupted deployment can recover missing tables, columns,
+    // legacy account rows or primary installation bindings on the next module
+    // upgrade invocation instead of remaining in a partially migrated state.
+    driveresource_gateway_ensure_commercial_account_schema();
+}
+
+/**
+ * Ensure one provider video can belong to only one WHMCS service.
+ *
+ * The provider GUID identifies one physical asset. Multiple Moodle activities
+ * may reference it through mod_driveresource_asset_refs, but ownership and
+ * accounting must remain singular at the upload/asset layer.
+ *
+ * @return void
+ */
+function driveresource_gateway_ensure_video_ownership_schema(): void
+{
+    $schema = Capsule::schema();
+    if (!$schema->hasTable('mod_driveresource_uploads')) {
+        return;
+    }
+
+    $indexes = Capsule::select(
+        "SHOW INDEX FROM mod_driveresource_uploads WHERE Key_name = ?",
+        ['dr_upload_video_unique']
+    );
+    if ($indexes !== []) {
+        return;
+    }
+
+    $duplicate = Capsule::table('mod_driveresource_uploads')
+        ->select('video_id')
+        ->whereNotNull('video_id')
+        ->groupBy('video_id')
+        ->havingRaw('COUNT(*) > 1')
+        ->first();
+    if ($duplicate) {
+        throw new RuntimeException(
+            'Elearning Stream Gateway detected duplicate provider video ownership. '
+                . 'Resolve duplicate mod_driveresource_uploads.video_id rows before upgrading to 0.5.9.'
+        );
+    }
+
+    $schema->table('mod_driveresource_uploads', static function (Blueprint $table): void {
+        $table->unique('video_id', 'dr_upload_video_unique');
+    });
+}
+
+/**
+ * Preserve the provider/source filename while exposing the Moodle activity
+ * title separately in the WHMCS client portal.
+ *
+ * @return void
+ */
+function driveresource_gateway_ensure_upload_display_name_schema(): void
+{
+    $schema = Capsule::schema();
+    if (!$schema->hasTable('mod_driveresource_uploads')) {
+        return;
+    }
+
+    if (!$schema->hasColumn('mod_driveresource_uploads', 'display_name')) {
+        $schema->table('mod_driveresource_uploads', static function (Blueprint $table): void {
+            $table->string('display_name', 255)->nullable()->after('filename');
+        });
+    }
+}
+
+/**
+ * Ensure backend identity exists on every provisioned service.
+ *
+ * Existing services remain on Elearning Stream/default. The fields are generic
+ * so future S3-compatible backends can be added without changing tenant,
+ * billing, quota or Moodle authentication identifiers.
+ *
+ * @return void
+ */
+function driveresource_gateway_ensure_multitenant_schema(): void
+{
+    $schema = Capsule::schema();
+    if (!$schema->hasTable('mod_driveresource_services')) {
+        return;
+    }
+
+    if (!$schema->hasColumn('mod_driveresource_services', 'backend_key')) {
+        $schema->table('mod_driveresource_services', static function (Blueprint $table): void {
+            $table->string('backend_key', 32)->default('elearningstream')->index();
+        });
+    }
+
+    if (!$schema->hasColumn('mod_driveresource_services', 'backend_profile')) {
+        $schema->table('mod_driveresource_services', static function (Blueprint $table): void {
+            $table->string('backend_profile', 64)->default('default');
+        });
+    }
+
+    Capsule::table('mod_driveresource_services')
+        ->whereNull('backend_key')
+        ->orWhere('backend_key', '')
+        ->update(['backend_key' => 'elearningstream']);
+
+    Capsule::table('mod_driveresource_services')
+        ->whereNull('backend_profile')
+        ->orWhere('backend_profile', '')
+        ->update(['backend_profile' => 'default']);
+}
+
+/**
+ * Split media-provider identity into independent video and object-storage lanes.
+ *
+ * Legacy backend_key/backend_profile continue to mirror the video provider so
+ * existing API code and installed services remain backward compatible.
+ *
+ * @return void
+ */
+function driveresource_gateway_ensure_provider_schema(): void
+{
+    $schema = Capsule::schema();
+    if (!$schema->hasTable('mod_driveresource_services')) {
+        return;
+    }
+
+    $addedVideoKey = false;
+    $addedVideoProfile = false;
+
+    if (!$schema->hasColumn('mod_driveresource_services', 'video_backend_key')) {
+        $schema->table('mod_driveresource_services', static function (Blueprint $table): void {
+            $table->string('video_backend_key', 32)->default('elearningstream')->index();
+        });
+        $addedVideoKey = true;
+    }
+
+    if (!$schema->hasColumn('mod_driveresource_services', 'video_backend_profile')) {
+        $schema->table('mod_driveresource_services', static function (Blueprint $table): void {
+            $table->string('video_backend_profile', 64)->default('default');
+        });
+        $addedVideoProfile = true;
+    }
+
+    if (!$schema->hasColumn('mod_driveresource_services', 'object_backend_key')) {
+        $schema->table('mod_driveresource_services', static function (Blueprint $table): void {
+            $table->string('object_backend_key', 32)->default('none')->index();
+        });
+    }
+
+    if (!$schema->hasColumn('mod_driveresource_services', 'object_backend_profile')) {
+        $schema->table('mod_driveresource_services', static function (Blueprint $table): void {
+            $table->string('object_backend_profile', 64)->default('default');
+        });
+    }
+
+    // Preserve any legacy video backend assignment when introducing the split.
+    if ($addedVideoKey || $addedVideoProfile) {
+        $services = Capsule::table('mod_driveresource_services')
+            ->select(['service_id', 'backend_key', 'backend_profile'])
+            ->get();
+
+        foreach ($services as $service) {
+            Capsule::table('mod_driveresource_services')
+                ->where('service_id', (int) $service->service_id)
+                ->update([
+                    'video_backend_key' => trim((string) ($service->backend_key ?? '')) !== ''
+                        ? (string) $service->backend_key
+                        : 'elearningstream',
+                    'video_backend_profile' => trim((string) ($service->backend_profile ?? '')) !== ''
+                        ? (string) $service->backend_profile
+                        : 'default',
+                ]);
+        }
+    }
+}
+
+/**
+ * Ensure each service can persist its provider-side virtual classroom.
+ *
+ * One Bunny collection is allocated lazily per WHMCS service. Existing
+ * services are left unassigned until the next upload/import or an explicit
+ * organisation action creates the provider collection.
+ *
+ * @return void
+ */
+function driveresource_gateway_ensure_collection_schema(): void
+{
+    $schema = Capsule::schema();
+    if (!$schema->hasTable('mod_driveresource_services')) {
+        return;
+    }
+
+    if (!$schema->hasColumn('mod_driveresource_services', 'video_collection_id')) {
+        $schema->table('mod_driveresource_services', static function (Blueprint $table): void {
+            $table->string('video_collection_id', 64)->nullable()->index();
+        });
+    }
+
+    if (!$schema->hasColumn('mod_driveresource_services', 'video_collection_name')) {
+        $schema->table('mod_driveresource_services', static function (Blueprint $table): void {
+            $table->string('video_collection_name', 191)->nullable();
+        });
+    }
+}
+
+/**
+ * Preserve one reference row per Moodle activity and provider video.
+ *
+ * Earlier gateway releases used one row per Moodle activity, which allowed a
+ * bind of a replacement video to overwrite the historical reference needed by
+ * a queued release task. Rebuilding the unique index with video_id keeps both
+ * transitions independently addressable and makes concurrent cron workers safe.
+ *
+ * @return void
+ */
+function driveresource_gateway_ensure_asset_reference_schema(): void
+{
+    $schema = Capsule::schema();
+    if (!$schema->hasTable('mod_driveresource_asset_refs')) {
+        return;
+    }
+
+    // WHMCS officially runs on MySQL/MariaDB. Inspect the existing named index
+    // before changing it so addon activation/upgrade remains idempotent even
+    // after a partial deployment or a repeated activation.
+    $indexes = Capsule::select(
+        "SHOW INDEX FROM mod_driveresource_asset_refs WHERE Key_name = ?",
+        ['dr_asset_ref_unique']
+    );
+    $columns = [];
+    foreach ($indexes as $index) {
+        $columns[(int)($index->Seq_in_index ?? 0)] = (string)($index->Column_name ?? '');
+    }
+    ksort($columns);
+    $columns = array_values(array_filter($columns));
+
+    $expected = ['service_id', 'site_hash', 'instance_id', 'video_id'];
+    if ($columns === $expected) {
+        return;
+    }
+
+    if ($columns !== []) {
+        $schema->table('mod_driveresource_asset_refs', static function (Blueprint $table): void {
+            $table->dropUnique('dr_asset_ref_unique');
+        });
+    }
+
+    $schema->table('mod_driveresource_asset_refs', static function (Blueprint $table): void {
+        $table->unique(
+            ['service_id', 'site_hash', 'instance_id', 'video_id'],
+            'dr_asset_ref_unique'
+        );
+    });
+}
+
+/**
+ * Ensure client-portal connection and transfer metering schema.
+ *
+ * @return void
+ */
+function driveresource_gateway_ensure_portal_schema(): void
+{
+    $schema = Capsule::schema();
+    if (!$schema->hasTable('mod_driveresource_services')) {
+        return;
+    }
+
+    $columns = [
+        'connection_status' => static function (Blueprint $table): void {
+            $table->string('connection_status', 16)->default('pending')->index();
+        },
+        'connection_checked_at' => static function (Blueprint $table): void {
+            $table->unsignedInteger('connection_checked_at')->nullable();
+        },
+        'connection_message' => static function (Blueprint $table): void {
+            $table->string('connection_message', 255)->nullable();
+        },
+        'transfer_period' => static function (Blueprint $table): void {
+            $table->char('transfer_period', 7)->nullable()->index();
+        },
+        'transfer_bytes' => static function (Blueprint $table): void {
+            $table->unsignedBigInteger('transfer_bytes')->default(0);
+        },
+        'transfer_updated_at' => static function (Blueprint $table): void {
+            $table->unsignedInteger('transfer_updated_at')->nullable();
+        },
+    ];
+
+    foreach ($columns as $column => $callback) {
+        if (!$schema->hasColumn('mod_driveresource_services', $column)) {
+            $schema->table('mod_driveresource_services', $callback);
+        }
+    }
+
+    if (!$schema->hasTable('mod_driveresource_usage_reports')) {
+        $schema->create('mod_driveresource_usage_reports', static function (Blueprint $table): void {
+            $table->bigIncrements('id');
+            $table->unsignedInteger('service_id')->index();
+            $table->char('report_id', 64);
+            $table->char('period_key', 7)->index();
+            $table->unsignedBigInteger('bytes')->default(0);
+            $table->unsignedInteger('created_at');
+            $table->unique(['service_id', 'report_id'], 'dr_usage_report_unique');
+        });
+    }
+
+    Capsule::table('mod_driveresource_services')
+        ->whereNull('connection_status')
+        ->orWhere('connection_status', '')
+        ->update(['connection_status' => 'pending']);
+}
+
+/**
+ * Ensure redacted control-plane audit persistence exists.
+ *
+ * @return void
+ */
+function driveresource_gateway_ensure_audit_schema(): void
+{
+    $schema = Capsule::schema();
+    if ($schema->hasTable('mod_driveresource_audit')) {
+        return;
+    }
+
+    $schema->create('mod_driveresource_audit', static function (Blueprint $table): void {
+        $table->bigIncrements('id');
+        $table->unsignedInteger('service_id')->index();
+        $table->string('actor_type', 16)->index();
+        $table->unsignedInteger('actor_id')->nullable()->index();
+        $table->string('action', 64)->index();
+        $table->text('metadata_json')->nullable();
+        $table->unsignedInteger('created_at')->index();
+    });
+}
+
+/**
+ * Ensure account, Moodle-installation, wallet and daily-usage persistence.
+ *
+ * Version 0.6.0 changes the commercial ownership boundary from one WHMCS
+ * service per Moodle site to one WHMCS service per Elearning Stream account.
+ * Existing service rows remain as aggregate compatibility records while site
+ * credentials move into mod_driveresource_installations.
+ *
+ * Existing tenants are backfilled as legacy accounts so an upgrade cannot
+ * unexpectedly block active customers. Newly provisioned services are created
+ * as FREE accounts by the provisioning module.
+ *
+ * @return void
+ */
+function driveresource_gateway_ensure_commercial_account_schema(): void
+{
+    $schema = Capsule::schema();
+
+    if (!$schema->hasTable('mod_driveresource_accounts')) {
+        $schema->create('mod_driveresource_accounts', static function (Blueprint $table): void {
+            $table->unsignedInteger('service_id')->primary();
+            $table->unsignedInteger('client_id')->nullable()->index();
+            $table->string('billing_mode', 16)->default('free')->index();
+            $table->boolean('activation_verified')->default(false)->index();
+            $table->bigInteger('activation_amount_microusd')->default(1000000);
+            $table->unsignedInteger('activation_invoice_id')->nullable()->index();
+            $table->unsignedInteger('activation_settlement_version')->default(0);
+            $table->unsignedInteger('activation_refunded_at')->nullable();
+            $table->bigInteger('balance_microusd')->default(0);
+            $table->unsignedBigInteger('free_storage_bytes')->default(7000000000);
+            $table->unsignedBigInteger('free_transfer_bytes')->default(20000000000);
+            $table->unsignedBigInteger('storage_rate_microusd_per_gb')->default(30000);
+            $table->unsignedBigInteger('transfer_rate_microusd_per_gb')->default(120000);
+            $table->unsignedBigInteger('minimum_recharge_microusd')->default(10000000);
+            $table->unsignedInteger('free_installation_limit')->default(1);
+            $table->unsignedInteger('paid_installation_limit')->default(0);
+            $table->string('status', 24)->default('active')->index();
+            $table->unsignedInteger('grace_until')->nullable()->index();
+            $table->unsignedInteger('paid_at')->nullable();
+            $table->unsignedInteger('created_at');
+            $table->unsignedInteger('updated_at');
+        });
+    }
+
+    if (
+        $schema->hasTable('mod_driveresource_accounts')
+        && !$schema->hasColumn('mod_driveresource_accounts', 'activation_invoice_id')
+    ) {
+        $schema->table('mod_driveresource_accounts', static function (Blueprint $table): void {
+            $table->unsignedInteger('activation_invoice_id')->nullable()->index();
+        });
+    }
+
+    if (
+        $schema->hasTable('mod_driveresource_accounts')
+        && !$schema->hasColumn('mod_driveresource_accounts', 'activation_settlement_version')
+    ) {
+        $schema->table('mod_driveresource_accounts', static function (Blueprint $table): void {
+            $table->unsignedInteger('activation_settlement_version')->default(0);
+        });
+    }
+
+    if (
+        $schema->hasTable('mod_driveresource_accounts')
+        && !$schema->hasColumn('mod_driveresource_accounts', 'activation_refunded_at')
+    ) {
+        $schema->table('mod_driveresource_accounts', static function (Blueprint $table): void {
+            $table->unsignedInteger('activation_refunded_at')->nullable();
+        });
+    }
+
+    if (!$schema->hasTable('mod_driveresource_installations')) {
+        $schema->create('mod_driveresource_installations', static function (Blueprint $table): void {
+            $table->bigIncrements('id');
+            $table->unsignedInteger('service_id')->index();
+            $table->string('label', 191)->nullable();
+            $table->string('site_url', 512);
+            $table->char('site_hash', 64);
+            $table->char('token_hash', 64);
+            $table->string('status', 16)->default('active')->index();
+            $table->boolean('is_primary')->default(false)->index();
+            $table->string('connection_status', 16)->default('pending')->index();
+            $table->unsignedInteger('connection_checked_at')->nullable();
+            $table->string('connection_message', 255)->nullable();
+            $table->unsignedInteger('last_seen_at')->nullable()->index();
+            $table->unsignedInteger('created_at');
+            $table->unsignedInteger('updated_at');
+            $table->unique(['service_id', 'site_hash'], 'dr_installation_site_unique');
+            $table->unique(['service_id', 'token_hash'], 'dr_installation_token_unique');
+        });
+    }
+
+    if (!$schema->hasTable('mod_driveresource_wallet_ledger')) {
+        $schema->create('mod_driveresource_wallet_ledger', static function (Blueprint $table): void {
+            $table->bigIncrements('id');
+            $table->unsignedInteger('service_id')->index();
+            $table->string('entry_type', 32)->index();
+            $table->bigInteger('amount_microusd');
+            $table->bigInteger('balance_after_microusd');
+            $table->char('currency', 3)->default('USD');
+            $table->char('idempotency_key', 64)->unique();
+            $table->string('external_ref', 191)->nullable()->index();
+            $table->text('metadata_json')->nullable();
+            $table->unsignedInteger('created_at')->index();
+        });
+    }
+
+    if (!$schema->hasTable('mod_driveresource_usage_daily')) {
+        $schema->create('mod_driveresource_usage_daily', static function (Blueprint $table): void {
+            $table->bigIncrements('id');
+            $table->unsignedInteger('service_id')->index();
+            $table->char('usage_date', 10);
+            $table->unsignedBigInteger('storage_bytes')->default(0);
+            $table->unsignedBigInteger('transfer_bytes')->default(0);
+            $table->unsignedBigInteger('billable_storage_bytes')->default(0);
+            $table->unsignedBigInteger('billable_transfer_bytes')->default(0);
+            $table->unsignedBigInteger('charge_microusd')->default(0);
+            $table->unsignedInteger('created_at');
+            $table->unsignedInteger('updated_at');
+            $table->unique(['service_id', 'usage_date'], 'dr_usage_daily_unique');
+        });
+    }
+
+    if (!$schema->hasTable('mod_driveresource_wallet_orders')) {
+        $schema->create('mod_driveresource_wallet_orders', static function (Blueprint $table): void {
+            $table->bigIncrements('id');
+            $table->unsignedInteger('service_id')->index();
+            $table->unsignedInteger('client_id')->index();
+            $table->unsignedInteger('invoice_id')->nullable()->unique();
+            $table->unsignedBigInteger('amount_microusd');
+            $table->unsignedBigInteger('invoice_amount_microunits')->default(0);
+            $table->char('currency', 3)->default('USD');
+            $table->string('status', 16)->default('pending')->index();
+            $table->unsignedInteger('settlement_version')->default(0);
+            $table->unsignedInteger('created_at');
+            $table->unsignedInteger('paid_at')->nullable();
+            $table->unsignedInteger('refunded_at')->nullable();
+            $table->unsignedInteger('updated_at');
+        });
+    }
+
+    if (
+        $schema->hasTable('mod_driveresource_wallet_orders')
+        && !$schema->hasColumn('mod_driveresource_wallet_orders', 'invoice_amount_microunits')
+    ) {
+        $schema->table('mod_driveresource_wallet_orders', static function (Blueprint $table): void {
+            $table->unsignedBigInteger('invoice_amount_microunits')->default(0);
+        });
+    }
+
+    if (
+        $schema->hasTable('mod_driveresource_wallet_orders')
+        && !$schema->hasColumn('mod_driveresource_wallet_orders', 'settlement_version')
+    ) {
+        $schema->table('mod_driveresource_wallet_orders', static function (Blueprint $table): void {
+            $table->unsignedInteger('settlement_version')->default(0);
+        });
+    }
+
+    if (
+        $schema->hasTable('mod_driveresource_uploads')
+        && !$schema->hasColumn('mod_driveresource_uploads', 'installation_id')
+    ) {
+        $schema->table('mod_driveresource_uploads', static function (Blueprint $table): void {
+            $table->unsignedBigInteger('installation_id')->nullable()->index();
+        });
+    }
+
+    if (
+        $schema->hasTable('mod_driveresource_usage_reports')
+        && !$schema->hasColumn('mod_driveresource_usage_reports', 'installation_id')
+    ) {
+        $schema->table('mod_driveresource_usage_reports', static function (Blueprint $table): void {
+            $table->unsignedBigInteger('installation_id')->nullable()->index();
+        });
+    }
+
+    if (!$schema->hasTable('mod_driveresource_services')) {
+        return;
+    }
+
+    require_once __DIR__ . '/lib/CommercialAccount.php';
+    require_once __DIR__ . '/lib/CommercialMigrationPolicy.php';
+
+    $now = time();
+    $services = Capsule::table('mod_driveresource_services')->get();
+    foreach ($services as $service) {
+        $serviceId = (int) $service->service_id;
+        $clientId = Capsule::table('tblhosting')
+            ->where('id', $serviceId)
+            ->value('userid');
+
+        $account = Capsule::table('mod_driveresource_accounts')
+            ->where('service_id', $serviceId)
+            ->first();
+
+        if (!$account) {
+            $accountValues = \WHMCS\Module\Addon\DriveresourceGateway\CommercialMigrationPolicy::legacyAccountValues(
+                $service,
+                $clientId !== null ? (int) $clientId : null,
+                $now
+            );
+            Capsule::table('mod_driveresource_accounts')->insert($accountValues);
+        }
+
+        $installationValues = \WHMCS\Module\Addon\DriveresourceGateway\CommercialMigrationPolicy::primaryInstallationValues(
+            $service,
+            $now
+        );
+        if ($installationValues === null) {
+            continue;
+        }
+
+        $existing = Capsule::table('mod_driveresource_installations')
+            ->where('service_id', $serviceId)
+            ->where('site_hash', (string) $installationValues['site_hash'])
+            ->first();
+
+        if (!$existing) {
+            Capsule::table('mod_driveresource_installations')->insert($installationValues);
+        }
+    }
+
+    driveresource_gateway_backfill_activation_invoice_links();
+    driveresource_gateway_assert_commercial_schema();
+}
+
+/**
+ * Backfill invoice proof for non-legacy accounts created by earlier 0.6 RCs.
+ *
+ * A row is repaired only when the service order points to a Paid invoice
+ * owned by the same client and that invoice contains the exact Hosting line
+ * item for the service. Anything ambiguous is intentionally left untouched so
+ * the migration postcondition fails closed.
+ *
+ * @return void
+ */
+function driveresource_gateway_backfill_activation_invoice_links(): void
+{
+    $schema = Capsule::schema();
+    if (
+        !$schema->hasTable('mod_driveresource_accounts')
+        || !$schema->hasTable('mod_driveresource_wallet_ledger')
+    ) {
+        return;
+    }
+
+    $accounts = Capsule::table('mod_driveresource_accounts')
+        ->where('billing_mode', '<>', 'legacy')
+        ->where('activation_verified', true)
+        ->whereNull('activation_invoice_id')
+        ->get();
+
+    foreach ($accounts as $account) {
+        $serviceId = (int) $account->service_id;
+        $clientId = (int) ($account->client_id ?? 0);
+        if ($serviceId <= 0 || $clientId <= 0) {
+            continue;
+        }
+
+        $orderId = (int) (Capsule::table('tblhosting')
+            ->where('id', $serviceId)
+            ->value('orderid') ?? 0);
+        $invoiceId = $orderId > 0
+            ? (int) (Capsule::table('tblorders')->where('id', $orderId)->value('invoiceid') ?? 0)
+            : 0;
+        if ($invoiceId <= 0) {
+            continue;
+        }
+
+        $invoice = Capsule::table('tblinvoices')
+            ->where('id', $invoiceId)
+            ->where('userid', $clientId)
+            ->where('status', 'Paid')
+            ->first();
+        $serviceItem = Capsule::table('tblinvoiceitems')
+            ->where('invoiceid', $invoiceId)
+            ->where('type', 'Hosting')
+            ->where('relid', $serviceId)
+            ->first();
+
+        if (
+            !$invoice
+            || (float) $invoice->total <= 0
+            || !$serviceItem
+            || (float) $serviceItem->amount <= 0
+        ) {
+            continue;
+        }
+
+        $activationLedgerExists = Capsule::table('mod_driveresource_wallet_ledger')
+            ->where('service_id', $serviceId)
+            ->where('entry_type', 'activation')
+            ->exists();
+
+        $settlementVersion = max(
+            (int) ($account->activation_settlement_version ?? 0),
+            $activationLedgerExists || (int) $account->activation_amount_microusd === 0 ? 1 : 0
+        );
+        if ($settlementVersion <= 0) {
+            continue;
+        }
+
+        Capsule::table('mod_driveresource_accounts')
+            ->where('service_id', $serviceId)
+            ->whereNull('activation_invoice_id')
+            ->update([
+                'activation_invoice_id' => $invoiceId,
+                'activation_settlement_version' => $settlementVersion,
+                'updated_at' => time(),
+            ]);
+    }
+}
+
+/**
+ * Assert that the 0.6 commercial migration completed atomically enough for
+ * provisioning and billing to run safely.
+ *
+ * @return void
+ */
+function driveresource_gateway_assert_commercial_schema(): void
+{
+    $schema = Capsule::schema();
+    $required = [
+        'mod_driveresource_accounts' => [
+            'service_id',
+            'client_id',
+            'billing_mode',
+            'activation_verified',
+            'activation_amount_microusd',
+            'activation_invoice_id',
+            'activation_settlement_version',
+            'activation_refunded_at',
+            'balance_microusd',
+            'free_storage_bytes',
+            'free_transfer_bytes',
+            'storage_rate_microusd_per_gb',
+            'transfer_rate_microusd_per_gb',
+            'minimum_recharge_microusd',
+            'free_installation_limit',
+            'paid_installation_limit',
+            'status',
+            'created_at',
+            'updated_at',
+        ],
+        'mod_driveresource_installations' => [
+            'id',
+            'service_id',
+            'site_url',
+            'site_hash',
+            'token_hash',
+            'status',
+            'is_primary',
+            'created_at',
+            'updated_at',
+        ],
+        'mod_driveresource_wallet_ledger' => [
+            'id',
+            'service_id',
+            'entry_type',
+            'amount_microusd',
+            'balance_after_microusd',
+            'idempotency_key',
+            'created_at',
+        ],
+        'mod_driveresource_wallet_orders' => [
+            'id',
+            'service_id',
+            'client_id',
+            'invoice_id',
+            'amount_microusd',
+            'invoice_amount_microunits',
+            'currency',
+            'status',
+            'settlement_version',
+            'created_at',
+            'updated_at',
+        ],
+        'mod_driveresource_usage_daily' => [
+            'id',
+            'service_id',
+            'usage_date',
+            'storage_bytes',
+            'transfer_bytes',
+            'billable_storage_bytes',
+            'billable_transfer_bytes',
+            'charge_microusd',
+            'created_at',
+            'updated_at',
+        ],
+    ];
+
+    foreach ($required as $table => $columns) {
+        if (!$schema->hasTable($table)) {
+            throw new RuntimeException('Elearning Stream 0.6 migration is missing table ' . $table . '.');
+        }
+        foreach ($columns as $column) {
+            if (!$schema->hasColumn($table, $column)) {
+                throw new RuntimeException(
+                    'Elearning Stream 0.6 migration is missing column ' . $table . '.' . $column . '.'
+                );
+            }
+        }
+    }
+
+    foreach ([
+        'mod_driveresource_uploads' => 'installation_id',
+        'mod_driveresource_usage_reports' => 'installation_id',
+    ] as $table => $column) {
+        if (!$schema->hasTable($table) || !$schema->hasColumn($table, $column)) {
+            throw new RuntimeException(
+                'Elearning Stream 0.6 migration is missing installation ownership on ' . $table . '.'
+            );
+        }
+    }
+
+    $missingAccounts = (int) Capsule::table('mod_driveresource_services as s')
+        ->leftJoin(
+            'mod_driveresource_accounts as a',
+            'a.service_id',
+            '=',
+            's.service_id'
+        )
+        ->whereNull('a.service_id')
+        ->count();
+
+    if ($missingAccounts > 0) {
+        throw new RuntimeException(
+            'Elearning Stream 0.6 migration left '
+                . $missingAccounts
+                . ' service(s) without a commercial account.'
+        );
+    }
+
+    $missingInstallations = (int) Capsule::table('mod_driveresource_services as s')
+        ->leftJoin('mod_driveresource_installations as i', static function ($join): void {
+            $join->on('i.service_id', '=', 's.service_id')
+                ->on('i.site_hash', '=', 's.site_hash');
+        })
+        ->where('s.site_url', '<>', '')
+        ->where('s.site_hash', '<>', '')
+        ->where('s.token_hash', '<>', '')
+        ->whereNull('i.id')
+        ->count();
+
+    if ($missingInstallations > 0) {
+        throw new RuntimeException(
+            'Elearning Stream 0.6 migration left '
+                . $missingInstallations
+                . ' provisioned service(s) without a primary Moodle installation.'
+        );
+    }
+
+    $invalidLegacyActivation = (int) Capsule::table('mod_driveresource_accounts')
+        ->where('billing_mode', 'legacy')
+        ->where('activation_amount_microusd', '<>', 0)
+        ->count();
+
+    if ($invalidLegacyActivation > 0) {
+        throw new RuntimeException(
+            'Elearning Stream 0.6 migration assigned activation credit to '
+                . $invalidLegacyActivation
+                . ' legacy account(s).'
+        );
+    }
+
+    $unprovenActivations = (int) Capsule::table('mod_driveresource_accounts')
+        ->where('billing_mode', '<>', 'legacy')
+        ->where('activation_verified', true)
+        ->where(static function ($query): void {
+            $query->whereNull('activation_invoice_id')
+                ->orWhere('activation_invoice_id', '<=', 0)
+                ->orWhere('activation_settlement_version', '<=', 0);
+        })
+        ->count();
+
+    if ($unprovenActivations > 0) {
+        throw new RuntimeException(
+            'Elearning Stream 0.6 migration found '
+                . $unprovenActivations
+                . ' activated account(s) without Paid invoice proof.'
+        );
     }
 }
 
@@ -186,16 +1229,5 @@ function driveresource_gateway_deactivate(): array
  */
 function driveresource_gateway_output(array $vars): void
 {
-    $services = Capsule::table('mod_driveresource_services')->count();
-    $active = Capsule::table('mod_driveresource_services')->where('status', 'active')->count();
-    $uploads = Capsule::table('mod_driveresource_uploads')->count();
-    $bytes = (int) Capsule::table('mod_driveresource_services')->sum('used_bytes');
-
-    echo '<div class="panel panel-default"><div class="panel-heading"><strong>Drive Resource Media Gateway</strong></div>';
-    echo '<div class="panel-body">';
-    echo '<p>Provisioned services: ' . (int) $services . ' &middot; Active: ' . (int) $active . '</p>';
-    echo '<p>Tracked videos: ' . (int) $uploads . ' &middot; Accounted storage: '
-        . htmlspecialchars(number_format($bytes / 1000000000, 2), ENT_QUOTES, 'UTF-8') . ' GB</p>';
-    echo '<p>Elearning Stream provider credentials are retained inside WHMCS and are not exposed to Moodle.</p>';
-    echo '</div></div>';
+    (new \WHMCS\Module\Addon\DriveresourceGateway\AdminDashboard())->render();
 }

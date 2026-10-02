@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Scheduled task definitions for Drive Resource.
+ * Scheduled task definitions for Elearning Stream.
  *
  * @package    mod_videoplayer
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
@@ -26,10 +26,10 @@ defined('MOODLE_INTERNAL') || die();
 
 $tasks = [
     [
-        'classname' => '\\mod_videoplayer\\task\\cleanup_pdf_cache',
+        'classname' => '\\mod_videoplayer\\task\\sync_transfer_usage',
         'blocking' => 0,
-        'minute' => '17',
-        'hour' => '*/6',
+        'minute' => '*/5',
+        'hour' => '*',
         'day' => '*',
         'month' => '*',
         'dayofweek' => '*',

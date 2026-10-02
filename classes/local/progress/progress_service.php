@@ -16,18 +16,19 @@
 
 namespace mod_videoplayer\local\progress;
 
-use mod_videoplayer\local\gamification\reward_service;
-use mod_videoplayer\local\plugin_config;
-
 /**
- * Drive Resource progress, resume and completion service.
+ * Persists learner progress, resume state and Moodle completion.
+ *
+ * Completion is derived only from supported runtime resources:
+ * - managed video: union of media ranges actually reproduced;
+ * - protected PDF: highest page reached over total pages.
  *
  * @package    mod_videoplayer
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class progress_service {
-    /** @var int Seconds to wait for a concurrent progress write to finish. */
+    /** @var int Seconds to wait for a concurrent progress write. */
     private const LOCK_TIMEOUT_SECONDS = 10;
 
     /** @var int Maximum accepted active time on the first progress write. */
@@ -41,7 +42,7 @@ final class progress_service {
      *
      * @param object $cm Course module record/info.
      * @param object $course Course record.
-     * @param object $instance Drive Resource instance.
+     * @param object $instance Elearning Stream instance.
      * @param \context_module $context Module context.
      * @param int $userid User id.
      * @param array $input Validated external input.
@@ -71,14 +72,14 @@ final class progress_service {
     }
 
     /**
-     * Save progress after acquiring the per-user/resource lock.
+     * Persist progress while holding the per-user/activity lock.
      *
      * @param object $cm Course module record/info.
      * @param object $course Course record.
-     * @param object $instance Drive Resource instance.
+     * @param object $instance Activity instance.
      * @param \context_module $context Module context.
      * @param int $userid User id.
-     * @param array $input Validated external input.
+     * @param array $input Validated input.
      * @return array
      */
     private function save_progress_locked(
@@ -95,10 +96,10 @@ final class progress_service {
         $lastpage = max(0, (int)($input['lastpage'] ?? 0));
         $totalpages = max(0, (int)($input['totalpages'] ?? 0));
         $clienttimespent = max(0, (int)($input['timespent'] ?? 0));
-        $progress = max(0.0, (float)($input['progress'] ?? 0));
         $lastposition = max(0.0, (float)($input['lastposition'] ?? 0));
         $duration = max(0.0, (float)($input['duration'] ?? 0));
         $incomingranges = (string)($input['watchedranges'] ?? '');
+
         $conditions = [
             'videoplayerid' => (int)$instance->id,
             'userid' => $userid,
@@ -107,6 +108,7 @@ final class progress_service {
         $transaction = $DB->start_delegated_transaction();
         $record = $DB->get_record('videoplayer_views', $conditions);
         $wascompleted = $record ? !empty($record->completed) : false;
+
         $storedranges = (string)($record->watchedranges ?? '');
         $haswatchedranges = $incomingranges !== '' || $storedranges !== '';
         $watchedranges = $haswatchedranges
@@ -114,36 +116,30 @@ final class progress_service {
             : '';
         $watchedseconds = watched_range_set::seconds($watchedranges, $duration);
         $timespent = $this->bounded_timespent($clienttimespent, $record ?: null, $now);
-        $requiredseconds = plugin_config::required_seconds();
         $derivedpercentage = $this->derive_percentage(
             $lastpage,
             $totalpages,
-            $lastposition,
             $duration,
             $watchedseconds,
-            $haswatchedranges,
-            $timespent,
-            $requiredseconds
+            $haswatchedranges
         );
         $requiredpercentage = max(1, min(100, (int)($instance->completionpercentage ?? 80)));
         $completed = $derivedpercentage >= $requiredpercentage;
-
-        if ($duration > 0 && $haswatchedranges) {
-            $progress = $watchedseconds;
-        } else if ($totalpages === 0 && $duration <= 0) {
-            $progress = min($progress, (float)$timespent);
-        }
+        $progress = $duration > 0 ? $watchedseconds : (float)$lastpage;
 
         if ($record) {
             $record->progress = max((float)$record->progress, $progress);
-            $record->completionpercentage = max((float)$record->completionpercentage, $derivedpercentage);
+            $record->completionpercentage = max(
+                (float)$record->completionpercentage,
+                $derivedpercentage
+            );
             $record->completed = (!empty($record->completed) || $completed) ? 1 : 0;
             if ($lastpage > 0) {
                 $record->lastpage = $lastpage;
             }
             $record->totalpages = max((int)($record->totalpages ?? 0), $totalpages);
             $record->timespent = max((int)($record->timespent ?? 0), $timespent);
-            if ($lastposition >= 0 && $duration > 0) {
+            if ($duration > 0) {
                 $record->lastposition = min($lastposition, $duration);
                 $record->duration = max((float)($record->duration ?? 0), $duration);
             }
@@ -167,19 +163,8 @@ final class progress_service {
                 'lastposition' => $duration > 0 ? min($lastposition, $duration) : 0,
                 'duration' => $duration,
                 'watchedranges' => $haswatchedranges ? $watchedranges : null,
-                'points' => 0,
             ];
             $record->id = $DB->insert_record('videoplayer_views', $record);
-        }
-
-        $rewarddata = [
-            'rewards' => [],
-            'totalpoints' => (int)($record->points ?? 0),
-        ];
-        if (!empty($instance->enablegamification)) {
-            $rewarddata = (new reward_service())->award_rewards($instance, $record, $userid, $context);
-            $record->points = (int)$rewarddata['totalpoints'];
-            $DB->set_field('videoplayer_views', 'points', $record->points, ['id' => $record->id]);
         }
 
         $transaction->allow_commit();
@@ -199,8 +184,6 @@ final class progress_service {
         if (!empty($record->completed) && !empty($instance->completionprogressenabled)) {
             $completion = new \completion_info($course);
             if ($completion->is_enabled($cm) === COMPLETION_TRACKING_AUTOMATIC) {
-                // Progress is monotonic, so this change can only make the
-                // custom rule complete, never revert an existing completion.
                 $completion->update_state($cm, COMPLETION_COMPLETE, $userid);
             }
         }
@@ -217,53 +200,39 @@ final class progress_service {
             ])->trigger();
         }
 
-        return $this->response($record, $rewarddata['rewards']);
+        return $this->response($record);
     }
 
     /**
-     * Derive a server-side completion percentage from resource-specific
-     * position fields. Generic resources use server-bounded active time.
+     * Derive completion for supported resource types.
      *
-     * @param int $lastpage
-     * @param int $totalpages
-     * @param float $lastposition
-     * @param float $duration
-     * @param float $watchedseconds Unique media seconds actually reproduced.
-     * @param bool $haswatchedranges Whether watched-range telemetry is available.
-     * @param int $timespent Server-bounded active seconds.
-     * @param int $requiredseconds Required active seconds for generic resources.
+     * @param int $lastpage Last PDF page reached.
+     * @param int $totalpages Total PDF pages.
+     * @param float $duration Media duration.
+     * @param float $watchedseconds Unique video seconds reproduced.
+     * @param bool $haswatchedranges Whether range telemetry is present.
      * @return float
      */
     private function derive_percentage(
         int $lastpage,
         int $totalpages,
-        float $lastposition,
         float $duration,
         float $watchedseconds,
-        bool $haswatchedranges,
-        int $timespent,
-        int $requiredseconds
+        bool $haswatchedranges
     ): float {
         if ($totalpages > 0 && $lastpage > 0) {
             return $this->clamp_percentage(($lastpage / $totalpages) * 100);
         }
-        if ($duration > 0) {
-            if ($haswatchedranges) {
-                return $this->clamp_percentage((min($watchedseconds, $duration) / $duration) * 100);
-            }
 
-            // Compatibility for audio and older clients that do not yet submit ranges.
-            return $this->clamp_percentage((min($lastposition, $duration) / $duration) * 100);
+        if ($duration > 0 && $haswatchedranges) {
+            return $this->clamp_percentage((min($watchedseconds, $duration) / $duration) * 100);
         }
 
-        return $this->clamp_percentage(($timespent / max(1, $requiredseconds)) * 100);
+        return 0.0;
     }
 
     /**
      * Bound client-reported active time by server-observed wall time.
-     *
-     * The browser remains responsible for determining whether the tab/player is
-     * active, but it cannot jump cumulative time arbitrarily in one request.
      *
      * @param int $clienttimespent Client cumulative active time.
      * @param object|null $record Existing progress record.
@@ -285,7 +254,7 @@ final class progress_service {
     /**
      * Clamp one percentage.
      *
-     * @param float $value
+     * @param float $value Percentage.
      * @return float
      */
     private function clamp_percentage(float $value): float {
@@ -293,13 +262,12 @@ final class progress_service {
     }
 
     /**
-     * Build external API response.
+     * Build the external API response.
      *
-     * @param object $record
-     * @param array $rewards
+     * @param object $record Persisted progress.
      * @return array
      */
-    private function response(object $record, array $rewards): array {
+    private function response(object $record): array {
         return [
             'status' => true,
             'completed' => !empty($record->completed),
@@ -311,8 +279,6 @@ final class progress_service {
             'lastposition' => (float)($record->lastposition ?? 0),
             'duration' => (float)($record->duration ?? 0),
             'watchedranges' => (string)($record->watchedranges ?? '[]'),
-            'points' => (int)($record->points ?? 0),
-            'rewards' => $rewards,
             'timemodified' => (int)$record->timemodified,
         ];
     }

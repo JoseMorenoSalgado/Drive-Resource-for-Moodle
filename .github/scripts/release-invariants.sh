@@ -17,21 +17,25 @@ echo "Checking required production assets..."
 require_file "thirdpartylibs/pdfjs/pdf.min.mjs"
 require_file "thirdpartylibs/pdfjs/pdf.worker.min.mjs"
 require_file "amd/build/nativevideo.min.js"
-require_file "amd/build/nativevideo.min.js.map"
 require_file "amd/build/pdfviewer.min.js"
 require_file "amd/build/pdfviewer.min.js.map"
 require_file "protected.php"
 
-echo "Checking browser-facing URL confidentiality..."
-if grep -RniE     'drive\.google\.com|docs\.google\.com|googleusercontent\.com|googlevideo\.com|content-workspacevideo-pa\.googleapis\.com'     templates amd/src; then
-    fail "Browser-facing templates/AMD source contain a Google upstream host."
+echo "Checking retired Google runtime isolation..."
+if grep -RniE 'drive\.google\.com|docs\.google\.com|googleusercontent\.com|googlevideo\.com|content-workspacevideo-pa\.googleapis\.com' \
+    classes amd/src templates mod_form.php lib.php protected.php view.php; then
+    fail "Production Moodle runtime contains a retired Google upstream host."
+fi
+if grep -RniE 'drive::(extract_file_id|is_supported_url|protected_content_url|resolve_download_warning_url)|drive_stream_resolver' \
+    classes amd/src templates mod_form.php lib.php protected.php view.php; then
+    fail "Production Moodle runtime contains retired Google resolver logic."
 fi
 
 if grep -RniE 'b-cdn\.net|mediadelivery\.net' templates amd/src/nativevideo.js; then
     fail "Learner-facing video code contains an Elearning Stream upstream host."
 fi
 
-echo "Checking that Google/iframe viewers cannot re-enter presentation code..."
+echo "Checking that retired remote/iframe viewers cannot re-enter presentation code..."
 if grep -RniE "<iframe|/preview([?\"'[:space:]]|$)" templates amd/src; then
     fail "Browser-facing presentation code contains an iframe/preview viewer path."
 fi
@@ -52,8 +56,7 @@ fi
 echo "Checking upstream redirect confinement..."
 if grep -n "CURLOPT_FOLLOWLOCATION => true" \
     classes/local/http_range_proxy.php \
-    classes/local/protected_stream.php \
-    classes/local/drive_stream_resolver.php; then
+    classes/local/protected_stream.php; then
     fail "Automatic cURL redirect following bypasses per-hop upstream allow-list validation."
 fi
 
@@ -63,6 +66,13 @@ grep -q "Accept-Ranges: bytes" classes/local/http_range_proxy.php     || fail "H
 grep -q 'CURLOPT_LOW_SPEED_LIMIT' classes/local/http_range_proxy.php     || fail "HTTP proxy no longer bounds effectively stalled upstream transfers."
 grep -q 'connection_aborted()' classes/local/http_range_proxy.php     || fail "HTTP proxy no longer stops abandoned browser range requests."
 grep -q 'MAX_RECOVERY_ATTEMPTS' amd/src/nativevideo.js     || fail "Video recovery is no longer bounded."
+grep -q 'pendingSeekTarget' amd/src/nativevideo.js     || fail "Protected mobile seek no longer batches slider input before Range navigation."
+grep -q 'commitSeek' amd/src/nativevideo.js     || fail "Protected mobile seek commit logic is missing."
+grep -q 'desiredSeekPosition' amd/src/nativevideo.js     || fail "Protected seek recovery no longer preserves the requested second."
+grep -q "addEventListener('pointerup'" amd/src/nativevideo.js     || fail "Touch seek no longer commits on pointer release."
+if grep -q 'mod-videoplayer-meta' templates/video.mustache; then
+    fail "Learner video view must not render distracting metadata chips."
+fi
 grep -q "searchParams.set('refresh', '1')" amd/src/nativevideo.js     || fail "Video recovery no longer refreshes the protected signed stream."
 grep -q 'watchedranges' amd/src/nativevideo.js     || fail "Video completion no longer submits watched ranges."
 grep -q 'playback_url' classes/local/stream/protected_resource_service.php     || fail "Elearning Stream playback no longer resolves through WHMCS."
@@ -77,10 +87,21 @@ if grep -A12 "new xmldb_field('watchedranges'" db/upgrade.php | grep -q "'durati
     fail "watchedranges DDL must not depend on AFTER duration column ordering."
 fi
 
-echo "Checking canonical resource type resolution..."
-if grep -nE 'drive::detect_type\(' lib.php index.php classes/local/resource/resource_descriptor.php classes/task/precache_pdf.php; then
-    fail "Runtime code bypasses drive::resolve_record_type() and duplicates resource type resolution."
+echo "Checking resource compatibility boundary..."
+require_file "classes/local/resource_compatibility.php"
+grep -q "class resource_compatibility" classes/local/resource_compatibility.php \
+    || fail "Provider-neutral resource compatibility helper is missing."
+if [[ -e "classes/local/drive.php" ]]; then
+    fail "Retired provider helper classes/local/drive.php must not ship in Elearning Stream."
 fi
+if grep -RniE 'use mod_videoplayer\\local\\drive;|drive::|SOURCE_GOOGLEDRIVE' \
+    lib.php mod_form.php index.php view.php protected.php classes backup/moodle2 tests; then
+    fail "Active Moodle code still depends on retired provider symbols."
+fi
+grep -q "SOURCE_RETIRED_REMOTE = 'googledrive'" classes/local/resource_compatibility.php \
+    || fail "The historical database source key must remain isolated for migration compatibility."
+grep -q "fail closed" classes/local/resource/resource_descriptor.php \
+    || fail "Legacy remote resources must fail closed."
 
 echo "Checking Moodle 4.5 completion form API compatibility..."
 if grep -n 'get_suffixed_name' mod_form.php; then
@@ -90,6 +111,6 @@ grep -q 'get_suffix()' mod_form.php     || fail "Custom completion controls no l
 
 echo "Checking release metadata..."
 grep -q "\$plugin->supported = \[405, 405\]" version.php     || fail "Moodle 4.5 support declaration changed unexpectedly."
-grep -q 'MATURITY_BETA' version.php     || fail "Beta hardening branch must remain beta maturity until release exit gates pass."
+grep -q 'MATURITY_RC' version.php     || fail "The Moodle release candidate must declare RC maturity."
 
-echo "Drive Resource release invariants: PASS"
+echo "Elearning Stream release invariants: PASS"

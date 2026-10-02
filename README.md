@@ -1,256 +1,155 @@
-# Drive Resource for Moodle
+# Elearning Stream for Moodle
 
-Drive Resource is a Moodle activity module that publishes learning resources stored in Google Drive through Moodle-controlled viewers and protected delivery endpoints.
+Elearning Stream is a protected managed-video activity for Moodle. The historical Moodle component and folder remain `mod_videoplayer` / `videoplayer` so installed sites can upgrade without a component migration.
 
-The historical Moodle component name remains `mod_videoplayer` to preserve upgrade compatibility. The product name shown to administrators, teachers and learners is **Drive Resource**.
+## Current release line
 
-## Release
-
-- Product: Drive Resource
-- Moodle component: `mod_videoplayer`
-- Release: `1.2.0-beta8-m45`
-- Target: Moodle 4.5 LTS
+- Product: **Elearning Stream**
+- Moodle component: `mod_videoplayer` (compatibility identifier)
+- Moodle release: **1.3.0-rc4-m45**
+- Gateway release: **0.6.0**
+- Target: Moodle **4.5 LTS**
 - PHP baseline: PHP 8.1+
-- Video runtime: native HTML5 Media API
-- PDF runtime: local PDF.js 6.0.227
-- CDN dependencies: none
-- Hardening gate: `.github/workflows/hardening.yml`
+- Player: native HTML5 Media API
+- Provider management secrets in Moodle: **none**
+- Retired external viewer/provider dependency: **none**
 
-## Supported resources
-
-Drive Resource supports Google Drive links for:
-
-- video;
-- audio;
-- PDF;
-- images;
-- Google Docs;
-- Google Sheets;
-- Google Slides;
-- generic files.
-
-It also supports a PDF uploaded to Moodle private file storage.
-
-Google Docs, Sheets and Slides are exported to PDF on the server side and rendered with the bundled PDF.js viewer. The browser is not sent a Google Drive viewer URL.
-
-## Elearning Stream
-
-Teachers can select **Elearning Stream** as the resource source and either upload a new video or paste the URL of an existing managed video. Pasted provider URLs are not persisted in Moodle: the plugin extracts the video identifier, WHMCS verifies the asset against the configured library/service, enforces storage accounting, and stores only provider metadata required for the managed lifecycle.
-
-The persisted source identifier remains `bunnystream` internally for upgrade compatibility; administrators and learners see **Elearning Stream**.
-
-### Elearning Stream configuration diagnostics
-
-Elearning Stream requires three Moodle-side settings before teachers can upload or register an existing video: the WHMCS gateway URL, the provisioned WHMCS service ID, and the service-scoped WHMCS token. Beta8 validates these prerequisites in the activity form before save and reports exactly which setting is missing instead of failing later inside the instance create/update callback.
-
-The gateway URL must point to the deployed addon itself, for example `https://billing.example.com/modules/addons/driveresource_gateway`, not only to the WHMCS home page.
-
-### Protected Elearning Stream playback
-
-Elearning Stream videos use the same Drive Resource HTML5 player as protected Google Drive video. The learner receives only a Moodle `protected.php` URL. Moodle obtains a short-lived provider MP4 fallback URL from the authenticated WHMCS gateway, caches that authorization briefly, and proxies video bytes with byte-range support. The upstream CDN hostname and signing token are not rendered into learner templates.
-
-The Elearning Stream video library must have MP4 fallback enabled for videos that will be played through this native HTML5 path.
-
-## Moodle 4.5 form compatibility
-
-RC19 fixes the custom completion form integration introduced during RC18 hardening. Custom completion controls now use Moodle 4.5's `get_suffix()` API, so activity creation/editing no longer fails while `standard_coursemodule_elements()` builds completion settings.
-
-## Deep cleanup status
-
-The RC18 audit centralizes resource-type resolution in `drive::resolve_record_type()`, removes duplicate type-detection branches from runtime code, removes obsolete form plumbing, keeps the legacy download flag pinned to the protected-only architecture, and invalidates PDF cache state when an activity is deleted.
-
-## Release hardening
-
-The commercial release gate is defined in `docs/hardening-validation.md`. It adds explicit security, streaming, browser/device, PDF/document, Moodle API, performance/soak and packaging exit criteria on top of the normal Moodle CI matrix.
-
-`Drive Resource Hardening Gate` continuously protects critical invariants such as Moodle-only browser URLs, no iframe/Google viewer regression, local PDF.js, bounded video-stall recovery and protected byte-range delivery.
-
-## Architecture
+## Production architecture
 
 ```text
-Google Drive link / Moodle private PDF
-            |
-            v
-     Drive Resource activity
-            |
-            v
-       protected.php
-            |
-            +-- require_login()
-            +-- course module validation
-            +-- context_module
-            +-- capability check
-            |
-            v
- protected_resource_service
-            |
-       +----+--------------------+
-       |                         |
-       v                         v
-local/cache stream        HTTP Range proxy
-       |                         |
-       +------------+------------+
-                    v
-          Moodle-owned viewer
-                    |
-                    v
-                 learner
+Teacher / learner
+      |
+      v
+Moodle mod_videoplayer
+      |
+      | Service ID + installation token + signed request
+      v
+Elearning Stream Gateway (WHMCS)
+      |
+      +--> commercial account / wallet / usage
+      +--> Moodle installations
+      +--> managed video provider
+      +--> future protected object-storage provider
 ```
 
-The learner-facing page only contains Moodle URLs such as `protected.php?id=<cmid>`. Raw Google Drive file IDs, temporary playback URLs and direct download URLs are kept on the server side.
+Moodle never receives the provider management API key. Direct uploads use short-lived, video-scoped TUS authorization. Learner playback remains Moodle-owned: the browser requests `protected.php`, Moodle verifies course/module access, WHMCS authorizes the owned asset, and Moodle proxies byte ranges from the signed provider URL.
 
-## Video
+## Commercial model
 
-Video playback uses the browser-native `<video>` element plus `amd/src/nativevideo.js`. Plyr and Video.js are not used. Completion is derived from the union of ranges actually reproduced, so seeking over content does not count skipped media as watched.
+A WHMCS service represents one **Elearning Stream commercial account**, not one Moodle site.
 
-The player treats short `waiting` events as normal buffering, delays the loading overlay to avoid UI flicker, and automatically recovers persistent stalls. Recovery preserves the learner position, refreshes the short-lived server-side Drive playback URL through `protected.php`, and falls back to the protected source stream when required. Google URLs remain server-side throughout the recovery path.
+Default 0.6.0 policy:
 
-The custom player provides:
+- activation: **US$1 once**, provisioned only after the WHMCS service is activated;
+- the activation dollar becomes **US$1 usable Elearning Stream wallet credit**;
+- FREE: **7 GB** video storage;
+- FREE: **20 GB/month** protected video transfer;
+- FREE: **1 Moodle installation**;
+- PAYG transition: a wallet recharge of at least **US$10**;
+- PAYG storage: **US$0.03/GB-month** above the free allowance;
+- PAYG transfer: **US$0.12/GB** above the monthly free allowance;
+- PAYG Moodle installations: **unlimited by default**;
+- all installations under the account share the same wallet and aggregate usage.
 
-- play/pause;
-- seek;
-- buffered-range indication;
-- volume/mute;
-- 0.5x to 2x speed;
-- fullscreen;
-- keyboard controls;
-- responsive portrait/landscape sizing;
-- loading, retry and error states;
-- resume from the last saved second;
-- active-time and completion tracking.
+Money is stored as integer micro-USD. The WHMCS `CreateAccount` path may verify activation only after proving that the service's order points to a **Paid** invoice containing that exact Hosting service; repair and token-rotation paths cannot mint activation credit. The activation invoice id and settlement version are retained for audit and reversal. Recharge invoices credit the wallet only after WHMCS reports `InvoicePaid`. The wallet remains USD-denominated, while WHMCS invoices are converted to the client’s configured currency; the exact converted amount and currency are frozen on the recharge order and revalidated at payment time. Refund/unpaid transitions reverse the wallet entitlement idempotently. If WHMCS later changes an Unpaid recharge back to Paid, a new settlement version restores the credit exactly once; a Refunded recharge is terminal and must be recreated. If provider usage exceeds the remaining prepaid balance, the wallet carries the deficit as debt so a later recharge must cover it before paid overage resumes.
 
-For Google Drive video, the server first attempts a short-lived progressive playback stream. If unavailable, the player retries through the protected source-file endpoint. Both paths remain behind Moodle authorization.
+## Retired provider compatibility
 
-## PDF
+The former Google Drive provider is fully retired from the Elearning Stream runtime. Elearning Stream does not resolve, download, preview or proxy that provider.
 
-PDF.js is bundled locally under:
+Historical database values such as `googledrive`, the Moodle component name `mod_videoplayer`, WHMCS table prefixes such as `mod_driveresource_*`, and some upgrade migrations remain only for compatibility with previously installed builds. The old `classes/local/drive.php` helper is no longer shipped; the retired source key is isolated in `resource_compatibility` and is never executable provider logic.
+
+When an activity backed by the retired remote provider is edited, Moodle requires migration to Elearning Stream before it can be saved. Runtime access to that retired remote source fails closed.
+
+## Upload and playback
+
+Upload:
 
 ```text
-thirdpartylibs/pdfjs/pdf.min.mjs
-thirdpartylibs/pdfjs/pdf.worker.min.mjs
+Teacher browser
+  -> Moodle login/capability validation
+  -> Elearning Stream Gateway
+  -> account + installation + wallet/quota checks
+  -> provider asset reservation
+  <- short-lived upload authorization
+Teacher browser
+  -> provider TUS upload directly
 ```
 
-The viewer provides page navigation, page number, zoom, fit, fullscreen, responsive layout, text search, smooth canvas scrolling/panning, resume and progress tracking.
+Playback:
 
-Google Drive PDFs can be warmed asynchronously into `$CFG->localcachedir/mod_videoplayer/pdf/`. Cold requests are proxied immediately; they do not wait for the complete file to be cached.
+```text
+Learner
+  -> Moodle protected.php
+  -> course/module/capability validation
+  -> Elearning Stream Gateway
+  -> account + installation + asset-reference validation
+  <- short-lived provider playback URL (server-side only)
+  -> Moodle Range proxy
+  -> learner HTML5 player
+```
 
-## Protected streaming
+## Multiple Moodle installations
 
-Large resources are not loaded completely into PHP memory. The plugin supports the protocol elements required by HTML5 media and PDF.js, including:
+Each Moodle installation has its own exact HTTPS site binding and token. A secondary token is displayed once when it is created or rotated and is stored only as a hash in the gateway database.
 
-- `Range`;
-- `If-Range`;
-- `Accept-Ranges`;
-- `206 Partial Content`;
-- `416 Range Not Satisfiable`;
-- `Content-Range`;
-- `Content-Length`;
-- `Content-Type`;
-- `HEAD` requests.
+FREE permits one active Moodle installation by default. PAYG permits unlimited installations by default while maintaining one consolidated balance and usage ledger.
 
-Upstream URLs are restricted to an explicit HTTPS Google host policy before they are proxied.
+## Runtime scope
 
-## Progress and completion
+The Moodle runtime is intentionally narrow:
 
-Video completion is seek-safe: seeking changes the resume position but does not count skipped media as watched. Completion uses the persisted union of media ranges actually reproduced by the learner.
+- managed protected video through Elearning Stream;
+- historical Moodle-local protected PDF through bundled PDF.js;
+- historical retired remote-source records are recognised only to fail closed and migrate.
 
-Per-user state is stored in `videoplayer_views` and includes:
+Audio, image, generic-file presentation and gamification code from early prototypes are not part of the production runtime. Keeping unsupported feature branches out of the package reduces security, Privacy API, Backup/Restore and upgrade surface.
 
-- generic progress;
-- completion percentage;
-- active time;
-- last PDF page / total pages;
-- last media position in seconds;
-- media duration;
-- completed state;
-- points when gamification is enabled.
+## Provider lanes
 
-The video and audio players save the current playback second and restore it on the next visit. Completion is integrated with Moodle Completion API. `progress_updated` and `resource_completed` events are emitted by the service layer.
+The control plane separates:
 
-## Security boundary
+- **managed video** — Elearning Stream today;
+- **protected objects/documents** — independent S3-compatible lane reserved for the future document/PDF implementation.
 
-The security boundary is server side. Browser-side controls such as hiding download affordances, disabling the context menu and watermarking are deterrents, not DRM.
+The S3 control plane must remain disabled in Moodle until its upload, delivery, lifecycle, accounting and security adapters pass production validation.
 
-Every protected request validates the Moodle session, course module, course, module context and `mod/videoplayer:view` capability before bytes are served.
+## Future Moodle course format
 
-See [docs/security.md](docs/security.md).
+The planned course UX will be a separate `format_elearningstream` plugin. It must consume Moodle `cm_info`, modinfo and Completion APIs rather than Elearning Stream database tables or provider internals. See `docs/course-format-integration.md`.
+
+Marketplace/repository readiness requirements are tracked in `docs/moodle-marketplace.md`.
 
 ## Installation
 
-Install the directory as:
+Install the Moodle package at:
 
 ```text
 <moodle>/mod/videoplayer
 ```
 
-Then run:
+Deploy the WHMCS companion from:
 
-```bash
-php admin/cli/upgrade.php --non-interactive
-php admin/cli/purge_caches.php
+```text
+integrations/whmcs/modules/addons/driveresource_gateway/
+integrations/whmcs/modules/servers/driveresource/
 ```
 
-Moodle cron must be configured for PDF cache warming/cleanup.
+The internal directory/module identifiers are compatibility names and are not customer-facing branding.
 
-See [docs/installation.md](docs/installation.md).
+## Release gate
 
-## Development and QA
+Before production:
 
-The repository includes a Moodle 4.5 CI workflow covering PHP 8.1, 8.2 and 8.3 with MariaDB and PostgreSQL jobs. Production AMD files live in `amd/build/`; sources live in `amd/src/`.
-
-Before release, run the manual regression checklist in [docs/manual-test-checklist.md](docs/manual-test-checklist.md), especially the known-working Google Drive video path.
-
-## Documentation
-
-- [Architecture](docs/architecture.md)
-- [Developer guide](docs/developer-guide.md)
-- [Security](docs/security.md)
-- [Installation](docs/installation.md)
-- [Database](docs/database.md)
-- [Manual test checklist](docs/manual-test-checklist.md)
-- [RC17 refactor report](docs/refactor-report.md)
+- Moodle CI must pass on the supported PHP/database matrix;
+- the WHMCS integration/security gate must pass;
+- Gateway CI must execute the production `CommercialMigrationPolicy` against representative active, suspended and incomplete 0.5.9 → 0.6.0 legacy migration scenarios;
+- direct upload, seek, Range/206, rename, replace and delete must be tested end-to-end;
+- wallet recharge must be tested with paid, refunded and unpaid invoices;
+- FREE/PAYG limits must be tested with multiple Moodle installations;
+- no provider management key or signed provider URL may appear in browser HTML or JavaScript;
+- no Google host may be accepted by the Moodle upstream proxy.
 
 ## License
 
-GNU GPL v3 or later.
-
-Bundled third-party components and their licenses are declared in `thirdpartylibs.xml`.
-
-## 1.2.0-beta2: WHMCS-gated Bunny Stream ingestion
-
-The 1.2 line introduces Bunny Stream as a managed video provider while preserving Google Drive and protected local PDF support.
-
-For Bunny uploads, **Bunny management credentials never exist in Moodle**. Moodle stores only the WHMCS gateway URL, WHMCS service ID and a service-scoped gateway token. The upload flow is:
-
-```text
-Teacher browser
-  -> Moodle capability/session check
-  -> WHMCS Media Gateway
-       -> active WHMCS service check
-       -> exact Moodle site binding
-       -> HMAC + timestamp + replay nonce validation
-       -> quota / overage reservation
-       -> Bunny Stream management API
-  <- short-lived video-scoped TUS authorization
-Teacher browser
-  -> Bunny Stream TUS endpoint directly
-```
-
-Video bytes therefore do not traverse Moodle PHP or WHMCS. Large uploads are chunked and resumable, and long uploads can renew the short-lived TUS authorization without creating a second Bunny asset or reserving quota twice.
-
-The commercial quota model is controlled in WHMCS. The provisioning module defaults to **7 GB included storage**, supports soft overage, and exposes a `video_storage_gb` snapshot metric for WHMCS Usage Billing. The gateway reserves concurrent uploads before issuing a Bunny authorization so simultaneous teachers cannot overrun quota based on stale usage.
-
-This beta currently covers **provider provisioning, direct upload, accounting, lifecycle binding/release, Backup & Restore reconciliation, and retention**. Learner-facing Bunny HLS playback is intentionally not enabled yet; a Bunny-backed activity displays a processing/provider placeholder until the secure playback phase is completed and validated.
-
-The WHMCS companion source is maintained under `integrations/whmcs/` in the development repository. It must be deployed to WHMCS separately from the Moodle plugin package.
-
-## Release 1.2.0-beta5-m45
-
-Beta3 hardens database upgrades for installations that passed through earlier RC/beta builds. The `videoplayer_views` progress schema is now repaired idempotently before watched-range completion is enabled. The migration no longer depends on MySQL/MariaDB physical column ordering, so a missing `duration` column cannot make the `watchedranges` DDL fail with an `AFTER duration` error.
-
-Database recovery baseline: `2026092202`; package build: `2026092204`. Run Moodle's normal upgrade process; do not add the columns manually.
-
-
-### Partial-schema recovery
-
-Beta5 adds a defensive recovery path for Moodle sites that previously installed RC/beta builds whose database savepoints advanced farther than the physical schema. Course-cache generation now detects whether optional completion columns exist before selecting them, and upgrade savepoint `2026092204` recreates missing completion, Bunny metadata, and watched-progress fields without manual SQL.
+GNU GPL v3 or later for the Moodle plugin. Companion-module licensing is declared in the WHMCS integration source.

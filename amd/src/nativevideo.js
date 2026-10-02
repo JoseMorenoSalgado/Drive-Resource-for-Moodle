@@ -1,5 +1,5 @@
 /**
- * Drive Resource native HTML5 video player.
+ * Elearning Stream native HTML5 video player.
  *
  * @module     mod_videoplayer/nativevideo
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
@@ -116,7 +116,7 @@ define(['core/ajax'], function(Ajax) {
         }
         root.dataset.customPlayerReady = '1';
 
-        var video = root.querySelector('.js-drive-resource-video');
+        var video = root.querySelector('.js-elearning-stream-video');
         var loading = root.querySelector('.js-video-loading');
         var errorBox = root.querySelector('.js-video-error');
         var retry = root.querySelector('.js-video-retry');
@@ -154,9 +154,13 @@ define(['core/ajax'], function(Ajax) {
         var restoredPosition = false;
         var pendingPosition = initialPosition;
         var resumeAfterReload = false;
+        var desiredSeekPosition = null;
+        var desiredSeekAutoplay = false;
         var recoveryAttempts = 0;
         var watchedRanges = parseRanges(root.dataset.watchedRanges || '[]', 0);
         var lastMediaTime = null;
+        var scrubbing = false;
+        var pendingSeekTarget = null;
 
         if (!video || !frame || !primary) {
             return;
@@ -234,13 +238,17 @@ define(['core/ajax'], function(Ajax) {
 
         var updateTime = function() {
             if (current) {
-                current.textContent = formatTime(video.currentTime);
+                var displayedTime = scrubbing && Number.isFinite(pendingSeekTarget)
+                    ? pendingSeekTarget
+                    : video.currentTime;
+                current.textContent = formatTime(displayedTime);
             }
             if (durationNode) {
                 durationNode.textContent = formatTime(video.duration);
             }
-            if (seek && Number.isFinite(video.duration) && video.duration > 0) {
+            if (seek && !scrubbing && Number.isFinite(video.duration) && video.duration > 0) {
                 seek.value = String(Math.round((video.currentTime / video.duration) * 1000));
+                seek.style.setProperty('--seek-progress', (Number(seek.value) / 10) + '%');
             }
             if (progressLabel) {
                 progressLabel.textContent = Math.round(completionPercentage()) + '%';
@@ -314,7 +322,7 @@ define(['core/ajax'], function(Ajax) {
                 })
                 .catch(function(error) {
                     if (window.console && window.console.warn) {
-                        window.console.warn('Drive Resource progress save failed.', error);
+                        window.console.warn('Elearning Stream progress save failed.', error);
                     }
                 })
                 .then(function() {
@@ -399,8 +407,14 @@ define(['core/ajax'], function(Ajax) {
                 return;
             }
 
-            var position = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+            var position = 0;
             var autoplay = !video.paused && !video.ended;
+            if (Number.isFinite(desiredSeekPosition)) {
+                position = desiredSeekPosition;
+                autoplay = desiredSeekAutoplay;
+            } else if (Number.isFinite(video.currentTime)) {
+                position = video.currentTime;
+            }
             recoveryAttempts += 1;
 
             if (!fallbackActive && recoveryAttempts === 1) {
@@ -431,8 +445,14 @@ define(['core/ajax'], function(Ajax) {
         };
 
         var tryFallback = function() {
-            var position = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+            var position = 0;
             var autoplay = !video.paused && !video.ended;
+            if (Number.isFinite(desiredSeekPosition)) {
+                position = desiredSeekPosition;
+                autoplay = desiredSeekAutoplay;
+            } else if (Number.isFinite(video.currentTime)) {
+                position = video.currentTime;
+            }
 
             if (!fallbackActive && recoveryAttempts === 0) {
                 recoveryAttempts += 1;
@@ -488,10 +508,11 @@ define(['core/ajax'], function(Ajax) {
         frame.addEventListener('pointermove', showControls);
         frame.addEventListener('touchstart', showControls, {passive: true});
         frame.addEventListener('mouseleave', function() {
-            if (!video.paused) {
+            if (!video.paused && !frame.contains(document.activeElement)) {
                 frame.classList.add('controls-hidden');
             }
         });
+        frame.addEventListener('focusin', showControls);
 
         video.addEventListener('loadstart', function() {
             setLoading(true, true);
@@ -502,15 +523,17 @@ define(['core/ajax'], function(Ajax) {
             setError(false);
             markOrientation();
             watchedRanges = mergeRanges(watchedRanges, video.duration);
-            var targetPosition = pendingPosition > 0 ? pendingPosition : initialPosition;
-            if (!restoredPosition && targetPosition > 0 && targetPosition < video.duration - RESUME_GUARD_SECONDS) {
-                try {
-                    video.currentTime = targetPosition;
-                } catch (error) {
-                    // Some engines reject seeking until seekable ranges exist.
+            var targetPosition = Number.isFinite(pendingPosition) ? pendingPosition : initialPosition;
+            if (!restoredPosition) {
+                if (targetPosition > 0 && targetPosition < video.duration - RESUME_GUARD_SECONDS) {
+                    try {
+                        video.currentTime = targetPosition;
+                    } catch (error) {
+                        // Some engines reject seeking until seekable ranges exist.
+                    }
                 }
                 restoredPosition = true;
-                pendingPosition = 0;
+                pendingPosition = null;
             }
             updateTime();
             updateBuffered();
@@ -559,26 +582,133 @@ define(['core/ajax'], function(Ajax) {
             updateTime();
         });
         video.addEventListener('seeking', function() {
+            clearStallTimer();
             lastMediaTime = null;
         });
         video.addEventListener('seeked', function() {
-            lastMediaTime = Number(video.currentTime) || 0;
+            var currentTime = Number(video.currentTime) || 0;
+            lastMediaTime = currentTime;
+
+            if (Number.isFinite(desiredSeekPosition)) {
+                var requestedPosition = desiredSeekPosition;
+                var tolerance = Math.max(1.5, Math.min(3, video.duration * 0.005));
+                if (Math.abs(currentTime - requestedPosition) > tolerance) {
+                    if (recoveryAttempts < MAX_RECOVERY_ATTEMPTS) {
+                        recoveryAttempts += 1;
+                        loadSource(
+                            recoveryUrl(primary, true),
+                            false,
+                            requestedPosition,
+                            desiredSeekAutoplay
+                        );
+                        return;
+                    }
+
+                    setLoading(false);
+                    setError(true);
+                    return;
+                }
+
+                desiredSeekPosition = null;
+                desiredSeekAutoplay = false;
+            }
+
             sendProgress(true);
         });
         video.addEventListener('progress', updateBuffered);
         video.addEventListener('durationchange', updateTime);
         video.addEventListener('error', tryFallback);
 
-        [seek].filter(Boolean).forEach(function(seekControl) {
-            seekControl.addEventListener('input', function() {
-                if (!Number.isFinite(video.duration) || video.duration <= 0) {
-                    return;
-                }
-                video.currentTime = (Number(seekControl.value) / 1000) * video.duration;
+        var seekTargetSeconds = function(seekControl) {
+            if (!Number.isFinite(video.duration) || video.duration <= 0) {
+                return null;
+            }
+
+            var fraction = Math.max(0, Math.min(1, Number(seekControl.value) / 1000));
+            return fraction * video.duration;
+        };
+
+        var previewSeek = function(seekControl) {
+            var target = seekTargetSeconds(seekControl);
+            if (target === null) {
+                return;
+            }
+
+            scrubbing = true;
+            pendingSeekTarget = target;
+            seekControl.style.setProperty('--seek-progress', (Number(seekControl.value) / 10) + '%');
+            updateTime();
+            showControls();
+        };
+
+        var commitSeek = function() {
+            if (!scrubbing || !Number.isFinite(pendingSeekTarget)) {
+                return false;
+            }
+
+            var target = pendingSeekTarget;
+            scrubbing = false;
+            pendingSeekTarget = null;
+            if (!Number.isFinite(target)) {
                 updateTime();
+                return false;
+            }
+
+            target = Math.max(0, Math.min(video.duration, target));
+            desiredSeekPosition = target;
+            desiredSeekAutoplay = !video.paused && !video.ended;
+            clearStallTimer();
+            lastMediaTime = null;
+
+            try {
+                // Commit once when the learner releases the slider. Updating
+                // currentTime on every mobile input event starts overlapping
+                // protected Range requests and can make seeking appear stuck.
+                video.currentTime = target;
+            } catch (error) {
+                desiredSeekPosition = null;
+                desiredSeekAutoplay = false;
+                updateTime();
+                return false;
+            }
+
+            updateTime();
+            showControls();
+            return true;
+        };
+
+        [seek].filter(Boolean).forEach(function(seekControl) {
+            seekControl.addEventListener('pointerdown', function() {
+                scrubbing = true;
+                clearStallTimer();
+                showControls();
+            });
+            seekControl.addEventListener('input', function() {
+                previewSeek(seekControl);
+            });
+            seekControl.addEventListener('pointerup', function() {
+                if (commitSeek()) {
+                    sendProgress(true);
+                }
             });
             seekControl.addEventListener('change', function() {
-                sendProgress(true);
+                if (commitSeek()) {
+                    sendProgress(true);
+                }
+            });
+            seekControl.addEventListener('pointercancel', function() {
+                scrubbing = false;
+                pendingSeekTarget = null;
+                updateTime();
+            });
+            seekControl.addEventListener('blur', function() {
+                if (commitSeek()) {
+                    sendProgress(true);
+                } else {
+                    scrubbing = false;
+                    pendingSeekTarget = null;
+                    updateTime();
+                }
             });
         });
 
@@ -592,6 +722,7 @@ define(['core/ajax'], function(Ajax) {
             }
             if (volume) {
                 volume.value = String(video.muted ? 0 : video.volume);
+                volume.style.setProperty('--volume-progress', ((video.muted ? 0 : video.volume) * 100) + '%');
             }
         };
 
@@ -653,6 +784,9 @@ define(['core/ajax'], function(Ajax) {
         });
 
         frame.addEventListener('keydown', function(event) {
+            if (event.target !== frame && event.target !== video) {
+                return;
+            }
             var key = (event.key || '').toLowerCase();
             if (key === ' ' || key === 'k') {
                 event.preventDefault();

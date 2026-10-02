@@ -10,12 +10,7 @@ use WHMCS\Database\Capsule;
  */
 final class GatewayService
 {
-    private BunnyClient $bunny;
-
-    public function __construct()
-    {
-        $this->bunny = new BunnyClient();
-    }
+    private ?BunnyClient $bunny = null;
 
     /**
      * Reserve quota, create the Bunny video, and return a scoped TUS signature.
@@ -26,12 +21,17 @@ final class GatewayService
      */
     public function authorizeUpload(object $service, array $payload): array
     {
+        $this->requireBackendCapability($service, BackendRegistry::CAP_DIRECT_UPLOAD);
         $filename = basename(trim((string) ($payload['filename'] ?? '')));
         $filesize = (int) ($payload['filesize'] ?? 0);
         $title = trim((string) ($payload['title'] ?? ''));
         $courseId = max(0, (int) ($payload['courseid'] ?? 0));
 
-        if ($filename === '' || strlen($filename) > 255 || $filesize <= 0 || $filesize > 1099511627776) {
+        if (
+            !$this->isSupportedVideoFilename($filename)
+            || $filesize <= 0
+            || $filesize > 1099511627776
+        ) {
             throw new GatewayException('Invalid video upload metadata.', 422);
         }
 
@@ -43,6 +43,7 @@ final class GatewayService
             $service,
             $filesize,
             $filename,
+            $title,
             $courseId,
             $uploadId,
             $now,
@@ -54,24 +55,21 @@ final class GatewayService
                 ->first();
 
             if (!$locked || (string) $locked->status !== 'active') {
-                throw new GatewayException('Drive Resource service is not active.', 403);
+                throw new GatewayException('Elearning Stream service is not active.', 403);
             }
 
             $used = (int) $locked->used_bytes;
             $reserved = (int) $locked->reserved_bytes;
-            $included = (int) $locked->quota_bytes;
-            $projected = $used + $reserved + $filesize;
-            $overage = max(0, $projected - $included);
-
-            if ($overage > 0 && !(bool) $locked->overage_allowed) {
-                throw new GatewayException('The storage quota has been reached and this plan does not allow overage.', 409);
-            }
+            $quota = CommercialAccount::uploadPolicy($locked, $filesize);
+            $this->assertStoragePolicy($quota);
 
             Capsule::table('mod_driveresource_uploads')->insert([
                 'upload_id' => $uploadId,
                 'service_id' => (int) $locked->service_id,
+                'installation_id' => $this->installationId($service),
                 'video_id' => null,
                 'filename' => $filename,
+                'display_name' => mb_substr($title !== '' ? $title : $filename, 0, 255),
                 'source_size' => $filesize,
                 'accounted_bytes' => 0,
                 'status' => 'reserved',
@@ -91,21 +89,34 @@ final class GatewayService
                     'updated_at' => $now,
                 ]);
 
-            return [
-                'includedbytes' => $included,
-                'usedbytes' => $used,
-                'reservedbytes' => $reserved + $filesize,
-                'projectedbytes' => $projected,
-                'overagebytes' => $overage,
-                'overageallowed' => (bool) $locked->overage_allowed,
-            ];
+            return $quota;
         });
 
         try {
-            $videoId = $this->bunny->createVideo($title !== '' ? $title : $filename);
+            $collection = $this->ensureVirtualClassroom($service);
+            $videoId = $this->streamClient($service)->createVideo(
+                $title !== '' ? $title : $filename,
+                $collection['id']
+            );
+
+            // Collection assignment is already part of video creation. Tags
+            // are supplementary support metadata and must not invalidate a
+            // successful provider allocation if the update endpoint is
+            // temporarily unavailable.
+            try {
+                $this->streamClient($service)->setVideoCollection(
+                    $videoId,
+                    $collection['id'],
+                    $this->videoMetaTags($service, $courseId)
+                );
+            } catch (Throwable $ignored) {
+            }
         } catch (Throwable $exception) {
             $this->cancelReservation($uploadId);
-            throw new GatewayException('Elearning Stream could not create the video resource.', 502);
+            throw new GatewayException(
+                'Elearning Stream could not prepare the virtual classroom or create the video resource.',
+                502
+            );
         }
 
         try {
@@ -119,7 +130,7 @@ final class GatewayService
                 ]);
         } catch (Throwable $exception) {
             try {
-                $this->bunny->deleteVideo($videoId);
+                $this->streamClient($service)->deleteVideo($videoId);
             } catch (Throwable $ignored) {
             }
             $this->cancelReservation($uploadId);
@@ -129,9 +140,9 @@ final class GatewayService
         return [
             'uploadid' => $uploadId,
             'videoid' => $videoId,
-            'libraryid' => (string) $this->bunny->libraryId(),
+            'libraryid' => (string) $this->streamClient($service)->libraryId(),
             'endpoint' => 'https://video.bunnycdn.com/tusupload',
-            'signature' => $this->bunny->tusSignature($videoId, $expiresAt),
+            'signature' => $this->streamClient($service)->tusSignature($videoId, $expiresAt),
             'expiration' => $expiresAt,
             'quota' => $quota,
         ];
@@ -149,6 +160,7 @@ final class GatewayService
      */
     public function refreshUploadAuthorization(object $service, array $payload): array
     {
+        $this->requireBackendCapability($service, BackendRegistry::CAP_DIRECT_UPLOAD);
         $uploadId = strtolower(trim((string) ($payload['uploadid'] ?? '')));
         $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
         $upload = $this->requireUpload((int) $service->service_id, $uploadId, $videoId);
@@ -158,7 +170,7 @@ final class GatewayService
         }
 
         try {
-            $this->bunny->getVideo($videoId);
+            $this->streamClient($service)->getVideo($videoId);
         } catch (Throwable $exception) {
             throw new GatewayException('Elearning Stream could not verify the upload target.', 502);
         }
@@ -175,9 +187,9 @@ final class GatewayService
         return [
             'uploadid' => $uploadId,
             'videoid' => $videoId,
-            'libraryid' => (string) $this->bunny->libraryId(),
+            'libraryid' => (string) $this->streamClient($service)->libraryId(),
             'endpoint' => 'https://video.bunnycdn.com/tusupload',
-            'signature' => $this->bunny->tusSignature($videoId, $expiration),
+            'signature' => $this->streamClient($service)->tusSignature($videoId, $expiration),
             'expiration' => $expiration,
         ];
     }
@@ -191,6 +203,7 @@ final class GatewayService
      */
     public function completeUpload(object $service, array $payload): array
     {
+        $this->requireBackendCapability($service, BackendRegistry::CAP_DIRECT_UPLOAD);
         $uploadId = strtolower(trim((string) ($payload['uploadid'] ?? '')));
         $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
         $fileSize = (int) ($payload['filesize'] ?? 0);
@@ -201,7 +214,7 @@ final class GatewayService
         }
 
         try {
-            $video = $this->bunny->getVideo($videoId);
+            $video = $this->streamClient($service)->getVideo($videoId);
         } catch (Throwable $exception) {
             throw new GatewayException('Elearning Stream could not verify the uploaded video.', 502);
         }
@@ -280,26 +293,37 @@ final class GatewayService
      */
     public function importAsset(object $service, array $payload): array
     {
-        $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
+        $this->requireBackendCapability($service, BackendRegistry::CAP_MANAGED_VIDEO);
+        $videoId = $this->resolveImportedVideoId($payload);
         $courseId = max(0, (int) ($payload['courseid'] ?? 0));
-
-        if (!preg_match('/^[a-f0-9-]{32,64}$/i', $videoId)) {
-            throw new GatewayException('Invalid Elearning Stream video identifier.', 422);
-        }
 
         $otherOwner = Capsule::table('mod_driveresource_uploads')
             ->where('video_id', $videoId)
             ->where('service_id', '<>', (int) $service->service_id)
-            ->whereIn('status', ['processing', 'ready', 'bound'])
+            ->whereIn('status', ['authorized', 'processing', 'ready', 'bound', 'deleting'])
             ->first();
         if ($otherOwner) {
             throw new GatewayException('This Elearning Stream video is already assigned to another service.', 403);
         }
 
         try {
-            $video = $this->bunny->getVideo($videoId);
+            $video = $this->streamClient($service)->getVideo($videoId);
         } catch (Throwable $exception) {
             throw new GatewayException('Elearning Stream could not verify this video in the configured library.', 404);
+        }
+
+        try {
+            $collection = $this->ensureVirtualClassroom($service);
+            $this->streamClient($service)->setVideoCollection(
+                $videoId,
+                $collection['id'],
+                $this->videoMetaTags($service, $courseId)
+            );
+        } catch (Throwable $exception) {
+            throw new GatewayException(
+                'Elearning Stream could not organise this video inside the virtual classroom.',
+                502
+            );
         }
 
         $providerBytes = max(0, (int) ($video['storageSize'] ?? 0));
@@ -328,15 +352,22 @@ final class GatewayService
                 ->first();
 
             if (!$locked || (string) $locked->status !== 'active') {
-                throw new GatewayException('Drive Resource service is not active.', 403);
+                throw new GatewayException('Elearning Stream service is not active.', 403);
             }
 
             $existing = Capsule::table('mod_driveresource_uploads')
                 ->where('service_id', (int) $service->service_id)
                 ->where('video_id', $videoId)
-                ->whereIn('status', ['processing', 'ready', 'bound'])
+                ->whereIn('status', ['authorized', 'processing', 'ready', 'bound', 'deleting'])
                 ->orderBy('created_at', 'asc')
                 ->first();
+
+            if ($existing && in_array((string)$existing->status, ['authorized', 'deleting'], true)) {
+                throw new GatewayException(
+                    'This Elearning Stream video is already in an active upload or deletion transition.',
+                    409
+                );
+            }
 
             if ($existing) {
                 return [
@@ -346,35 +377,21 @@ final class GatewayService
                     'status' => (string) $existing->status === 'bound'
                         ? 'ready'
                         : (string) $existing->status,
-                    'quota' => [
-                        'includedbytes' => (int) $locked->quota_bytes,
-                        'usedbytes' => (int) $locked->used_bytes,
-                        'reservedbytes' => (int) $locked->reserved_bytes,
-                        'projectedbytes' => (int) $locked->used_bytes + (int) $locked->reserved_bytes,
-                        'overagebytes' => max(
-                            0,
-                            (int) $locked->used_bytes + (int) $locked->reserved_bytes - (int) $locked->quota_bytes
-                        ),
-                        'overageallowed' => (bool) $locked->overage_allowed,
-                    ],
+                    'quota' => CommercialAccount::uploadPolicy($locked, 0),
                 ];
             }
 
-            $projected = (int) $locked->used_bytes + (int) $locked->reserved_bytes + $providerBytes;
-            $overage = max(0, $projected - (int) $locked->quota_bytes);
-            if ($overage > 0 && !(bool) $locked->overage_allowed) {
-                throw new GatewayException(
-                    'The storage quota has been reached and this plan does not allow overage.',
-                    409
-                );
-            }
+            $quota = CommercialAccount::uploadPolicy($locked, $providerBytes);
+            $this->assertStoragePolicy($quota);
 
             $uploadId = bin2hex(random_bytes(16));
             Capsule::table('mod_driveresource_uploads')->insert([
                 'upload_id' => $uploadId,
                 'service_id' => (int) $locked->service_id,
+                'installation_id' => $this->installationId($service),
                 'video_id' => $videoId,
                 'filename' => $filename,
+                'display_name' => $filename,
                 'source_size' => $providerBytes,
                 'accounted_bytes' => $providerBytes,
                 'status' => $status,
@@ -399,14 +416,12 @@ final class GatewayService
                 'videoid' => $videoId,
                 'filesize' => $providerBytes,
                 'status' => $status,
-                'quota' => [
-                    'includedbytes' => (int) $locked->quota_bytes,
-                    'usedbytes' => (int) $locked->used_bytes + $providerBytes,
-                    'reservedbytes' => (int) $locked->reserved_bytes,
-                    'projectedbytes' => $projected,
-                    'overagebytes' => $overage,
-                    'overageallowed' => (bool) $locked->overage_allowed,
-                ],
+                'quota' => CommercialAccount::uploadPolicy(
+                    (object) array_merge((array) $locked, [
+                        'used_bytes' => (int) $locked->used_bytes + $providerBytes,
+                    ]),
+                    0
+                ),
             ];
         });
     }
@@ -419,35 +434,58 @@ final class GatewayService
      * asset already accounted to the requesting service.
      *
      * @param object $service Authenticated service row.
+     * @param string $siteUrl Authenticated Moodle site.
      * @param array $payload Request body.
      * @return array
      */
-    public function authorizePlayback(object $service, array $payload): array
+    public function authorizePlayback(object $service, string $siteUrl, array $payload): array
     {
+        $this->requireBackendCapability($service, BackendRegistry::CAP_PROTECTED_PLAYBACK);
         $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
-        if (!preg_match('/^[a-f0-9-]{32,64}$/i', $videoId)) {
-            throw new GatewayException('Invalid Elearning Stream video identifier.', 422);
+        $instanceId = (int) ($payload['instanceid'] ?? 0);
+        if (!preg_match('/^[a-f0-9-]{32,64}$/i', $videoId) || $instanceId <= 0) {
+            throw new GatewayException('Invalid Elearning Stream playback reference.', 422);
         }
 
         if ((string) ($service->status ?? '') !== 'active') {
-            throw new GatewayException('Drive Resource service is not active.', 403);
+            throw new GatewayException('Elearning Stream service is not active.', 403);
         }
 
+        $this->assertPlaybackPolicy($service);
+
+        $serviceId = (int) $service->service_id;
         $owned = Capsule::table('mod_driveresource_uploads')
-            ->where('service_id', (int) $service->service_id)
+            ->where('service_id', $serviceId)
             ->where('video_id', $videoId)
             ->whereIn('status', ['processing', 'ready', 'bound'])
-            ->first();
-        if (!$owned) {
+            ->exists();
+        $referenced = Capsule::table('mod_driveresource_asset_refs')
+            ->where('service_id', $serviceId)
+            ->where('site_hash', hash('sha256', $siteUrl))
+            ->where('instance_id', $instanceId)
+            ->where('video_id', $videoId)
+            ->where('active', true)
+            ->exists();
+        if (!$owned || !$referenced) {
             throw new GatewayException(
-                'This Elearning Stream video does not belong to the requesting service.',
+                'This Moodle activity does not own an active playback reference.',
                 403
             );
         }
 
         try {
-            $playback = $this->bunny->playbackUrl($videoId);
+            $playback = $this->streamClient($service)->playbackUrl($videoId);
         } catch (Throwable $exception) {
+            $message = trim($exception->getMessage());
+            if (
+                str_starts_with($message, 'Elearning Stream CDN ')
+                || str_starts_with($message, 'Elearning Stream MP4 ')
+                || str_starts_with($message, 'Elearning Stream did not report ')
+            ) {
+                $status = str_starts_with($message, 'Elearning Stream CDN ') ? 502 : 409;
+                throw new GatewayException($message, $status);
+            }
+
             throw new GatewayException(
                 'Elearning Stream playback is not ready for this video.',
                 409
@@ -472,12 +510,18 @@ final class GatewayService
      */
     public function bindAsset(object $service, string $siteUrl, array $payload): array
     {
+        $this->requireBackendCapability($service, BackendRegistry::CAP_MANAGED_VIDEO);
         $uploadId = strtolower(trim((string) ($payload['uploadid'] ?? '')));
         $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
         $instanceId = (int) ($payload['instanceid'] ?? 0);
         $courseId = (int) ($payload['courseid'] ?? 0);
 
-        $upload = $this->requireUpload((int) $service->service_id, $uploadId, $videoId);
+        if ($instanceId <= 0) {
+            throw new GatewayException('Video is not ready to be bound to a Moodle activity.', 409);
+        }
+
+        $serviceId = (int) $service->service_id;
+        $upload = $this->requireUpload($serviceId, $uploadId, $videoId);
 
         // The browser may have finished the TUS transfer while the Moodle ->
         // WHMCS completion callback was interrupted. Recover server-side by
@@ -488,24 +532,41 @@ final class GatewayService
                 'videoid' => $videoId,
                 'filesize' => (int) $upload->source_size,
             ]);
-            $upload = $this->requireUpload((int) $service->service_id, $uploadId, $videoId);
         }
 
-        if ($instanceId <= 0 || !in_array((string) $upload->status, ['processing', 'ready', 'bound'], true)) {
-            throw new GatewayException('Video is not ready to be bound to a Moodle activity.', 409);
-        }
+        return Capsule::connection()->transaction(function () use (
+            $serviceId,
+            $siteUrl,
+            $uploadId,
+            $videoId,
+            $instanceId,
+            $courseId
+        ): array {
+            // Serialise bind/reconcile against release/deletion for this asset.
+            $upload = Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->where('upload_id', $uploadId)
+                ->where('video_id', $videoId)
+                ->lockForUpdate()
+                ->first();
 
-        $this->upsertReference((int) $service->service_id, $siteUrl, $videoId, $instanceId, $courseId);
-        Capsule::table('mod_driveresource_uploads')
-            ->where('upload_id', $uploadId)
-            ->update([
-                'bound_instance_id' => $instanceId,
-                'status' => ((string) $upload->status === 'ready') ? 'ready' : 'bound',
-                'delete_after' => null,
-                'updated_at' => time(),
-            ]);
+            if (!$upload || !in_array((string) $upload->status, ['processing', 'ready', 'bound'], true)) {
+                throw new GatewayException('Video is not ready to be bound to a Moodle activity.', 409);
+            }
 
-        return ['status' => 'bound'];
+            $this->upsertReference($serviceId, $siteUrl, $videoId, $instanceId, $courseId);
+            Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->where('upload_id', $uploadId)
+                ->update([
+                    'bound_instance_id' => $instanceId,
+                    'status' => ((string) $upload->status === 'ready') ? 'ready' : 'bound',
+                    'delete_after' => null,
+                    'updated_at' => time(),
+                ]);
+
+            return ['status' => 'bound'];
+        });
     }
 
     /**
@@ -518,6 +579,7 @@ final class GatewayService
      */
     public function reconcileAsset(object $service, string $siteUrl, array $payload): array
     {
+        $this->requireBackendCapability($service, BackendRegistry::CAP_MANAGED_VIDEO);
         $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
         $instanceId = (int) ($payload['instanceid'] ?? 0);
         $courseId = (int) ($payload['courseid'] ?? 0);
@@ -526,8 +588,9 @@ final class GatewayService
             throw new GatewayException('Invalid restored asset reference.', 422);
         }
 
+        $serviceId = (int) $service->service_id;
         $owned = Capsule::table('mod_driveresource_uploads')
-            ->where('service_id', (int) $service->service_id)
+            ->where('service_id', $serviceId)
             ->where('video_id', $videoId)
             ->whereIn('status', ['processing', 'ready', 'bound'])
             ->first();
@@ -536,22 +599,100 @@ final class GatewayService
         }
 
         try {
-            $this->bunny->getVideo($videoId);
+            $this->streamClient($service)->getVideo($videoId);
         } catch (Throwable $exception) {
             throw new GatewayException('The restored video no longer exists in Elearning Stream.', 404);
         }
 
-        $this->upsertReference((int) $service->service_id, $siteUrl, $videoId, $instanceId, $courseId);
-        Capsule::table('mod_driveresource_uploads')
-            ->where('service_id', (int) $service->service_id)
-            ->where('video_id', $videoId)
-            ->update(['delete_after' => null, 'updated_at' => time()]);
+        return Capsule::connection()->transaction(function () use (
+            $serviceId,
+            $siteUrl,
+            $videoId,
+            $instanceId,
+            $courseId
+        ): array {
+            // Re-check ownership under the same asset lock used by release.
+            $upload = Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->where('video_id', $videoId)
+                ->whereIn('status', ['processing', 'ready', 'bound'])
+                ->lockForUpdate()
+                ->first();
+            if (!$upload) {
+                throw new GatewayException('The restored video is being released or no longer belongs to this service.', 409);
+            }
 
-        return ['status' => 'bound'];
+            $this->upsertReference($serviceId, $siteUrl, $videoId, $instanceId, $courseId);
+            Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->where('upload_id', (string) $upload->upload_id)
+                ->update([
+                    'delete_after' => null,
+                    'updated_at' => time(),
+                ]);
+
+            return ['status' => 'bound'];
+        });
     }
 
     /**
-     * Release one Moodle reference. Physical deletion remains deferred.
+     * Rename a service-owned video that is bound to this Moodle activity.
+     *
+     * @param object $service Service row.
+     * @param string $siteUrl Authenticated Moodle site.
+     * @param array $payload Request body.
+     * @return array
+     */
+    public function renameAsset(object $service, string $siteUrl, array $payload): array
+    {
+        $this->requireBackendCapability($service, BackendRegistry::CAP_MANAGED_VIDEO);
+        $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
+        $instanceId = (int) ($payload['instanceid'] ?? 0);
+        $title = trim((string) ($payload['title'] ?? ''));
+        if ($instanceId <= 0 || !preg_match('/^[a-f0-9-]{32,64}$/', $videoId)
+            || $title === '' || mb_strlen($title) > 255) {
+            throw new GatewayException('Invalid asset title update.', 422);
+        }
+
+        $serviceId = (int) $service->service_id;
+        $owned = Capsule::table('mod_driveresource_uploads')
+            ->where('service_id', $serviceId)
+            ->where('video_id', $videoId)
+            ->whereIn('status', ['processing', 'ready', 'bound'])
+            ->exists();
+        $bound = Capsule::table('mod_driveresource_asset_refs')
+            ->where('service_id', $serviceId)
+            ->where('site_hash', hash('sha256', $siteUrl))
+            ->where('instance_id', $instanceId)
+            ->where('video_id', $videoId)
+            ->where('active', true)
+            ->exists();
+        if (!$owned || !$bound) {
+            throw new GatewayException('This activity does not own the video.', 403);
+        }
+
+        // Keep provider and WHMCS presentation state aligned. The provider
+        // rename is idempotent; if the database write fails, the Moodle adhoc
+        // task can safely retry the whole operation.
+        $this->streamClient($service)->renameVideo($videoId, $title);
+
+        Capsule::table('mod_driveresource_uploads')
+            ->where('service_id', $serviceId)
+            ->where('video_id', $videoId)
+            ->whereIn('status', ['processing', 'ready', 'bound'])
+            ->update([
+                'display_name' => $title,
+                'updated_at' => time(),
+            ]);
+
+        return ['status' => 'renamed'];
+    }
+
+    /**
+     * Release a video reference and apply the retention policy.
+     *
+     * A video is never deleted while another active Moodle reference exists.
+     * Zero retention triggers immediate deletion after the last reference.
      *
      * @param object $service Service row.
      * @param string $siteUrl Authenticated Moodle site.
@@ -560,41 +701,715 @@ final class GatewayService
      */
     public function releaseAsset(object $service, string $siteUrl, array $payload): array
     {
+        $this->requireBackendCapability($service, BackendRegistry::CAP_MANAGED_VIDEO);
         $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
         $instanceId = (int) ($payload['instanceid'] ?? 0);
-        if ($instanceId <= 0 || !preg_match('/^[a-f0-9-]{32,64}$/i', $videoId)) {
+        $requestedUploadId = strtolower(trim((string) ($payload['uploadid'] ?? '')));
+
+        if (
+            $instanceId <= 0
+            || !preg_match('/^[a-f0-9-]{32,64}$/i', $videoId)
+            || ($requestedUploadId !== '' && !preg_match('/^[a-f0-9]{32}$/', $requestedUploadId))
+        ) {
             throw new GatewayException('Invalid asset release request.', 422);
         }
 
-        $siteHash = hash('sha256', $siteUrl);
-        Capsule::table('mod_driveresource_asset_refs')
-            ->where('service_id', (int) $service->service_id)
-            ->where('site_hash', $siteHash)
-            ->where('instance_id', $instanceId)
-            ->where('video_id', $videoId)
-            ->update(['active' => false, 'updated_at' => time()]);
+        $serviceId = (int) $service->service_id;
 
-        $remaining = Capsule::table('mod_driveresource_asset_refs')
-            ->where('service_id', (int) $service->service_id)
-            ->where('video_id', $videoId)
-            ->where('active', true)
-            ->count();
-
-        if ($remaining === 0) {
-            Capsule::table('mod_driveresource_uploads')
-                ->where('service_id', (int) $service->service_id)
-                ->where('video_id', $videoId)
-                ->update([
-                    'delete_after' => time() + ((int) $service->retention_days * 86400),
-                    'updated_at' => time(),
+        // A Moodle activity can be deleted before its queued bind task runs.
+        // In that case the upload reservation is the only durable proof that
+        // this site legitimately created the still-unbound provider asset.
+        if ($requestedUploadId !== '') {
+            $candidate = $this->requireUpload($serviceId, $requestedUploadId, $videoId);
+            if ((string) $candidate->status === 'authorized') {
+                $this->completeUpload($service, [
+                    'uploadid' => $requestedUploadId,
+                    'videoid' => $videoId,
+                    'filesize' => (int) $candidate->source_size,
                 ]);
+            }
         }
 
-        return ['status' => 'released', 'remainingrefs' => (int) $remaining];
+        $siteHash = hash('sha256', $siteUrl);
+        $retentionDays = max(0, min(365, (int) ($service->retention_days ?? 0)));
+        $deleteNow = false;
+        $uploadId = '';
+        $previousStatus = '';
+        $remaining = 0;
+        $terminalStatus = '';
+        $now = time();
+
+        Capsule::connection()->transaction(function () use (
+            $serviceId,
+            $siteHash,
+            $instanceId,
+            $videoId,
+            $requestedUploadId,
+            $retentionDays,
+            $now,
+            &$deleteNow,
+            &$uploadId,
+            &$previousStatus,
+            &$remaining,
+            &$terminalStatus
+        ): void {
+            // Always lock the provider asset before its references. Bind and
+            // restore use the same lock order, preventing bind/delete races.
+            $query = Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->where('video_id', $videoId);
+            if ($requestedUploadId !== '') {
+                $query->where('upload_id', $requestedUploadId);
+            }
+            $upload = $query
+                ->whereIn('status', ['processing', 'ready', 'bound', 'deleting'])
+                ->lockForUpdate()
+                ->first();
+
+            if (!$upload) {
+                $query = Capsule::table('mod_driveresource_uploads')
+                    ->where('service_id', $serviceId)
+                    ->where('video_id', $videoId);
+                if ($requestedUploadId !== '') {
+                    $query->where('upload_id', $requestedUploadId);
+                }
+                $upload = $query
+                    ->where('status', 'deleted')
+                    ->lockForUpdate()
+                    ->first();
+            }
+
+            if (!$upload) {
+                throw new GatewayException('This service does not own the video.', 403);
+            }
+
+            $reference = Capsule::table('mod_driveresource_asset_refs')
+                ->where('service_id', $serviceId)
+                ->where('site_hash', $siteHash)
+                ->where('instance_id', $instanceId)
+                ->where('video_id', $videoId)
+                ->lockForUpdate()
+                ->first();
+
+            $isUnboundReservation = !$reference
+                && $requestedUploadId !== ''
+                && hash_equals((string) $upload->upload_id, $requestedUploadId)
+                && (int) $upload->bound_instance_id === 0
+                && in_array((string) $upload->status, ['processing', 'ready'], true);
+
+            if (!$reference && !$isUnboundReservation) {
+                throw new GatewayException('This activity does not own the video.', 403);
+            }
+
+            if ($reference && (bool) $reference->active) {
+                Capsule::table('mod_driveresource_asset_refs')
+                    ->where('id', (int) $reference->id)
+                    ->update(['active' => false, 'updated_at' => $now]);
+            }
+
+            $remaining = (int) Capsule::table('mod_driveresource_asset_refs')
+                ->where('service_id', $serviceId)
+                ->where('video_id', $videoId)
+                ->where('active', true)
+                ->count();
+
+            if ($remaining > 0) {
+                $terminalStatus = 'released';
+                return;
+            }
+
+            $currentStatus = (string) $upload->status;
+            if ($currentStatus === 'deleted') {
+                $terminalStatus = 'deleted';
+                return;
+            }
+            if ($currentStatus === 'deleting') {
+                $terminalStatus = 'scheduled';
+                return;
+            }
+
+            if ($retentionDays > 0) {
+                Capsule::table('mod_driveresource_uploads')
+                    ->where('service_id', $serviceId)
+                    ->where('upload_id', (string) $upload->upload_id)
+                    ->update([
+                        'delete_after' => $now + ($retentionDays * 86400),
+                        'updated_at' => $now,
+                    ]);
+                $terminalStatus = 'scheduled';
+                return;
+            }
+
+            $deleteNow = true;
+            $uploadId = (string) $upload->upload_id;
+            $previousStatus = $currentStatus;
+
+            Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->where('upload_id', $uploadId)
+                ->update([
+                    'status' => 'deleting',
+                    'delete_after' => null,
+                    'updated_at' => $now,
+                ]);
+        });
+
+        if (!$deleteNow) {
+            return [
+                'status' => $terminalStatus !== '' ? $terminalStatus : 'scheduled',
+                'remainingrefs' => $remaining,
+            ];
+        }
+
+        try {
+            $this->streamClient($service)->deleteVideo($videoId);
+        } catch (Throwable $exception) {
+            Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->where('upload_id', $uploadId)
+                ->update([
+                    'status' => $previousStatus,
+                    // Make DailyCronJob retry a failed provider deletion.
+                    'delete_after' => time(),
+                    'updated_at' => time(),
+                ]);
+
+            throw new GatewayException(
+                'Elearning Stream could not delete the unreferenced video. Deletion was queued for retry.',
+                502
+            );
+        }
+
+        Capsule::connection()->transaction(function () use ($serviceId, $uploadId): void {
+            Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->where('upload_id', $uploadId)
+                ->update([
+                    'status' => 'deleted',
+                    'accounted_bytes' => 0,
+                    'delete_after' => null,
+                    'updated_at' => time(),
+                ]);
+
+            $used = (int) Capsule::table('mod_driveresource_uploads')
+                ->where('service_id', $serviceId)
+                ->whereIn('status', ['processing', 'ready', 'bound'])
+                ->sum('accounted_bytes');
+
+            Capsule::table('mod_driveresource_services')
+                ->where('service_id', $serviceId)
+                ->update([
+                    'used_bytes' => max(0, $used),
+                    'updated_at' => time(),
+                ]);
+        });
+
+        return ['status' => 'deleted', 'remainingrefs' => 0];
     }
 
     /**
-     * Remove an uncompleted quota reservation.
+     * Record one idempotent Moodle transfer-usage batch.
+     *
+     * @param object $service Authenticated service row.
+     * @param array $payload Request body.
+     * @return array
+     */
+    public function recordTransfer(object $service, array $payload): array
+    {
+        $reportId = strtolower(trim((string) ($payload['reportid'] ?? '')));
+        $period = trim((string) ($payload['period'] ?? ''));
+        $bytes = max(0, (int) ($payload['bytes'] ?? 0));
+
+        if (!preg_match('/^[a-f0-9]{64}$/', $reportId)) {
+            throw new GatewayException('Invalid transfer report id.', 422);
+        }
+        if (!preg_match('/^20\\d{2}-(0[1-9]|1[0-2])$/', $period)) {
+            throw new GatewayException('Invalid transfer billing period.', 422);
+        }
+        if ($bytes <= 0 || $bytes > 1099511627776) {
+            throw new GatewayException('Invalid transfer byte count.', 422);
+        }
+
+        $now = time();
+        $installationId = $this->installationId($service);
+        $chargeMicrousd = 0;
+        $billableDelta = 0;
+
+        Capsule::connection()->transaction(function () use (
+            $service,
+            $reportId,
+            $period,
+            $bytes,
+            $now,
+            $installationId,
+            &$chargeMicrousd,
+            &$billableDelta
+        ): void {
+            $existing = Capsule::table('mod_driveresource_usage_reports')
+                ->where('service_id', (int) $service->service_id)
+                ->where('report_id', $reportId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($existing) {
+                return;
+            }
+
+            $serviceRow = Capsule::table('mod_driveresource_services')
+                ->where('service_id', (int) $service->service_id)
+                ->lockForUpdate()
+                ->first();
+            if (!$serviceRow || (string) $serviceRow->status === 'terminated') {
+                throw new GatewayException('Elearning Stream service is not available.', 403);
+            }
+
+            $currentPeriod = trim((string) ($serviceRow->transfer_period ?? ''));
+            $currentBytes = $currentPeriod === $period
+                ? max(0, (int) ($serviceRow->transfer_bytes ?? 0))
+                : 0;
+            $nextBytes = $currentBytes + $bytes;
+
+            $account = CommercialAccount::find((int) $service->service_id);
+            if ($account && (string) $account->billing_mode !== CommercialAccount::MODE_LEGACY) {
+                $freeTransfer = max(0, (int) $account->free_transfer_bytes);
+                $beforeBillable = max(0, $currentBytes - $freeTransfer);
+                $afterBillable = max(0, $nextBytes - $freeTransfer);
+                $billableDelta = max(0, $afterBillable - $beforeBillable);
+
+                if (
+                    (string) $account->billing_mode === CommercialAccount::MODE_PAYG
+                    && $billableDelta > 0
+                ) {
+                    $rate = max(0, (int) $account->transfer_rate_microusd_per_gb);
+                    $chargeMicrousd = (int) intdiv(
+                        ($billableDelta * $rate) + 999999999,
+                        1000000000
+                    );
+
+                    $accountLocked = Capsule::table('mod_driveresource_accounts')
+                        ->where('service_id', (int) $service->service_id)
+                        ->lockForUpdate()
+                        ->first();
+                    $balance = (int) $accountLocked->balance_microusd;
+                    $debited = $chargeMicrousd;
+                    $nextBalance = $balance - $chargeMicrousd;
+                    $nextStatus = $nextBalance > 0
+                        ? (string) $accountLocked->status
+                        : CommercialAccount::STATUS_UPLOAD_RESTRICTED;
+                    $ledgerKey = hash(
+                        'sha256',
+                        'transfer|' . (int) $service->service_id . '|' . $reportId
+                    );
+
+                    Capsule::table('mod_driveresource_accounts')
+                        ->where('service_id', (int) $service->service_id)
+                        ->update([
+                            'balance_microusd' => $nextBalance,
+                            'status' => $nextStatus,
+                            'updated_at' => $now,
+                        ]);
+
+                    Capsule::table('mod_driveresource_wallet_ledger')->insert([
+                        'service_id' => (int) $service->service_id,
+                        'entry_type' => 'transfer_debit',
+                        'amount_microusd' => -$debited,
+                        'balance_after_microusd' => $nextBalance,
+                        'currency' => 'USD',
+                        'idempotency_key' => $ledgerKey,
+                        'external_ref' => null,
+                        'metadata_json' => json_encode([
+                            'report_id' => $reportId,
+                            'billable_bytes' => $billableDelta,
+                            'calculated_charge_microusd' => $chargeMicrousd,
+                            'debt_after_microusd' => max(0, -$nextBalance),
+                        ], JSON_UNESCAPED_SLASHES),
+                        'created_at' => $now,
+                    ]);
+                } else if (
+                    (string) $account->billing_mode === CommercialAccount::MODE_FREE
+                    && $nextBytes > $freeTransfer
+                ) {
+                    Capsule::table('mod_driveresource_accounts')
+                        ->where('service_id', (int) $service->service_id)
+                        ->update([
+                            'status' => CommercialAccount::STATUS_UPLOAD_RESTRICTED,
+                            'updated_at' => $now,
+                        ]);
+                }
+            }
+
+            Capsule::table('mod_driveresource_usage_reports')->insert([
+                'service_id' => (int) $service->service_id,
+                'installation_id' => $installationId,
+                'report_id' => $reportId,
+                'period_key' => $period,
+                'bytes' => $bytes,
+                'created_at' => $now,
+            ]);
+
+            Capsule::table('mod_driveresource_services')
+                ->where('service_id', (int) $service->service_id)
+                ->update([
+                    'transfer_period' => $period,
+                    'transfer_bytes' => $nextBytes,
+                    'transfer_updated_at' => $now,
+                    'updated_at' => $now,
+                ]);
+
+            $usageDate = gmdate('Y-m-d', $now);
+            $daily = Capsule::table('mod_driveresource_usage_daily')
+                ->where('service_id', (int) $service->service_id)
+                ->where('usage_date', $usageDate)
+                ->lockForUpdate()
+                ->first();
+
+            if ($daily) {
+                Capsule::table('mod_driveresource_usage_daily')
+                    ->where('id', (int) $daily->id)
+                    ->update([
+                        'storage_bytes' => max(0, (int) $serviceRow->used_bytes),
+                        'transfer_bytes' => (int) $daily->transfer_bytes + $bytes,
+                        'billable_transfer_bytes' => (int) $daily->billable_transfer_bytes + $billableDelta,
+                        'charge_microusd' => (int) $daily->charge_microusd + $chargeMicrousd,
+                        'updated_at' => $now,
+                    ]);
+            } else {
+                Capsule::table('mod_driveresource_usage_daily')->insert([
+                    'service_id' => (int) $service->service_id,
+                    'usage_date' => $usageDate,
+                    'storage_bytes' => max(0, (int) $serviceRow->used_bytes),
+                    'transfer_bytes' => $bytes,
+                    'billable_storage_bytes' => 0,
+                    'billable_transfer_bytes' => $billableDelta,
+                    'charge_microusd' => $chargeMicrousd,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
+        });
+
+        return [
+            'status' => 'recorded',
+            'period' => $period,
+            'billablebytes' => $billableDelta,
+            'chargemicrousd' => $chargeMicrousd,
+        ];
+    }
+
+    /**
+     * Ensure this WHMCS service owns one provider collection.
+     *
+     * The collection is created lazily so provisioning does not depend on the
+     * external provider being available. Concurrent first uploads can both
+     * create a collection, but only one wins the database lock; the losing
+     * provider collection is removed best-effort.
+     *
+     * @param object $service Provisioned service row.
+     * @return array{id:string,name:string}
+     */
+    public function ensureVirtualClassroom(object $service): array
+    {
+        $this->requireBackendCapability($service, BackendRegistry::CAP_MANAGED_VIDEO);
+        $serviceId = (int) ($service->service_id ?? 0);
+        if ($serviceId <= 0) {
+            throw new GatewayException('Invalid Elearning Stream service.', 422);
+        }
+
+        $current = Capsule::table('mod_driveresource_services')
+            ->where('service_id', $serviceId)
+            ->first();
+        if (!$current) {
+            throw new GatewayException('Elearning Stream service is not provisioned.', 404);
+        }
+
+        $existingId = strtolower(trim((string) ($current->video_collection_id ?? '')));
+        $existingName = trim((string) ($current->video_collection_name ?? ''));
+        if (preg_match('/^[a-f0-9-]{32,64}$/i', $existingId)) {
+            return [
+                'id' => $existingId,
+                'name' => $existingName !== '' ? $existingName : $this->virtualClassroomName($current),
+            ];
+        }
+
+        $desiredName = $this->virtualClassroomName($current);
+        $created = $this->streamClient($current)->createCollection($desiredName);
+
+        $winner = Capsule::connection()->transaction(function () use (
+            $serviceId,
+            $created,
+            $desiredName
+        ): array {
+            $locked = Capsule::table('mod_driveresource_services')
+                ->where('service_id', $serviceId)
+                ->lockForUpdate()
+                ->first();
+            if (!$locked) {
+                throw new GatewayException('Elearning Stream service is not provisioned.', 404);
+            }
+
+            $lockedId = strtolower(trim((string) ($locked->video_collection_id ?? '')));
+            if (preg_match('/^[a-f0-9-]{32,64}$/i', $lockedId)) {
+                return [
+                    'id' => $lockedId,
+                    'name' => trim((string) ($locked->video_collection_name ?? '')),
+                    'created' => false,
+                ];
+            }
+
+            Capsule::table('mod_driveresource_services')
+                ->where('service_id', $serviceId)
+                ->update([
+                    'video_collection_id' => $created['id'],
+                    'video_collection_name' => $desiredName,
+                    'updated_at' => time(),
+                ]);
+
+            return [
+                'id' => $created['id'],
+                'name' => $desiredName,
+                'created' => true,
+            ];
+        });
+
+        if (!$winner['created'] && $winner['id'] !== $created['id']) {
+            try {
+                $this->streamClient($current)->deleteCollection($created['id']);
+            } catch (Throwable $ignored) {
+            }
+        }
+
+        return [
+            'id' => (string) $winner['id'],
+            'name' => (string) ($winner['name'] !== '' ? $winner['name'] : $desiredName),
+        ];
+    }
+
+    /**
+     * Move existing service-owned videos into the service collection.
+     *
+     * This is used for upgrades from pre-0.5.3 installations. It does not
+     * change titles or ownership records.
+     *
+     * @param object $service Provisioned service row.
+     * @param int $limit Maximum provider assets to organise in one request.
+     * @return array{collectionid:string,collectionname:string,organised:int,failed:int}
+     */
+    public function organizeServiceAssets(object $service, int $limit = 500): array
+    {
+        $collection = $this->ensureVirtualClassroom($service);
+        $limit = max(1, min(1000, $limit));
+        $uploads = Capsule::table('mod_driveresource_uploads')
+            ->where('service_id', (int) $service->service_id)
+            ->whereNotNull('video_id')
+            ->whereIn('status', ['processing', 'ready', 'bound', 'authorized'])
+            ->orderBy('created_at', 'asc')
+            ->limit($limit)
+            ->get();
+
+        $organised = 0;
+        $failed = 0;
+        foreach ($uploads as $upload) {
+            $videoId = strtolower(trim((string) ($upload->video_id ?? '')));
+            if (!preg_match('/^[a-f0-9-]{32,64}$/i', $videoId)) {
+                $failed++;
+                continue;
+            }
+
+            try {
+                $this->streamClient($service)->setVideoCollection(
+                    $videoId,
+                    $collection['id'],
+                    $this->videoMetaTags($service, (int) ($upload->course_id ?? 0))
+                );
+                $organised++;
+            } catch (Throwable $exception) {
+                $failed++;
+            }
+        }
+
+        return [
+            'collectionid' => $collection['id'],
+            'collectionname' => $collection['name'],
+            'organised' => $organised,
+            'failed' => $failed,
+        ];
+    }
+
+    /**
+     * Stable provider collection name for one virtual classroom/service.
+     *
+     * @param object $service Service row.
+     * @return string
+     */
+    private function virtualClassroomName(object $service): string
+    {
+        $serviceId = max(0, (int) ($service->service_id ?? 0));
+        $parts = parse_url(trim((string) ($service->site_url ?? '')));
+        $host = is_array($parts) ? strtolower(trim((string) ($parts['host'] ?? ''))) : '';
+        $path = is_array($parts) ? trim((string) ($parts['path'] ?? ''), '/') : '';
+        $site = $host;
+        if ($path !== '') {
+            $site .= '/' . $path;
+        }
+        if ($site === '') {
+            $site = 'moodle';
+        }
+
+        return mb_substr('S' . $serviceId . ' - ' . $site, 0, 191);
+    }
+
+    /**
+     * Non-secret provider metadata used for support and organisation.
+     *
+     * @param object $service Service row.
+     * @param int $courseId Moodle course id.
+     * @return array<int,array{property:string,value:string}>
+     */
+    private function videoMetaTags(object $service, int $courseId): array
+    {
+        $parts = parse_url(trim((string) ($service->site_url ?? '')));
+        $host = is_array($parts) ? strtolower(trim((string) ($parts['host'] ?? ''))) : '';
+
+        return [
+            [
+                'property' => 'elearning_service_id',
+                'value' => (string) max(0, (int) ($service->service_id ?? 0)),
+            ],
+            [
+                'property' => 'moodle_host',
+                'value' => mb_substr($host !== '' ? $host : 'unknown', 0, 128),
+            ],
+            [
+                'property' => 'moodle_course_id',
+                'value' => (string) max(0, $courseId),
+            ],
+        ];
+    }
+
+    /**
+     * Resolve an import payload to a provider video GUID.
+     *
+     * New clients send the pasted URL so WHMCS can enforce the centrally
+     * configured public hostname aliases. Legacy clients may still submit a
+     * bare GUID.
+     *
+     * @param array $payload Request payload.
+     * @return string
+     */
+    private function resolveImportedVideoId(array $payload): string
+    {
+        $url = trim((string) ($payload['url'] ?? ''));
+        if ($url !== '') {
+            return $this->extractVideoIdFromPublicUrl($url);
+        }
+
+        $videoId = strtolower(trim((string) ($payload['videoid'] ?? '')));
+        if (!preg_match('/^[a-f0-9-]{32,64}$/i', $videoId)) {
+            throw new GatewayException('Invalid Elearning Stream video identifier.', 422);
+        }
+
+        return $videoId;
+    }
+
+    /**
+     * Validate a customer-facing Elearning Stream URL without fetching it.
+     *
+     * @param string $url Pasted video URL.
+     * @return string Provider video GUID.
+     */
+    private function extractVideoIdFromPublicUrl(string $url): string
+    {
+        if (strlen($url) > 2048) {
+            throw new GatewayException('Elearning Stream video URL is too long.', 422);
+        }
+
+        $parts = parse_url($url);
+        if (
+            !is_array($parts)
+            || strtolower((string) ($parts['scheme'] ?? '')) !== 'https'
+            || empty($parts['host'])
+            || isset($parts['user'])
+            || isset($parts['pass'])
+            || (isset($parts['port']) && (int) $parts['port'] !== 443)
+        ) {
+            throw new GatewayException('Invalid Elearning Stream video URL.', 422);
+        }
+
+        $host = strtolower(rtrim((string) $parts['host'], '.'));
+        if (!Config::isAllowedPublicVideoHost($host)) {
+            throw new GatewayException(
+                'This Elearning Stream public hostname is not authorised by WHMCS.',
+                422
+            );
+        }
+
+        $segments = array_values(array_filter(
+            explode('/', trim((string) ($parts['path'] ?? ''), '/')),
+            static fn(string $segment): bool => $segment !== ''
+        ));
+
+        foreach (array_reverse($segments) as $segment) {
+            $candidate = strtolower(rawurldecode($segment));
+            if (preg_match('/^[a-f0-9-]{32,64}$/i', $candidate)) {
+                return $candidate;
+            }
+        }
+
+        parse_str((string) ($parts['query'] ?? ''), $query);
+        foreach (['videoid', 'videoId', 'guid'] as $key) {
+            $candidate = strtolower(trim((string) ($query[$key] ?? '')));
+            if (preg_match('/^[a-f0-9-]{32,64}$/i', $candidate)) {
+                return $candidate;
+            }
+        }
+
+        throw new GatewayException(
+            'The Elearning Stream URL does not contain a valid video identifier.',
+            422
+        );
+    }
+
+    /**
+     * Resolve the Elearning Stream client only for services that need it.
+     *
+     * @param object $service Provisioned service row.
+     * @return BunnyClient
+     */
+    private function streamClient(object $service): BunnyClient
+    {
+        $this->requireBackendCapability($service, BackendRegistry::CAP_MANAGED_VIDEO);
+        if ($this->bunny === null) {
+            $this->bunny = new BunnyClient();
+        }
+
+        return $this->bunny;
+    }
+
+    /**
+     * Enforce that the tenant backend supports the requested gateway action.
+     *
+     * Current endpoints implement the managed-video contract. Future
+     * S3-compatible object-storage endpoints will advertise/use different
+     * capabilities and cannot fall through to Elearning Stream operations.
+     *
+     * @param object $service Provisioned service row.
+     * @param string $capability BackendRegistry capability.
+     * @return void
+     */
+    private function requireBackendCapability(object $service, string $capability): void
+    {
+        try {
+            BackendRegistry::requireServiceCapability($service, $capability);
+        } catch (\RuntimeException $exception) {
+            throw new GatewayException(
+                'The storage backend assigned to this service does not support this operation.',
+                409
+            );
+        }
+    }
+
+    /**
+     * Remove an uncompleted quota reservation and return reserved capacity.
      *
      * @param string $uploadId Upload reservation.
      * @return void
@@ -627,6 +1442,27 @@ final class GatewayService
                 ->where('upload_id', $uploadId)
                 ->update(['status' => 'failed', 'updated_at' => time()]);
         });
+    }
+
+    /**
+     * Validate the source filename accepted by the managed-video data plane.
+     *
+     * @param string $filename Original upload filename.
+     * @return bool
+     */
+    private function isSupportedVideoFilename(string $filename): bool
+    {
+        $filename = basename(trim($filename));
+        if ($filename === '' || strlen($filename) > 255) {
+            return false;
+        }
+
+        $extension = strtolower((string) pathinfo($filename, PATHINFO_EXTENSION));
+        return in_array(
+            $extension,
+            ['mp4', 'mov', 'm4v', 'webm', 'mkv', 'avi', 'mpeg', 'mpg'],
+            true
+        );
     }
 
     /**
@@ -679,6 +1515,7 @@ final class GatewayService
             ->where('service_id', $serviceId)
             ->where('site_hash', $siteHash)
             ->where('instance_id', $instanceId)
+            ->where('video_id', $videoId)
             ->first();
 
         $values = [
@@ -703,4 +1540,103 @@ final class GatewayService
             'created_at' => $now,
         ]);
     }
+
+    /**
+     * Reject storage overage that the account is not entitled to consume.
+     *
+     * @param array $quota Commercial quota decision.
+     * @return void
+     */
+    private function assertStoragePolicy(array $quota): void
+    {
+        $mode = (string) ($quota['mode'] ?? CommercialAccount::MODE_LEGACY);
+        if (
+            $mode !== CommercialAccount::MODE_LEGACY
+            && !(bool) ($quota['activationverified'] ?? false)
+        ) {
+            throw new GatewayException(
+                'Elearning Stream account activation is required before uploads are allowed.',
+                402
+            );
+        }
+
+        if ((int) ($quota['overagebytes'] ?? 0) <= 0 || (bool) ($quota['overageallowed'] ?? false)) {
+            return;
+        }
+
+        if ($mode === CommercialAccount::MODE_FREE) {
+            throw new GatewayException(
+                'The free storage allowance has been reached. Add prepaid credit to continue with PAYG.',
+                409
+            );
+        }
+        if ($mode === CommercialAccount::MODE_PAYG) {
+            throw new GatewayException(
+                'PAYG storage above the free allowance requires available prepaid credit.',
+                402
+            );
+        }
+
+        throw new GatewayException(
+            'The storage quota has been reached and this plan does not allow overage.',
+            409
+        );
+    }
+
+    /**
+     * Enforce the free monthly transfer allowance before issuing a new stream.
+     *
+     * Legacy services preserve their existing WHMCS Usage Billing behavior.
+     * PAYG accounts may exceed the included transfer only while credit remains.
+     *
+     * @param object $service Authenticated aggregate service row.
+     * @return void
+     */
+    private function assertPlaybackPolicy(object $service): void
+    {
+        $account = CommercialAccount::find((int) $service->service_id);
+        if (!$account || (string) $account->billing_mode === CommercialAccount::MODE_LEGACY) {
+            return;
+        }
+
+        if (!(bool) $account->activation_verified) {
+            throw new GatewayException(
+                'Elearning Stream account activation is required before playback is allowed.',
+                402
+            );
+        }
+
+        $transfer = (string) ($service->transfer_period ?? '') === gmdate('Y-m')
+            ? max(0, (int) ($service->transfer_bytes ?? 0))
+            : 0;
+        $freeTransfer = max(0, (int) $account->free_transfer_bytes);
+        if ($transfer < $freeTransfer) {
+            return;
+        }
+
+        if (
+            (string) $account->billing_mode === CommercialAccount::MODE_PAYG
+            && (int) $account->balance_microusd > 0
+        ) {
+            return;
+        }
+
+        throw new GatewayException(
+            'The included monthly transfer has been consumed. Recharge Elearning Stream to continue playback.',
+            402
+        );
+    }
+
+    /**
+     * Request-scoped Moodle installation id resolved by RequestAuthenticator.
+     *
+     * @param object $service Authenticated service row.
+     * @return int|null
+     */
+    private function installationId(object $service): ?int
+    {
+        $id = (int) ($service->authenticated_installation_id ?? 0);
+        return $id > 0 ? $id : null;
+    }
+
 }

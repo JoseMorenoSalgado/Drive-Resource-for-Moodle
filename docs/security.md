@@ -1,10 +1,10 @@
-# Drive Resource security model
+# Elearning Stream security model
 
 ## Security boundary
 
-Drive Resource does not rely on a hidden button or obfuscated JavaScript for authorization. The enforceable boundary is the Moodle server.
+Elearning Stream relies on server-side authorization, not hidden controls.
 
-Every learner byte request passes through `protected.php`, which resolves an `activity_context` and enforces:
+Every learner media request must pass:
 
 - valid course module;
 - valid course;
@@ -13,148 +13,129 @@ Every learner byte request passes through `protected.php`, which resolves an `ac
 - `context_module`;
 - `mod/videoplayer:view`.
 
-Only after those checks may `protected_resource_service` resolve or proxy content.
+Only then may Moodle request gateway playback authorization.
 
-## URL confidentiality
+## Provider-secret boundary
 
-Plugin-owned templates must not render:
+Moodle stores only:
 
-- raw Google Drive file IDs;
-- Google Drive sharing URLs;
-- temporary progressive playback URLs;
-- direct Google download/export URLs.
+- branded gateway HTTPS URL;
+- commercial Service ID;
+- installation-scoped token.
 
-The browser receives a Moodle URL containing the course-module id and cache/version information only.
+Provider management API keys, playback signing keys and future object-storage secrets remain in WHMCS.
 
-This reduces leakage but is not DRM. An authorized browser necessarily receives content bytes and can potentially capture them.
+## Installation isolation
 
-## SSRF controls
+Gateway authentication binds every request to the exact tuple:
 
-All upstream URLs are generated server-side from validated Drive identifiers. `upstream_url_policy` also requires HTTPS and restricts hosts to the Google media/content hosts needed by the integration.
+```text
+service_id + canonical site_url + installation token
+```
 
-Never add a public controller parameter that lets a learner supply an arbitrary proxy URL.
+Tokens are stored as SHA-256 hashes in `mod_driveresource_installations`. Requests also require timestamp, nonce and HMAC validation.
 
-## Streaming response hardening
+Moodle rc4 sends the authentication contract as `X-Elearning-Stream-*` headers. Gateway 0.6 temporarily accepts the historical `X-Drive-Resource-*` equivalents as a server-side fallback so older Moodle installations can be upgraded without downtime. New Moodle code must not emit the legacy header names.
 
-Protected responses use safe, reconstructed headers rather than blindly forwarding all upstream headers. Controls include:
+A secondary installation can never authenticate by knowing only the account Service ID.
 
+## Tenant and asset isolation
+
+Provider assets are owned by one account. Activity references additionally include site hash, instance id and provider video id.
+
+Release/delete operations must prove the exact activity/video reference. Physical provider deletion is forbidden while another active reference exists.
+
+## Wallet integrity
+
+Commercial money is represented as integer micro-USD.
+
+Security requirements:
+
+- every credit/debit has an idempotency key;
+- wallet mutations lock the account before idempotency lookup, preventing concurrent duplicate hooks from double-applying a balance change;
+- an idempotency key collision with a different service/type/amount fails closed;
+- recharge invoice creation grants no balance;
+- wallet credit occurs only after `InvoicePaid` and only when the paid invoice currency and total equal the values frozen on the recharge order;
+- refund/unpaid events reverse the recharge;
+- recharge settlement versions bind every credit/reversal pair to one exact Paid cycle, preventing both duplicate hooks and stale reversal-key reuse;
+- wallet/account rows are locked during balance mutation;
+- FREE/PAYG limits are enforced server-side;
+- account downgrade is rechecked at authentication time;
+- only the WHMCS `CreateAccount` boundary may initiate activation, and it must independently prove a Paid order invoice containing the exact Hosting service before verification or credit;
+- connection repair and token rotation cannot grant activation credit;
+- insufficient PAYG provider cost is preserved as wallet debt rather than discarded.
+
+Do not trust a browser-provided price, balance, plan or charge. Invoice totals and service-line amounts are parsed as exact integer micro-units; floating-point money comparisons are prohibited in activation and wallet settlement paths.
+
+## SSRF and upstream policy
+
+The production Moodle upstream allow-list accepts only approved managed-video CDN hosts. Google hosts are not accepted.
+
+Controllers must never accept a raw upstream URL from a learner. Signed provider playback URLs are obtained server-to-server after ownership validation.
+
+Redirects are resolved hop-by-hop and revalidated against the same allow-list.
+
+## Retired provider isolation
+
+Historical `googledrive` database values may remain for upgrade diagnostics. They are not executable provider configurations. No provider-specific `drive` helper class is shipped in the production runtime; compatibility handling is centralized in `resource_compatibility` and fails closed.
+
+The production runtime must not:
+
+- resolve Google sharing URLs;
+- call Google playback/download/export endpoints;
+- embed Google viewers;
+- allow Google domains in proxy policy.
+
+Legacy remote activities fail closed until migrated to Elearning Stream.
+
+## Reduced attack surface
+
+The rc4 Moodle runtime removed unreachable audio/image/generic presentation code, hidden gamification, remote PDF caching/downloading and obsolete activity configuration fields. Local PDF delivery has no outbound network capability; managed-video HTTP access is confined to the dedicated allow-listed Range proxy.
+
+Future course-format code must never receive gateway tokens, provider asset ids or signed playback URLs.
+
+## Response hardening
+
+Protected responses reconstruct safe headers and preserve:
+
+- `Accept-Ranges: bytes`;
+- correct `206 Partial Content`;
+- validated `Content-Range`;
 - `X-Content-Type-Options: nosniff`;
-- private cache directives;
-- safe inline filename handling;
-- no upstream cookie forwarding to the browser;
-- no upstream Google URL in redirects generated by the plugin;
-- rejection of HTML responses when video bytes are expected;
-- controlled `Range`/`If-Range` handling.
+- private caching;
+- safe inline filenames.
 
-## Browser deterrents
+Unexpected HTML/JSON responses are rejected rather than forwarded as media.
 
-The following options are UX deterrents only:
+## Browser limitations
 
-- `controlslist="nodownload"`;
-- disabled context menu/drag;
-- watermark;
-- omission of direct-download UI.
+UI deterrents such as disabled context menus, watermarking and hidden download buttons are not DRM. An authorized browser receives media bytes and can potentially capture them.
 
-They must never be described as preventing a determined authorized user from saving content.
+## Logging
 
-## Sessions and long streaming
+Never log:
 
-`protected.php` releases the PHP session lock after authorization and before long transfer work. This prevents one media request from blocking other Moodle requests for the same logged-in user.
+- plaintext installation tokens;
+- provider API keys;
+- provider playback signing keys;
+- signed playback URLs;
+- payment-gateway secrets.
 
-## Privacy
-
-Per-user data includes progress, completion state, active time, last page, media resume position/duration and optional rewards. The Privacy API declares, exports and deletes this information.
-
-No Google OAuth token, account password or secret API credential is stored in learner progress records.
-
-## Public Drive playback integration
-
-The progressive video resolver uses a public browser API key associated with the Google Drive web playback service. It is treated as a public integration identifier, not as a secret credential. Temporary media URLs returned by that service are held only server side and cached briefly.
-
-Because this endpoint is not a stable contractual API for third-party Moodle plugins, source-file fallback is retained and changes must be regression-tested.
-
-The protected endpoint accepts a boolean `refresh` hint only after the normal Moodle access boundary has succeeded. The hint invalidates/bypasses the server-side cached signed playback URL for recovery; it does not accept, expose or redirect to an arbitrary upstream URL. This keeps buffering recovery inside the same authorization and SSRF boundary as ordinary playback.
+Audit metadata must remain bounded and non-secret.
 
 ## Production checklist
 
 Before release:
 
-- HTTPS must be enabled;
-- Moodle cron must run;
-- PHP cURL TLS verification must remain enabled;
-- `$CFG->localcachedir` must not be web-accessible;
-- Moodle developer debugging should show no new warnings;
-- protected HTML must be inspected for identifier/URL leakage;
-- unauthenticated and unauthorized `protected.php` requests must fail;
-- backup/privacy behavior must be tested;
-- Google Drive video playback must be tested on physical mobile devices where possible.
-
-## Security hardening release gate
-
-The hardening branch adds an automated regression guard for the security boundary. It fails when Google upstream hosts or iframe/preview paths appear in browser-facing templates/AMD code, when `protected.php` loses the centralized activity access boundary or begins accepting arbitrary URL parameters, or when required protected-stream safeguards disappear.
-
-The SSRF regression suite also covers lookalike Google suffixes, loopback targets, userinfo URLs, scheme-relative URLs and non-HTTPS schemes. See `docs/hardening-validation.md` for the evidence required before promotion from release-candidate maturity.
-
-## Protected-only configuration invariants
-
-The learner delivery model is not optional. The historical `disabledownload` column is retained only for database/backup compatibility and is pinned by normalization; the current activity form no longer presents it as an effective security control. Authorization and URL confidentiality are provided by the Moodle protected endpoint, not by a checkbox.
-
-Resource typing is also centralized before protected URL construction so different controllers cannot disagree about how an opaque Drive sharing URL should be handled.
-
-
-## Video progress integrity
-
-HTML5 seek position is not trusted as evidence that content was watched. Video completion uses a bounded union of short contiguous playback ranges submitted through the authenticated Moodle progress API. The server validates, clamps and merges those ranges before deriving completion. `lastposition` remains resume-only state.
-
-
-## Completion-form hotfix security impact
-
-RC19 changes only the Moodle form field-name suffix API used by custom completion controls. It does not weaken authorization, protected streaming, URL confidentiality or SSRF controls. Completion thresholds remain server-validated and continue to feed Moodle Completion API through the existing progress service.
-
-## Elearning Stream credential boundary
-
-The Elearning Stream provider management API key and Elearning Stream playback signing key live **only in WHMCS**. They are not Moodle settings, activity fields, JavaScript configuration or browser storage.
-
-Moodle authenticates to the WHMCS media gateway using a service-scoped token. Every gateway request is additionally bound to the exact configured Moodle site and signed with HMAC-SHA256 over a timestamp, nonce and request-body hash. WHMCS rejects stale requests and records single-use nonces to prevent replay.
-
-The teacher browser receives only a short-lived Elearning Stream upload authorization scoped to a single library/video/expiration. It does not receive the provider management API key. The browser uploader uses `credentials: omit` for provider requests and validates that the TUS upload host is `video.bunnycdn.com`.
-
-### Quota abuse controls
-
-WHMCS validates that the underlying product service is Active before authorizing an upload. Quota is reserved transactionally before the provider upload is created. Pending reservations are included in the projected usage calculation, preventing parallel uploads from independently consuming the same remaining allowance.
-
-Completed-but-unsaved uploads receive a bounded unbound grace period. Abandoned reservations and orphaned provider assets are reconciled by WHMCS cron. Deletion is delayed by retention policy after the last Moodle reference is released.
-
-### Backup and tenant isolation
-
-A Moodle backup may contain a Bunny asset GUID because the restored course needs to reference the existing managed asset. It must not contain the transient WHMCS upload reservation. During restore, the GUID is unusable until WHMCS confirms that it belongs to the same service tenant. Cross-tenant GUID reuse is rejected.
-
-## Upgrade integrity for progress evidence
-
-Watched-range completion depends on `lastposition`, `duration` and `watchedranges` being available together. Build `2026092202` repairs these fields idempotently without deleting or rewriting learner progress rows.
-
-No privilege, URL-confidentiality or Bunny credential boundary is relaxed by this repair. The change only hardens schema consistency before progress evidence is processed.
-
-
-## Partial-schema integrity recovery
-
-Build `2026092204` repairs missing completion and Bunny metadata fields without relaxing the access-control boundary. No Bunny API credential is added to Moodle, no provider URL is exposed, and no existing learner progress row is discarded. Provider metadata fields are recreated with the same nullable/default constraints as the canonical install schema.
-
-
-### Existing-video URL import
-
-The pasted Elearning Stream URL is never used as an upstream proxy target and is never persisted. Moodle accepts only supported HTTPS provider URL shapes, extracts a GUID, and sends only that identifier through the authenticated WHMCS channel. WHMCS verifies the asset in the configured provider library, rejects active ownership by another service, and applies quota accounting before issuing a bindable reference.
-
-
-### Protected Elearning Stream playback
-
-The provider CDN hostname and playback token key exist only in WHMCS. Moodle receives a short-lived signed MP4 URL over the authenticated service channel, validates that it is HTTPS and on the approved provider CDN, and never places that URL in learner-facing HTML.
-
-The browser requests Moodle `protected.php`; normal login, course, context and capability validation occurs before WHMCS authorization. The upstream URL then passes through the bounded Range/206 proxy. Lookalike CDN domains, credentials in URLs, non-HTTPS schemes and nonstandard ports are rejected.
-
-
-### Elearning Stream configuration failure handling
-
-Missing Moodle-to-WHMCS configuration is treated as a preflight validation failure, not as a reason to bypass WHMCS. Drive Resource must never fall back to directly trusting a pasted provider URL or place provider management credentials in Moodle.
-
-Only the presence of the gateway URL, service ID and service token is reported to teachers; secret values are never included in validation messages or debug output.
+- HTTPS everywhere;
+- TLS certificate verification enabled;
+- WHMCS cron enabled;
+- Moodle cron enabled;
+- no Google host accepted by upstream policy;
+- no provider key in Moodle HTML/JS;
+- unauthorized `protected.php` requests rejected;
+- cross-service/cross-installation asset tests rejected;
+- wallet double-credit retry test passes;
+- refund/unpaid reversal test passes;
+- multi-Moodle entitlement tests pass;
+- Range/206 tested on desktop and mobile.

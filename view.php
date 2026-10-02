@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Learner view for Drive Resource.
+ * Learner view for Elearning Stream.
  *
  * @package    mod_videoplayer
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
@@ -28,7 +28,6 @@ require(__DIR__ . '/../../config.php');
 require_once(__DIR__ . '/lib.php');
 
 use mod_videoplayer\local\access\activity_context;
-use mod_videoplayer\local\plugin_config;
 use mod_videoplayer\local\resource\resource_descriptor;
 use mod_videoplayer\output\resource_view;
 
@@ -65,26 +64,11 @@ if (!isguestuser()) {
     ]) ?: null;
 }
 
-if ($resource->is_available() && !$resource->is_bunny_stream()) {
-    if ($resource->is_pdf_like()) {
+if ($resource->is_available()) {
+    if ($resource->is_pdf()) {
         $PAGE->requires->js_call_amd('mod_videoplayer/pdfviewer', 'init');
-    } else if ($resource->is_video()) {
+    } else if ($resource->is_managed_video()) {
         $PAGE->requires->js_call_amd('mod_videoplayer/nativevideo', 'init');
-    } else if ($resource->is_audio()) {
-        $PAGE->requires->js_call_amd('mod_videoplayer/nativeaudio', 'init');
-    } else {
-        $PAGE->requires->js_call_amd('mod_videoplayer/protectedui', 'init');
-        if (!isguestuser() && plugin_config::tracking_enabled()) {
-            $requiredseconds = plugin_config::required_seconds();
-            $PAGE->requires->js_call_amd('mod_videoplayer/progress', 'init', [[
-                'cmid' => $cm->id,
-                'requiredSeconds' => $requiredseconds,
-                'interval' => 30000,
-                'initialProgress' => (float)($progressrecord->progress ?? 0),
-                'initialTimeSpent' => (int)($progressrecord->timespent ?? 0),
-                'completed' => !empty($progressrecord->completed),
-            ]]);
-        }
     }
 }
 

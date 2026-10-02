@@ -1,5 +1,5 @@
 {{!
-    Local PDF.js viewer for PDF, Google Docs, Sheets and Slides exports.
+    Local PDF.js viewer for protected PDF content.
 }}
 {{!
     @template mod_videoplayer/pdfjs
@@ -10,11 +10,6 @@
     {
         "type": "pdf",
         "cmid": 42,
-        "showresourcetype": true,
-        "resourcetype": "PDF",
-        "completionpercent": 40,
-        "enablegamification": true,
-        "points": 10,
         "totalpages": 12,
         "initialpage": 3,
         "pdfurl": "/mod/videoplayer/protected.php?id=42",
@@ -27,16 +22,7 @@
     }
 }}
 <div class="mod-videoplayer-container mod-videoplayer-pdfjs" data-resource-type="{{type}}" data-cmid="{{cmid}}">
-    <div class="mod-videoplayer-meta mb-2">
-        {{#showresourcetype}}<span class="mod-videoplayer-meta-item">{{resourcetype}}</span>{{/showresourcetype}}
-        <span class="mod-videoplayer-meta-item">{{#str}} protectedresource, mod_videoplayer {{/str}}</span>
-        <span class="mod-videoplayer-meta-item" data-region="pdfjs-progress">{{completionpercent}}%</span>
-        {{#enablegamification}}
-            <span class="mod-videoplayer-meta-item" data-region="pdfjs-points">{{points}} {{#str}} points, mod_videoplayer {{/str}}</span>
-        {{/enablegamification}}
-    </div>
 
-    <div data-region="pdfjs-achievements" aria-live="polite"></div>
 
     <div class="mod-videoplayer-resume alert alert-info" data-region="pdfjs-resume" {{^totalpages}}hidden{{/totalpages}}>
         {{#str}} resumereading, mod_videoplayer {{/str}}
@@ -50,7 +36,6 @@
          data-initial-page="{{initialpage}}"
          data-initial-timespent="{{initialtimespent}}"
          data-tracking-enabled="{{#trackprogress}}1{{/trackprogress}}{{^trackprogress}}0{{/trackprogress}}"
-         data-points-label="{{#str}} points, mod_videoplayer {{/str}}"
          data-searching-text="{{#str}} searching, mod_videoplayer {{/str}}"
          data-no-matches-text="{{#str}} nomatches, mod_videoplayer {{/str}}"
          data-display-mode="standard"

@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="mod/videoplayer/db" VERSION="20260921" COMMENT="XMLDB file for Moodle mod_videoplayer"
+<XMLDB PATH="mod/videoplayer/db" VERSION="20261002" COMMENT="XMLDB file for Moodle mod_videoplayer"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
   <TABLES>
-
-    <TABLE NAME="videoplayer" COMMENT="Stores Drive Resource activity module instances.">
+    <TABLE NAME="videoplayer" COMMENT="Stores Elearning Stream activity instances.">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="course" TYPE="int" LENGTH="10" NOTNULL="true"/>
@@ -14,30 +13,15 @@
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
         <FIELD NAME="intro" TYPE="text" NOTNULL="false"/>
         <FIELD NAME="introformat" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0"/>
-        <FIELD NAME="source" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="googledrive"/>
-        <FIELD NAME="videourl" TYPE="char" LENGTH="1024" NOTNULL="true"/>
+        <FIELD NAME="source" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="bunnystream"/>
         <FIELD NAME="providerassetid" TYPE="char" LENGTH="64" NOTNULL="false"/>
         <FIELD NAME="provideruploadid" TYPE="char" LENGTH="64" NOTNULL="false"/>
         <FIELD NAME="providerfilesize" TYPE="int" LENGTH="20" NOTNULL="true" DEFAULT="0"/>
         <FIELD NAME="providerstatus" TYPE="char" LENGTH="32" NOTNULL="false"/>
-        <FIELD NAME="type" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="auto"/>
-        <FIELD NAME="displaymode" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="standard"/>
-        <FIELD NAME="disabledownload" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1"/>
         <FIELD NAME="disablecontextmenu" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1"/>
         <FIELD NAME="enablewatermark" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0"/>
-        <FIELD NAME="enablegamification" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0"/>
-        <FIELD NAME="pointsperpage" TYPE="int" LENGTH="5" NOTNULL="true" DEFAULT="1"/>
-        <FIELD NAME="video" TYPE="char" LENGTH="255" NOTNULL="false"/>
-        <FIELD NAME="endscreentext" TYPE="text" NOTNULL="false"/>
-        <FIELD NAME="displayasstartscreen" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0"/>
-        <FIELD NAME="starttime" TYPE="number" LENGTH="10" NOTNULL="false" DECIMALS="2"/>
-        <FIELD NAME="endtime" TYPE="number" LENGTH="10" NOTNULL="false" DECIMALS="2"/>
         <FIELD NAME="completionpercentage" TYPE="int" LENGTH="3" NOTNULL="true" DEFAULT="80"/>
         <FIELD NAME="completionprogressenabled" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1"/>
-        <FIELD NAME="grade" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
-        <FIELD NAME="displayoptions" TYPE="text" NOTNULL="false"/>
-        <FIELD NAME="posterimage" TYPE="text" NOTNULL="false"/>
-        <FIELD NAME="extendedcompletion" TYPE="text" NOTNULL="false"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
@@ -47,11 +31,10 @@
         <INDEX NAME="course_idx" UNIQUE="false" FIELDS="course"/>
         <INDEX NAME="source_idx" UNIQUE="false" FIELDS="source"/>
         <INDEX NAME="providerasset_idx" UNIQUE="false" FIELDS="providerassetid"/>
-        <INDEX NAME="type_idx" UNIQUE="false" FIELDS="type"/>
       </INDEXES>
     </TABLE>
 
-    <TABLE NAME="videoplayer_views" COMMENT="Tracks Drive Resource views, reading state and completion per user.">
+    <TABLE NAME="videoplayer_views" COMMENT="Tracks Elearning Stream progress and completion per user.">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="videoplayerid" TYPE="int" LENGTH="10" NOTNULL="true"/>
@@ -67,7 +50,6 @@
         <FIELD NAME="lastposition" TYPE="number" LENGTH="12" NOTNULL="true" DEFAULT="0" DECIMALS="3"/>
         <FIELD NAME="duration" TYPE="number" LENGTH="12" NOTNULL="true" DEFAULT="0" DECIMALS="3"/>
         <FIELD NAME="watchedranges" TYPE="text" NOTNULL="false"/>
-        <FIELD NAME="points" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
@@ -81,26 +63,22 @@
       </INDEXES>
     </TABLE>
 
-    <TABLE NAME="videoplayer_rewards" COMMENT="Stores Drive Resource gamification rewards earned by users.">
+    <TABLE NAME="videoplayer_transfer_events" COMMENT="Queues Elearning Stream transfer bytes for batched gateway reporting.">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
-        <FIELD NAME="videoplayerid" TYPE="int" LENGTH="10" NOTNULL="true"/>
-        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true"/>
-        <FIELD NAME="rewardtype" TYPE="char" LENGTH="32" NOTNULL="true"/>
-        <FIELD NAME="rewardkey" TYPE="char" LENGTH="64" NOTNULL="true"/>
-        <FIELD NAME="points" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+        <FIELD NAME="serviceid" TYPE="int" LENGTH="10" NOTNULL="true"/>
+        <FIELD NAME="videoid" TYPE="char" LENGTH="64" NOTNULL="false"/>
+        <FIELD NAME="bytes" TYPE="int" LENGTH="20" NOTNULL="true" DEFAULT="0"/>
+        <FIELD NAME="periodkey" TYPE="char" LENGTH="7" NOTNULL="true"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
-        <KEY NAME="fk_videoplayerid" TYPE="foreign" FIELDS="videoplayerid" REFTABLE="videoplayer" REFFIELDS="id"/>
-        <KEY NAME="fk_userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
-        <KEY NAME="uniq_reward" TYPE="unique" FIELDS="videoplayerid, userid, rewardtype, rewardkey"/>
       </KEYS>
       <INDEXES>
-        <INDEX NAME="rewardkey_idx" UNIQUE="false" FIELDS="rewardkey"/>
+        <INDEX NAME="service_period_idx" UNIQUE="false" FIELDS="serviceid, periodkey"/>
+        <INDEX NAME="timecreated_idx" UNIQUE="false" FIELDS="timecreated"/>
       </INDEXES>
     </TABLE>
-
   </TABLES>
 </XMLDB>

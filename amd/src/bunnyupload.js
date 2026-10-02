@@ -44,11 +44,13 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
         return window.btoa(binary);
     };
 
-    var uploadMetadata = function(file) {
+    var uploadMetadata = function(file, title) {
+        var activityTitle = String(title || '').trim() || file.name;
+
         return [
             'filename ' + base64Utf8(file.name),
             'filetype ' + base64Utf8(file.type || 'application/octet-stream'),
-            'title ' + base64Utf8(file.name)
+            'title ' + base64Utf8(activityTitle)
         ].join(',');
     };
 
@@ -62,10 +64,10 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
         };
     };
 
-    var createUpload = async function(auth, file) {
+    var createUpload = async function(auth, file, title) {
         var headers = authHeaders(auth);
         headers['Upload-Length'] = String(file.size);
-        headers['Upload-Metadata'] = uploadMetadata(file);
+        headers['Upload-Metadata'] = uploadMetadata(file, title);
 
         var response = await window.fetch(auth.endpoint, {
             method: 'POST',
@@ -150,7 +152,7 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
     };
 
     var uploadFile = async function(auth, file, callbacks) {
-        var uploadUrl = await createUpload(auth, file);
+        var uploadUrl = await createUpload(auth, file, callbacks.title);
         var offset = 0;
         var retry = 0;
 
@@ -205,10 +207,17 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
         var form = root.closest('form');
         var source = form ? form.querySelector('[name="source"]') : null;
         var fileInput = document.getElementById('mod-videoplayer-bunny-file');
+        var dropzone = document.getElementById('mod-videoplayer-bunny-dropzone');
+        var fileSummary = document.getElementById('mod-videoplayer-bunny-file-summary');
+        var fileName = document.getElementById('mod-videoplayer-bunny-file-name');
+        var fileSize = document.getElementById('mod-videoplayer-bunny-file-size');
         var startButton = document.getElementById('mod-videoplayer-bunny-start');
         var status = document.getElementById('mod-videoplayer-bunny-status');
         var quota = document.getElementById('mod-videoplayer-bunny-quota');
+        var progressSection = document.getElementById('mod-videoplayer-bunny-progress-section');
         var progressWrap = document.getElementById('mod-videoplayer-bunny-progress-wrap');
+        var progressPercent = document.getElementById('mod-videoplayer-bunny-progress-percent');
+        var progressBytes = document.getElementById('mod-videoplayer-bunny-progress-bytes');
         var assetField = form ? form.querySelector('[name="providerassetid"]') : null;
         var uploadField = form ? form.querySelector('[name="provideruploadid"]') : null;
         var sizeField = form ? form.querySelector('[name="providerfilesize"]') : null;
@@ -220,13 +229,26 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
         var progressBar = null;
         var strings = config.strings || {};
 
-        if (!form || !source || !fileInput || !startButton || !assetField || !uploadField || !sizeField || !statusField) {
+        var requiredNodes = [
+            form,
+            source,
+            fileInput,
+            dropzone,
+            startButton,
+            assetField,
+            uploadField,
+            sizeField,
+            statusField
+        ];
+        if (requiredNodes.some(function(node) {
+            return !node;
+        })) {
             return;
         }
 
         if (progressWrap) {
             progressBar = document.createElement('div');
-            progressBar.className = 'progress-bar';
+            progressBar.className = 'progress-bar mod-videoplayer-upload-progress-bar';
             progressBar.setAttribute('role', 'progressbar');
             progressBar.setAttribute('aria-valuemin', '0');
             progressBar.setAttribute('aria-valuemax', '100');
@@ -234,13 +256,16 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
             progressWrap.appendChild(progressBar);
         }
 
+        var setState = function(state) {
+            root.dataset.state = state || 'idle';
+        };
+
         var setStatus = function(message, isError) {
             if (!status) {
                 return;
             }
             status.textContent = message || '';
-            status.classList.toggle('text-danger', Boolean(isError));
-            status.classList.toggle('text-muted', !isError);
+            status.classList.toggle('is-error', Boolean(isError));
         };
 
         var setFormLocked = function(locked) {
@@ -249,6 +274,8 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
                 button.disabled = uploadInProgress;
             });
             fileInput.disabled = uploadInProgress;
+            dropzone.classList.toggle('is-disabled', uploadInProgress);
+            root.setAttribute('aria-busy', uploadInProgress ? 'true' : 'false');
             startButton.disabled = uploadInProgress || !selectedFile || source.value !== 'bunnystream';
         };
 
@@ -256,27 +283,110 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
             if (!progressWrap || !progressBar || !total) {
                 return;
             }
+
+            if (progressSection) {
+                progressSection.hidden = false;
+            }
             progressWrap.hidden = false;
+
             var percent = Math.max(0, Math.min(100, (uploaded / total) * 100));
             progressBar.style.width = percent.toFixed(1) + '%';
             progressBar.setAttribute('aria-valuenow', percent.toFixed(1));
-            progressBar.textContent = percent >= 12 ? Math.floor(percent) + '%' : '';
+
+            if (progressPercent) {
+                progressPercent.textContent = Math.floor(percent) + '%';
+            }
+            if (progressBytes) {
+                progressBytes.textContent = formatBytes(uploaded) + ' / ' + formatBytes(total);
+            }
         };
 
         var showQuota = function(info) {
             if (!quota || !info) {
                 return;
             }
+
+            quota.hidden = false;
             quota.textContent = (strings.quota || 'Storage after upload: {$a->projected} / {$a->included}')
                 .replace('{$a->projected}', formatBytes(info.projectedbytes))
                 .replace('{$a->included}', formatBytes(info.includedbytes));
-            quota.className = 'small text-muted';
+            quota.classList.remove('is-warning');
 
             if (Number(info.overagebytes) > 0) {
                 quota.textContent += ' ' + (strings.overage || 'Overage: {$a}')
                     .replace('{$a}', formatBytes(info.overagebytes));
-                quota.className = 'small text-warning';
+                quota.classList.add('is-warning');
             }
+        };
+
+        var isSupportedVideoFile = function(file) {
+            if (!file || file.size <= 0) {
+                return false;
+            }
+
+            if (String(file.type || '').toLowerCase().indexOf('video/') === 0) {
+                return true;
+            }
+
+            return /\.(mp4|mov|m4v|webm|mkv|avi|mpeg|mpg)$/i.test(file.name || '');
+        };
+
+        var resetProgress = function() {
+            if (progressSection) {
+                progressSection.hidden = true;
+            }
+            if (progressWrap) {
+                progressWrap.hidden = true;
+            }
+            if (progressBar) {
+                progressBar.style.width = '0%';
+                progressBar.setAttribute('aria-valuenow', '0');
+            }
+            if (progressPercent) {
+                progressPercent.textContent = '0%';
+            }
+            if (progressBytes) {
+                progressBytes.textContent = '';
+            }
+        };
+
+        var showSelectedFile = function(file) {
+            if (!file) {
+                if (fileSummary) {
+                    fileSummary.hidden = true;
+                }
+                return;
+            }
+
+            if (fileName) {
+                fileName.textContent = file.name;
+            }
+            if (fileSize) {
+                fileSize.textContent = formatBytes(file.size);
+            }
+            if (fileSummary) {
+                fileSummary.hidden = false;
+            }
+        };
+
+        var selectFile = function(file) {
+            if (!isSupportedVideoFile(file)) {
+                selectedFile = null;
+                showSelectedFile(null);
+                resetProgress();
+                setState('error');
+                setStatus(strings.invalidtype || strings.failed || 'Select a valid video file.', true);
+                syncSourceState();
+                return;
+            }
+
+            selectedFile = file;
+            showSelectedFile(file);
+            resetProgress();
+            clearQuota();
+            setState('ready');
+            setStatus((strings.ready || 'Ready to upload.') + ' ' + formatBytes(file.size), false);
+            syncSourceState();
         };
 
         var syncSourceState = function() {
@@ -285,35 +395,61 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
                 return;
             }
             startButton.disabled = uploadInProgress || !selectedFile;
-            if (!selectedFile && assetField.value) {
-                setStatus(strings.existing || 'A Bunny Stream video is already linked.', false);
+            if (!selectedFile && assetField.value && root.dataset.state === 'idle') {
+                setState('complete');
+                setStatus(strings.existing || 'An Elearning Stream video is already linked.', false);
+            }
+        };
+
+        var activityTitle = function(file) {
+            if (nameField && nameField.value) {
+                return nameField.value;
+            }
+            return file.name;
+        };
+
+        var clearQuota = function() {
+            if (quota) {
+                quota.textContent = '';
+                quota.hidden = true;
+                quota.classList.remove('is-warning');
             }
         };
 
         fileInput.addEventListener('change', function() {
-            selectedFile = fileInput.files && fileInput.files.length ? fileInput.files[0] : null;
-            if (!selectedFile) {
+            var file = fileInput.files && fileInput.files.length ? fileInput.files[0] : null;
+            if (!file) {
                 syncSourceState();
                 return;
             }
-            if (selectedFile.size <= 0) {
-                selectedFile = null;
-                setStatus(strings.failed || 'Invalid video file.', true);
-                syncSourceState();
+            selectFile(file);
+        });
+
+        ['dragenter', 'dragover'].forEach(function(eventName) {
+            dropzone.addEventListener(eventName, function(event) {
+                event.preventDefault();
+                if (!uploadInProgress) {
+                    dropzone.classList.add('is-dragging');
+                }
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(function(eventName) {
+            dropzone.addEventListener(eventName, function(event) {
+                event.preventDefault();
+                dropzone.classList.remove('is-dragging');
+            });
+        });
+
+        dropzone.addEventListener('drop', function(event) {
+            if (uploadInProgress) {
                 return;
             }
-            setStatus((strings.ready || 'Ready to upload.') + ' ' + formatBytes(selectedFile.size), false);
-            if (progressWrap) {
-                progressWrap.hidden = true;
+
+            var files = event.dataTransfer ? event.dataTransfer.files : null;
+            if (files && files.length) {
+                selectFile(files[0]);
             }
-            if (progressBar) {
-                progressBar.style.width = '0%';
-                progressBar.textContent = '';
-            }
-            if (quota) {
-                quota.textContent = '';
-            }
-            syncSourceState();
         });
 
         source.addEventListener('change', syncSourceState);
@@ -324,10 +460,9 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
             }
 
             setFormLocked(true);
+            setState('authorizing');
             setStatus(strings.authorizing || 'Authorizing upload…', false);
-            if (quota) {
-                quota.textContent = '';
-            }
+            clearQuota();
 
             try {
                 var auth = await callMoodle('mod_videoplayer_create_bunny_upload', {
@@ -336,18 +471,22 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
                     filename: selectedFile.name,
                     filesize: selectedFile.size,
                     mimetype: selectedFile.type || 'application/octet-stream',
-                    title: nameField && nameField.value ? nameField.value : selectedFile.name
+                    title: activityTitle(selectedFile)
                 });
 
                 showQuota(auth.quota);
-                setStatus(strings.uploading || 'Uploading directly to Bunny Stream…', false);
+                setState('uploading');
+                setStatus(strings.uploading || 'Uploading directly to Elearning Stream…', false);
 
                 await uploadFile(auth, selectedFile, {
+                    title: activityTitle(selectedFile),
                     onProgress: setProgress,
                     onRetry: function() {
+                        setState('retrying');
                         setStatus(strings.retrying || 'Resuming upload…', false);
                     },
                     refreshAuth: function(currentAuth) {
+                        setState('authorizing');
                         setStatus(strings.reauthorizing || 'Refreshing secure upload authorization…', false);
                         return callMoodle('mod_videoplayer_refresh_bunny_upload', {
                             courseid: Number(config.courseid) || 0,
@@ -378,11 +517,14 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
                     statusField.value = 'uploaded';
                 }
 
+                setProgress(selectedFile.size, selectedFile.size);
+                setState('complete');
                 setStatus(strings.processing || 'Upload complete. Video is processing.', false);
                 selectedFile = null;
                 fileInput.value = '';
                 startButton.disabled = true;
             } catch (error) {
+                setState('error');
                 setStatus(strings.failed || 'Upload failed.', true);
                 Notification.exception(error);
             } finally {

@@ -23,12 +23,11 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-
-use mod_videoplayer\local\drive;
 use mod_videoplayer\local\provider\bunny_stream;
+use mod_videoplayer\local\resource_compatibility;
 
 /**
- * Restore structure step for the videoplayer activity.
+ * Restore structure step for Elearning Stream.
  */
 class restore_videoplayer_activity_structure_step extends restore_activity_structure_step {
     /**
@@ -37,14 +36,12 @@ class restore_videoplayer_activity_structure_step extends restore_activity_struc
      * @return array
      */
     protected function define_structure() {
-        $paths = [];
-        $userinfo = $this->get_setting_value('userinfo');
+        $paths = [
+            new restore_path_element('videoplayer', '/activity/videoplayer'),
+        ];
 
-        $paths[] = new restore_path_element('videoplayer', '/activity/videoplayer');
-
-        if ($userinfo) {
+        if ($this->get_setting_value('userinfo')) {
             $paths[] = new restore_path_element('videoplayer_view', '/activity/videoplayer/views/view');
-            $paths[] = new restore_path_element('videoplayer_reward', '/activity/videoplayer/rewards/reward');
         }
 
         return $this->prepare_activity_structure($paths);
@@ -53,78 +50,79 @@ class restore_videoplayer_activity_structure_step extends restore_activity_struc
     /**
      * Restore the activity instance.
      *
-     * @param array|stdClass $data
+     * Older backups may contain fields removed from the production schema.
+     * They are intentionally discarded here so historical backups continue to
+     * restore without reintroducing retired runtime features.
+     *
+     * @param array|stdClass $data Backup data.
+     * @return void
      */
-    protected function process_videoplayer($data) {
+    protected function process_videoplayer($data): void {
         global $DB;
 
-        $data = (object) $data;
-        $oldid = $data->id;
+        $data = (object)$data;
+        $oldid = (int)$data->id;
         unset($data->id);
 
         $data->course = $this->get_courseid();
-
         $source = clean_param(
-            (string)($data->source ?? drive::SOURCE_GOOGLEDRIVE),
+            (string)($data->source ?? resource_compatibility::SOURCE_RETIRED_REMOTE),
             PARAM_ALPHANUMEXT
         );
-        $data->source = in_array(
-            $source,
-            [drive::SOURCE_GOOGLEDRIVE, bunny_stream::SOURCE, drive::SOURCE_LOCALPDF],
-            true
-        ) ? $source : drive::SOURCE_GOOGLEDRIVE;
+        $allowedsources = [
+            resource_compatibility::SOURCE_RETIRED_REMOTE,
+            resource_compatibility::SOURCE_LOCALPDF,
+            bunny_stream::SOURCE,
+        ];
+        $data->source = in_array($source, $allowedsources, true)
+            ? $source
+            : resource_compatibility::SOURCE_RETIRED_REMOTE;
 
-        $type = clean_param((string)($data->type ?? drive::TYPE_AUTO), PARAM_ALPHANUMEXT);
-        if ($data->source === drive::SOURCE_LOCALPDF) {
-            $data->type = 'pdf';
-        } else if ($data->source === bunny_stream::SOURCE) {
-            $data->type = 'video';
-        } else {
-            $data->type = drive::is_supported_configured_type($type) ? $type : drive::TYPE_AUTO;
-        }
-
-        $data->displaymode = 'standard';
-        $data->disabledownload = 1;
         if (!isset($data->disablecontextmenu)) {
             $data->disablecontextmenu = 1;
         }
         if (!isset($data->enablewatermark)) {
             $data->enablewatermark = 0;
         }
-        if (!isset($data->enablegamification)) {
-            $data->enablegamification = 0;
-        }
-        if (!isset($data->pointsperpage)) {
-            $data->pointsperpage = 1;
-        }
-        if (!isset($data->completionpercentage) || $data->completionpercentage === '') {
-            $data->completionpercentage = 80;
-        }
-        if (!isset($data->completionprogressenabled)) {
-            $data->completionprogressenabled = 1;
-        } else {
-            $data->completionprogressenabled = empty($data->completionprogressenabled) ? 0 : 1;
-        }
-        if ($data->source === drive::SOURCE_LOCALPDF) {
-            $data->videourl = '';
-            $data->providerassetid = null;
-            $data->provideruploadid = null;
-            $data->providerfilesize = 0;
-            $data->providerstatus = null;
-        } else if ($data->source === bunny_stream::SOURCE) {
-            $data->videourl = '';
+        $data->completionpercentage = max(
+            1,
+            min(100, (int)($data->completionpercentage ?? 80))
+        );
+        $data->completionprogressenabled = empty($data->completionprogressenabled) ? 0 : 1;
+
+        if ($data->source === bunny_stream::SOURCE) {
             $assetid = trim((string)($data->providerassetid ?? ''));
             $data->providerassetid = bunny_stream::is_valid_asset_id($assetid) ? $assetid : null;
-            // Upload reservations are intentionally not portable backup data.
-            $data->provideruploadid = null;
             $data->providerfilesize = max(0, (int)($data->providerfilesize ?? 0));
             $status = bunny_stream::normalise_status((string)($data->providerstatus ?? ''));
             $data->providerstatus = $status !== '' ? $status : null;
         } else {
             $data->providerassetid = null;
-            $data->provideruploadid = null;
             $data->providerfilesize = 0;
             $data->providerstatus = null;
+        }
+
+        // Upload reservations are transient and never portable.
+        $data->provideruploadid = null;
+
+        foreach ([
+            'videourl',
+            'type',
+            'displaymode',
+            'disabledownload',
+            'enablegamification',
+            'pointsperpage',
+            'video',
+            'endscreentext',
+            'displayasstartscreen',
+            'starttime',
+            'endtime',
+            'grade',
+            'displayoptions',
+            'posterimage',
+            'extendedcompletion',
+        ] as $obsoletefield) {
+            unset($data->{$obsoletefield});
         }
 
         $newitemid = $DB->insert_record('videoplayer', $data);
@@ -144,15 +142,16 @@ class restore_videoplayer_activity_structure_step extends restore_activity_struc
     }
 
     /**
-     * Restore user view/progress records.
+     * Restore user progress.
      *
-     * @param array|stdClass $data
+     * @param array|stdClass $data Backup data.
+     * @return void
      */
-    protected function process_videoplayer_view($data) {
+    protected function process_videoplayer_view($data): void {
         global $DB;
 
-        $data = (object) $data;
-        unset($data->id);
+        $data = (object)$data;
+        unset($data->id, $data->points);
         $data->videoplayerid = $this->get_new_parentid('videoplayer');
         $data->userid = $this->get_mappingid('user', $data->userid);
 
@@ -160,41 +159,22 @@ class restore_videoplayer_activity_structure_step extends restore_activity_struc
             return;
         }
 
-        $data->lastpage = $data->lastpage ?? 0;
-        $data->totalpages = $data->totalpages ?? 0;
-        $data->timespent = $data->timespent ?? 0;
-        $data->lastposition = $data->lastposition ?? 0;
-        $data->duration = $data->duration ?? 0;
+        $data->lastpage = max(0, (int)($data->lastpage ?? 0));
+        $data->totalpages = max(0, (int)($data->totalpages ?? 0));
+        $data->timespent = max(0, (int)($data->timespent ?? 0));
+        $data->lastposition = max(0, (float)($data->lastposition ?? 0));
+        $data->duration = max(0, (float)($data->duration ?? 0));
         $data->watchedranges = $data->watchedranges ?? null;
-        $data->points = $data->points ?? 0;
 
         $DB->insert_record('videoplayer_views', $data);
     }
 
     /**
-     * Restore user gamification rewards.
+     * Add restored Moodle files.
      *
-     * @param array|stdClass $data
+     * @return void
      */
-    protected function process_videoplayer_reward($data) {
-        global $DB;
-
-        $data = (object) $data;
-        unset($data->id);
-        $data->videoplayerid = $this->get_new_parentid('videoplayer');
-        $data->userid = $this->get_mappingid('user', $data->userid);
-
-        if (empty($data->userid)) {
-            return;
-        }
-
-        $DB->insert_record('videoplayer_rewards', $data);
-    }
-
-    /**
-     * Run after restore execution.
-     */
-    protected function after_execute() {
+    protected function after_execute(): void {
         $this->add_related_files('mod_videoplayer', 'intro', null);
         $this->add_related_files('mod_videoplayer', 'localpdf', null);
     }

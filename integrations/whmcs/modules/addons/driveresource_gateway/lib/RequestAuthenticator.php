@@ -14,7 +14,7 @@ final class RequestAuthenticator
      * Authenticate one JSON request and reserve its nonce.
      *
      * @param string $rawBody Exact request body.
-     * @return array{service:object,payload:array,siteurl:string}
+     * @return array{service:object,installation:?object,payload:array,siteurl:string}
      */
     public function authenticate(string $rawBody): array
     {
@@ -30,23 +30,28 @@ final class RequestAuthenticator
             throw new GatewayException('Invalid JSON request body.', 400);
         }
 
-        $serviceId = (int) $this->header('X-Drive-Resource-Service');
-        $timestamp = (int) $this->header('X-Drive-Resource-Timestamp');
-        $nonce = strtolower($this->header('X-Drive-Resource-Nonce'));
-        $signature = strtolower($this->header('X-Drive-Resource-Signature'));
-        $site = $this->canonicalSite($this->header('X-Drive-Resource-Site'));
-        $authorization = $this->header('Authorization');
+        $serviceId = (int) $this->gatewayHeader('Service');
+        $timestamp = (int) $this->gatewayHeader('Timestamp');
+        $nonce = strtolower($this->gatewayHeader('Nonce'));
+        $signature = strtolower($this->gatewayHeader('Signature'));
+        $site = $this->canonicalSite($this->gatewayHeader('Site'));
 
         if ($serviceId <= 0
             || !preg_match('/^[a-f0-9]{32}$/', $nonce)
-            || !preg_match('/^[a-f0-9]{64}$/', $signature)
-            || !preg_match('/^Bearer\s+(.+)$/i', $authorization, $tokenMatch)) {
+            || !preg_match('/^[a-f0-9]{64}$/', $signature)) {
             throw new GatewayException('Missing or invalid gateway authentication.', 401);
         }
 
-        $token = trim($tokenMatch[1]);
-        if (strlen($token) < 32 || strlen($token) > 256) {
-            throw new GatewayException('Invalid service token.', 401);
+        // Prefer the dedicated token header. Apache/FastCGI and some reverse
+        // proxy configurations can remove Authorization before PHP receives
+        // it. Keep Bearer as a backward-compatible fallback.
+        $token = strtolower(trim($this->gatewayHeader('Token')));
+        if (!preg_match('/^[a-f0-9]{64}$/', $token)) {
+            $authorization = $this->header('Authorization');
+            if (!preg_match('/^Bearer\s+([a-f0-9]{64})$/i', $authorization, $tokenMatch)) {
+                throw new GatewayException('Missing or invalid gateway authentication.', 401);
+            }
+            $token = strtolower($tokenMatch[1]);
         }
 
         $now = time();
@@ -64,17 +69,88 @@ final class RequestAuthenticator
             ->where('service_id', $serviceId)
             ->first();
         if (!$service) {
-            throw new GatewayException('Drive Resource service was not found.', 404);
+            throw new GatewayException('Elearning Stream service was not found.', 404);
         }
 
         if ((string) $service->status !== 'active') {
-            throw new GatewayException('Drive Resource service is not active.', 403);
+            throw new GatewayException('Elearning Stream service is not active.', 403);
         }
 
-        if (!hash_equals((string) $service->site_hash, hash('sha256', $site))
+        $installation = null;
+        if (Capsule::schema()->hasTable('mod_driveresource_installations')) {
+            $installation = Capsule::table('mod_driveresource_installations')
+                ->where('service_id', $serviceId)
+                ->where('site_hash', hash('sha256', $site))
+                ->first();
+
+            if (
+                !$installation
+                || (string) $installation->status !== 'active'
+                || !hash_equals((string) $installation->site_url, $site)
+                || !hash_equals((string) $installation->token_hash, hash('sha256', $token))
+            ) {
+                throw new GatewayException('Installation identity does not match this Moodle site.', 401);
+            }
+
+            // stdClass safely carries request-scoped context without changing
+            // the persistent compatibility service schema.
+            $service->authenticated_installation_id = (int) $installation->id;
+        } else if (
+            !hash_equals((string) $service->site_hash, hash('sha256', $site))
             || !hash_equals((string) $service->site_url, $site)
-            || !hash_equals((string) $service->token_hash, hash('sha256', $token))) {
+            || !hash_equals((string) $service->token_hash, hash('sha256', $token))
+        ) {
             throw new GatewayException('Service identity does not match this Moodle site.', 401);
+        }
+
+        if (Capsule::schema()->hasTable('mod_driveresource_accounts')) {
+            $account = Capsule::table('mod_driveresource_accounts')
+                ->where('service_id', $serviceId)
+                ->first();
+            if (!$account) {
+                throw new GatewayException(
+                    'Elearning Stream commercial account migration is incomplete.',
+                    503
+                );
+            }
+            if ((string) $account->status === CommercialAccount::STATUS_SUSPENDED) {
+                throw new GatewayException('Elearning Stream account is suspended.', 403);
+            }
+
+            if (
+                $account
+                && (string) $account->billing_mode !== CommercialAccount::MODE_LEGACY
+                && !(bool) $account->activation_verified
+            ) {
+                throw new GatewayException(
+                    'Elearning Stream account activation is required before this installation can use the gateway.',
+                    402
+                );
+            }
+
+            if (
+                $account
+                && $installation
+                && (string) $account->billing_mode === CommercialAccount::MODE_FREE
+            ) {
+                $limit = max(1, (int) $account->free_installation_limit);
+                $allowedIds = Capsule::table('mod_driveresource_installations')
+                    ->where('service_id', $serviceId)
+                    ->where('status', 'active')
+                    ->orderBy('is_primary', 'desc')
+                    ->orderBy('id', 'asc')
+                    ->limit($limit)
+                    ->pluck('id')
+                    ->map(static fn($id): int => (int) $id)
+                    ->all();
+
+                if (!in_array((int) $installation->id, $allowedIds, true)) {
+                    throw new GatewayException(
+                        'This Moodle installation requires an active PAYG account.',
+                        402
+                    );
+                }
+            }
         }
 
         $hosting = Capsule::table('tblhosting as h')
@@ -90,6 +166,18 @@ final class RequestAuthenticator
         $expected = hash_hmac('sha256', $timestamp . "\n" . $nonce . "\n" . $bodyHash, $token);
         if (!hash_equals($expected, $signature)) {
             throw new GatewayException('Request signature validation failed.', 401);
+        }
+
+        if ($installation) {
+            Capsule::table('mod_driveresource_installations')
+                ->where('id', (int) $installation->id)
+                ->update([
+                    'connection_status' => 'connected',
+                    'connection_checked_at' => $now,
+                    'connection_message' => 'connection_verified',
+                    'last_seen_at' => $now,
+                    'updated_at' => $now,
+                ]);
         }
 
         Capsule::table('mod_driveresource_nonces')
@@ -109,9 +197,29 @@ final class RequestAuthenticator
 
         return [
             'service' => $service,
+            'installation' => $installation,
             'payload' => $payload,
             'siteurl' => $site,
         ];
+    }
+
+    /**
+     * Read the current branded gateway header with a temporary legacy fallback.
+     *
+     * Older installed Moodle builds may still send X-Drive-Resource-* while
+     * they are being upgraded. New builds send X-Elearning-Stream-* only.
+     *
+     * @param string $suffix Stable authentication header suffix.
+     * @return string
+     */
+    private function gatewayHeader(string $suffix): string
+    {
+        $current = $this->header('X-Elearning-Stream-' . $suffix);
+        if ($current !== '') {
+            return $current;
+        }
+
+        return $this->header('X-Drive-Resource-' . $suffix);
     }
 
     /**

@@ -37,6 +37,9 @@ final class bunny_stream {
     /** Provider states that may be persisted after a successful byte upload. */
     public const PERSISTABLE_STATUSES = ['uploaded', 'processing', 'ready'];
 
+    /** File extensions accepted by the managed-video ingestion path. */
+    public const UPLOAD_EXTENSIONS = ['mp4', 'mov', 'm4v', 'webm', 'mkv', 'avi', 'mpeg', 'mpg'];
+
     /**
      * Validate a provider video GUID without accepting arbitrary URLs.
      *
@@ -70,6 +73,7 @@ final class bunny_stream {
             || empty($parts['host'])
             || !empty($parts['user'])
             || !empty($parts['pass'])
+            || (isset($parts['port']) && (int)$parts['port'] !== 443)
         ) {
             return null;
         }
@@ -107,6 +111,57 @@ final class bunny_stream {
     }
 
     /**
+     * Extract a syntactically valid GUID from any HTTPS public video URL.
+     *
+     * This helper is intentionally hostname-neutral. WHMCS is the authority
+     * that validates the public hostname against configured aliases before the
+     * video is imported. Moodle never fetches or persists the pasted URL.
+     *
+     * @param string $url Candidate public video URL.
+     * @return string|null
+     */
+    public static function extract_candidate_asset_id_from_url(string $url): ?string {
+        $url = trim($url);
+        if ($url === '' || strlen($url) > 2048) {
+            return null;
+        }
+
+        $parts = parse_url($url);
+        if (
+            !$parts
+            || strtolower((string)($parts['scheme'] ?? '')) !== 'https'
+            || empty($parts['host'])
+            || !empty($parts['user'])
+            || !empty($parts['pass'])
+            || (isset($parts['port']) && (int)$parts['port'] !== 443)
+        ) {
+            return null;
+        }
+
+        $segments = array_values(array_filter(
+            explode('/', trim((string)($parts['path'] ?? ''), '/')),
+            static fn(string $segment): bool => $segment !== ''
+        ));
+
+        foreach (array_reverse($segments) as $segment) {
+            $candidate = rawurldecode($segment);
+            if (self::is_valid_asset_id($candidate)) {
+                return strtolower($candidate);
+            }
+        }
+
+        parse_str((string)($parts['query'] ?? ''), $query);
+        foreach (['videoid', 'videoId', 'guid'] as $key) {
+            $candidate = trim((string)($query[$key] ?? ''));
+            if (self::is_valid_asset_id($candidate)) {
+                return strtolower($candidate);
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Whether a pasted Elearning Stream URL contains a valid provider video id.
      *
      * @param string $url Pasted provider URL.
@@ -117,13 +172,35 @@ final class bunny_stream {
     }
 
     /**
+     * Validate a source filename accepted by the managed-video upload path.
+     *
+     * Browser MIME types are advisory. The filename extension is checked again
+     * server-side before WHMCS is asked to reserve provider capacity.
+     *
+     * @param string $filename Original source filename.
+     * @return bool
+     */
+    public static function is_supported_upload_filename(string $filename): bool {
+        $filename = basename(trim($filename));
+        if ($filename === '' || strlen($filename) > 255) {
+            return false;
+        }
+
+        $extension = strtolower((string)pathinfo($filename, PATHINFO_EXTENSION));
+        return in_array($extension, self::UPLOAD_EXTENSIONS, true);
+    }
+
+    /**
      * Validate a WHMCS upload reservation identifier.
+     *
+     * Reservations are generated as bin2hex(random_bytes(16)): exactly 32
+     * lowercase hexadecimal characters.
      *
      * @param string $value Upload reservation identifier.
      * @return bool
      */
     public static function is_valid_upload_id(string $value): bool {
-        return preg_match('/^[a-f0-9-]{20,64}$/i', trim($value)) === 1;
+        return preg_match('/^[a-f0-9]{32}$/', trim($value)) === 1;
     }
 
     /**
