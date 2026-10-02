@@ -1,7 +1,7 @@
 // This file is part of Moodle - http://moodle.org/
 
 /**
- * Protected PDF.js viewer for Drive Resource.
+ * Protected PDF.js viewer for Elearning Stream.
  *
  * @module     mod_videoplayer/pdfviewer
  * @copyright  2026 Jose Erasmo Moreno Salgado - Elearning Cloud
@@ -78,23 +78,6 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
         }, true);
     };
 
-    const notifyRewards = function(root, rewards) {
-        const parent = root.closest('.mod-videoplayer-container');
-        const region = parent ? parent.querySelector('[data-region="pdfjs-achievements"]') : null;
-        if (!region || !rewards || !rewards.length) {
-            return;
-        }
-        rewards.forEach(function(reward) {
-            const item = document.createElement('div');
-            item.className = 'alert alert-success mod-videoplayer-reward';
-            item.textContent = reward.label + ' +' + reward.points;
-            region.appendChild(item);
-            window.setTimeout(function() {
-                item.remove();
-            }, 7000);
-        });
-    };
-
     const initViewer = function(root, pdfjsLib) {
         const pdfUrl = root.getAttribute('data-pdf-url');
         const cmid = parseInt(root.getAttribute('data-cmid'), 10) || 0;
@@ -110,16 +93,12 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
         const zoomLevelNode = root.querySelector('[data-region="zoom-level"]');
         const loading = root.querySelector('[data-region="pdfjs-loading"]');
         const wrap = root.querySelector('.mod-videoplayer-pdfjs-canvas-wrap');
-        const container = root.closest('.mod-videoplayer-container') || document;
-        const pointsNode = container.querySelector('[data-region="pdfjs-points"]');
-        const progressNode = container.querySelector('[data-region="pdfjs-progress"]');
         const searchInput = root.querySelector('[data-region="pdfjs-search-input"]');
         const searchButton = root.querySelector('[data-action="search-pdf"]');
         const searchNext = root.querySelector('[data-action="search-next"]');
         const searchStatus = root.querySelector('[data-region="pdfjs-search-status"]');
         const searchingText = root.getAttribute('data-searching-text') || 'Searching…';
         const trackingEnabled = root.getAttribute('data-tracking-enabled') === '1';
-        const pointsLabel = root.getAttribute('data-points-label') || 'points';
         const noMatchesText = root.getAttribute('data-no-matches-text') || 'No matches';
 
         if (!pdfUrl || !canvas) {
@@ -217,13 +196,6 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
             return Ajax.call([request])[0].then(function(response) {
                 if (response) {
                     completed = Boolean(response.completed);
-                    if (pointsNode) {
-                        pointsNode.textContent = response.points + ' ' + pointsLabel;
-                    }
-                    if (progressNode) {
-                        progressNode.textContent = response.completionpercentage + '%';
-                    }
-                    notifyRewards(root, response.rewards);
                 }
                 return response;
             }).catch(Notification.exception).then(function(response) {
