@@ -118,7 +118,7 @@ final class WalletService
     }
 
     /**
-     * Debit already-earned usage without allowing a negative prepaid balance.
+     * Debit an earned charge while preserving any resulting prepaid-wallet debt.
      *
      * @param int $serviceId WHMCS service id.
      * @param int $amountMicrousd Positive debit amount.
