@@ -103,6 +103,7 @@ final class CommercialAccount
 
         return [
             'mode' => $mode,
+            'activationverified' => (bool) ($account->activation_verified ?? false),
             'includedbytes' => $included,
             'usedbytes' => $used,
             'reservedbytes' => $reserved + $incomingBytes,
