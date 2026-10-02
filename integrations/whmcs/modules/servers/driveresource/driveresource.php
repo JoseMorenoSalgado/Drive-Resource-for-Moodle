@@ -723,32 +723,49 @@ function driveresource_AddMoodleInstallation(array $params): string
         $label = mb_substr($label !== '' ? $label : parse_url($siteUrl, PHP_URL_HOST), 0, 191);
         $siteHash = hash('sha256', $siteUrl);
 
-        $exists = Capsule::table('mod_driveresource_installations')
+        $existingInstallation = Capsule::table('mod_driveresource_installations')
             ->where('service_id', $serviceId)
             ->where('site_hash', $siteHash)
-            ->where('status', '<>', 'revoked')
-            ->exists();
-        if ($exists) {
+            ->first();
+        if ($existingInstallation && (string) $existingInstallation->status !== 'revoked') {
             throw new RuntimeException('This Moodle installation is already registered.');
         }
 
         $token = bin2hex(random_bytes(32));
         $now = time();
-        $installationId = (int) Capsule::table('mod_driveresource_installations')->insertGetId([
-            'service_id' => $serviceId,
-            'label' => $label,
-            'site_url' => $siteUrl,
-            'site_hash' => $siteHash,
-            'token_hash' => hash('sha256', $token),
-            'status' => 'active',
-            'is_primary' => false,
-            'connection_status' => 'pending',
-            'connection_checked_at' => null,
-            'connection_message' => 'connection_pending',
-            'last_seen_at' => null,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
+        if ($existingInstallation) {
+            $installationId = (int) $existingInstallation->id;
+            Capsule::table('mod_driveresource_installations')
+                ->where('id', $installationId)
+                ->update([
+                    'label' => $label,
+                    'site_url' => $siteUrl,
+                    'token_hash' => hash('sha256', $token),
+                    'status' => 'active',
+                    'is_primary' => false,
+                    'connection_status' => 'pending',
+                    'connection_checked_at' => null,
+                    'connection_message' => 'connection_pending',
+                    'last_seen_at' => null,
+                    'updated_at' => $now,
+                ]);
+        } else {
+            $installationId = (int) Capsule::table('mod_driveresource_installations')->insertGetId([
+                'service_id' => $serviceId,
+                'label' => $label,
+                'site_url' => $siteUrl,
+                'site_hash' => $siteHash,
+                'token_hash' => hash('sha256', $token),
+                'status' => 'active',
+                'is_primary' => false,
+                'connection_status' => 'pending',
+                'connection_checked_at' => null,
+                'connection_message' => 'connection_pending',
+                'last_seen_at' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
 
         $_SESSION['elearning_stream_installation_secret'] = [
             'service_id' => $serviceId,
