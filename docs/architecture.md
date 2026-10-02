@@ -47,7 +47,7 @@ WHMCS service / Elearning Stream account
 
 The external `service_id` remains stable for backward compatibility. Authentication first identifies the account, then requires an exact active installation binding by site URL and token hash.
 
-Existing pre-0.6.0 services are backfilled as `legacy` so a gateway upgrade cannot unexpectedly block active customers. New services are provisioned under the FREE/PAYG contract.
+Existing pre-0.6.0 services are backfilled as `legacy` so a gateway upgrade cannot unexpectedly block active customers. New services enter the FREE/PAYG contract only through WHMCS `CreateAccount` after the paid activation; repair and credential-rotation paths never grant activation credit.
 
 ## Default commercial policy
 
@@ -58,6 +58,7 @@ Existing pre-0.6.0 services are backfilled as `legacy` so a gateway upgrade cann
 - FREE Moodle installations: 1;
 - minimum PAYG recharge: US$10;
 - PAYG storage: US$0.03/GB-month above free allowance;
+- PAYG deficits remain in the wallet as debt until covered by a later recharge;
 - PAYG transfer: US$0.12/GB above free allowance;
 - PAYG installations: unlimited by default.
 
@@ -176,3 +177,7 @@ Compatibility identifiers must not re-enable Google network access or customer-f
 5. Wallet mutations are transactional and idempotent.
 6. Browser-visible playback URLs remain Moodle URLs.
 7. Google hosts are rejected by the production upstream policy.
+
+## Persisted resource compatibility
+
+Runtime type/source compatibility is centralized in `classes/local/resource_compatibility.php`. The historical `classes/local/drive.php` class is a deprecated shim only; production controllers, forms, renderers and restore code must not depend on it.
