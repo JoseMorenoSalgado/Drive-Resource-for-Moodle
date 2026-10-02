@@ -60,17 +60,13 @@ final class GatewayService
 
             $used = (int) $locked->used_bytes;
             $reserved = (int) $locked->reserved_bytes;
-            $included = (int) $locked->quota_bytes;
-            $projected = $used + $reserved + $filesize;
-            $overage = max(0, $projected - $included);
-
-            if ($overage > 0 && !(bool) $locked->overage_allowed) {
-                throw new GatewayException('The storage quota has been reached and this plan does not allow overage.', 409);
-            }
+            $quota = CommercialAccount::uploadPolicy($locked, $filesize);
+            $this->assertStoragePolicy($quota);
 
             Capsule::table('mod_driveresource_uploads')->insert([
                 'upload_id' => $uploadId,
                 'service_id' => (int) $locked->service_id,
+                'installation_id' => $this->installationId($service),
                 'video_id' => null,
                 'filename' => $filename,
                 'display_name' => mb_substr($title !== '' ? $title : $filename, 0, 255),
@@ -93,14 +89,7 @@ final class GatewayService
                     'updated_at' => $now,
                 ]);
 
-            return [
-                'includedbytes' => $included,
-                'usedbytes' => $used,
-                'reservedbytes' => $reserved + $filesize,
-                'projectedbytes' => $projected,
-                'overagebytes' => $overage,
-                'overageallowed' => (bool) $locked->overage_allowed,
-            ];
+            return $quota;
         });
 
         try {
@@ -388,33 +377,18 @@ final class GatewayService
                     'status' => (string) $existing->status === 'bound'
                         ? 'ready'
                         : (string) $existing->status,
-                    'quota' => [
-                        'includedbytes' => (int) $locked->quota_bytes,
-                        'usedbytes' => (int) $locked->used_bytes,
-                        'reservedbytes' => (int) $locked->reserved_bytes,
-                        'projectedbytes' => (int) $locked->used_bytes + (int) $locked->reserved_bytes,
-                        'overagebytes' => max(
-                            0,
-                            (int) $locked->used_bytes + (int) $locked->reserved_bytes - (int) $locked->quota_bytes
-                        ),
-                        'overageallowed' => (bool) $locked->overage_allowed,
-                    ],
+                    'quota' => CommercialAccount::uploadPolicy($locked, 0),
                 ];
             }
 
-            $projected = (int) $locked->used_bytes + (int) $locked->reserved_bytes + $providerBytes;
-            $overage = max(0, $projected - (int) $locked->quota_bytes);
-            if ($overage > 0 && !(bool) $locked->overage_allowed) {
-                throw new GatewayException(
-                    'The storage quota has been reached and this plan does not allow overage.',
-                    409
-                );
-            }
+            $quota = CommercialAccount::uploadPolicy($locked, $providerBytes);
+            $this->assertStoragePolicy($quota);
 
             $uploadId = bin2hex(random_bytes(16));
             Capsule::table('mod_driveresource_uploads')->insert([
                 'upload_id' => $uploadId,
                 'service_id' => (int) $locked->service_id,
+                'installation_id' => $this->installationId($service),
                 'video_id' => $videoId,
                 'filename' => $filename,
                 'display_name' => $filename,
@@ -442,14 +416,12 @@ final class GatewayService
                 'videoid' => $videoId,
                 'filesize' => $providerBytes,
                 'status' => $status,
-                'quota' => [
-                    'includedbytes' => (int) $locked->quota_bytes,
-                    'usedbytes' => (int) $locked->used_bytes + $providerBytes,
-                    'reservedbytes' => (int) $locked->reserved_bytes,
-                    'projectedbytes' => $projected,
-                    'overagebytes' => $overage,
-                    'overageallowed' => (bool) $locked->overage_allowed,
-                ],
+                'quota' => CommercialAccount::uploadPolicy(
+                    (object) array_merge((array) $locked, [
+                        'used_bytes' => (int) $locked->used_bytes + $providerBytes,
+                    ]),
+                    0
+                ),
             ];
         });
     }
@@ -476,8 +448,10 @@ final class GatewayService
         }
 
         if ((string) ($service->status ?? '') !== 'active') {
-            throw new GatewayException('Drive Resource service is not active.', 403);
+            throw new GatewayException('Elearning Stream service is not active.', 403);
         }
+
+        $this->assertPlaybackPolicy($service);
 
         $serviceId = (int) $service->service_id;
         $owned = Capsule::table('mod_driveresource_uploads')
@@ -949,7 +923,7 @@ final class GatewayService
         if (!preg_match('/^[a-f0-9]{64}$/', $reportId)) {
             throw new GatewayException('Invalid transfer report id.', 422);
         }
-        if (!preg_match('/^20\d{2}-(0[1-9]|1[0-2])$/', $period)) {
+        if (!preg_match('/^20\\d{2}-(0[1-9]|1[0-2])$/', $period)) {
             throw new GatewayException('Invalid transfer billing period.', 422);
         }
         if ($bytes <= 0 || $bytes > 1099511627776) {
@@ -957,12 +931,19 @@ final class GatewayService
         }
 
         $now = time();
+        $installationId = $this->installationId($service);
+        $chargeMicrousd = 0;
+        $billableDelta = 0;
+
         Capsule::connection()->transaction(function () use (
             $service,
             $reportId,
             $period,
             $bytes,
-            $now
+            $now,
+            $installationId,
+            &$chargeMicrousd,
+            &$billableDelta
         ): void {
             $existing = Capsule::table('mod_driveresource_usage_reports')
                 ->where('service_id', (int) $service->service_id)
@@ -979,15 +960,87 @@ final class GatewayService
                 ->lockForUpdate()
                 ->first();
             if (!$serviceRow || (string) $serviceRow->status === 'terminated') {
-                throw new GatewayException('Drive Resource service is not available.', 403);
+                throw new GatewayException('Elearning Stream service is not available.', 403);
             }
 
             $currentPeriod = trim((string) ($serviceRow->transfer_period ?? ''));
-            $currentBytes = max(0, (int) ($serviceRow->transfer_bytes ?? 0));
-            $nextBytes = $currentPeriod === $period ? $currentBytes + $bytes : $bytes;
+            $currentBytes = $currentPeriod === $period
+                ? max(0, (int) ($serviceRow->transfer_bytes ?? 0))
+                : 0;
+            $nextBytes = $currentBytes + $bytes;
+
+            $account = CommercialAccount::find((int) $service->service_id);
+            if ($account && (string) $account->billing_mode !== CommercialAccount::MODE_LEGACY) {
+                $freeTransfer = max(0, (int) $account->free_transfer_bytes);
+                $beforeBillable = max(0, $currentBytes - $freeTransfer);
+                $afterBillable = max(0, $nextBytes - $freeTransfer);
+                $billableDelta = max(0, $afterBillable - $beforeBillable);
+
+                if (
+                    (string) $account->billing_mode === CommercialAccount::MODE_PAYG
+                    && $billableDelta > 0
+                ) {
+                    $rate = max(0, (int) $account->transfer_rate_microusd_per_gb);
+                    $chargeMicrousd = (int) intdiv(
+                        ($billableDelta * $rate) + 999999999,
+                        1000000000
+                    );
+
+                    $accountLocked = Capsule::table('mod_driveresource_accounts')
+                        ->where('service_id', (int) $service->service_id)
+                        ->lockForUpdate()
+                        ->first();
+                    $balance = max(0, (int) $accountLocked->balance_microusd);
+                    $debited = min($balance, $chargeMicrousd);
+                    $nextBalance = $balance - $debited;
+                    $nextStatus = $nextBalance > 0
+                        ? (string) $accountLocked->status
+                        : CommercialAccount::STATUS_UPLOAD_RESTRICTED;
+                    $ledgerKey = hash(
+                        'sha256',
+                        'transfer|' . (int) $service->service_id . '|' . $reportId
+                    );
+
+                    Capsule::table('mod_driveresource_accounts')
+                        ->where('service_id', (int) $service->service_id)
+                        ->update([
+                            'balance_microusd' => $nextBalance,
+                            'status' => $nextStatus,
+                            'updated_at' => $now,
+                        ]);
+
+                    Capsule::table('mod_driveresource_wallet_ledger')->insert([
+                        'service_id' => (int) $service->service_id,
+                        'entry_type' => 'transfer_debit',
+                        'amount_microusd' => -$debited,
+                        'balance_after_microusd' => $nextBalance,
+                        'currency' => 'USD',
+                        'idempotency_key' => $ledgerKey,
+                        'external_ref' => null,
+                        'metadata_json' => json_encode([
+                            'report_id' => $reportId,
+                            'billable_bytes' => $billableDelta,
+                            'calculated_charge_microusd' => $chargeMicrousd,
+                            'uncovered_microusd' => max(0, $chargeMicrousd - $debited),
+                        ], JSON_UNESCAPED_SLASHES),
+                        'created_at' => $now,
+                    ]);
+                } else if (
+                    (string) $account->billing_mode === CommercialAccount::MODE_FREE
+                    && $nextBytes > $freeTransfer
+                ) {
+                    Capsule::table('mod_driveresource_accounts')
+                        ->where('service_id', (int) $service->service_id)
+                        ->update([
+                            'status' => CommercialAccount::STATUS_UPLOAD_RESTRICTED,
+                            'updated_at' => $now,
+                        ]);
+                }
+            }
 
             Capsule::table('mod_driveresource_usage_reports')->insert([
                 'service_id' => (int) $service->service_id,
+                'installation_id' => $installationId,
                 'report_id' => $reportId,
                 'period_key' => $period,
                 'bytes' => $bytes,
@@ -1002,11 +1055,44 @@ final class GatewayService
                     'transfer_updated_at' => $now,
                     'updated_at' => $now,
                 ]);
+
+            $usageDate = gmdate('Y-m-d', $now);
+            $daily = Capsule::table('mod_driveresource_usage_daily')
+                ->where('service_id', (int) $service->service_id)
+                ->where('usage_date', $usageDate)
+                ->lockForUpdate()
+                ->first();
+
+            if ($daily) {
+                Capsule::table('mod_driveresource_usage_daily')
+                    ->where('id', (int) $daily->id)
+                    ->update([
+                        'storage_bytes' => max(0, (int) $serviceRow->used_bytes),
+                        'transfer_bytes' => (int) $daily->transfer_bytes + $bytes,
+                        'billable_transfer_bytes' => (int) $daily->billable_transfer_bytes + $billableDelta,
+                        'charge_microusd' => (int) $daily->charge_microusd + $chargeMicrousd,
+                        'updated_at' => $now,
+                    ]);
+            } else {
+                Capsule::table('mod_driveresource_usage_daily')->insert([
+                    'service_id' => (int) $service->service_id,
+                    'usage_date' => $usageDate,
+                    'storage_bytes' => max(0, (int) $serviceRow->used_bytes),
+                    'transfer_bytes' => $bytes,
+                    'billable_storage_bytes' => 0,
+                    'billable_transfer_bytes' => $billableDelta,
+                    'charge_microusd' => $chargeMicrousd,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
         });
 
         return [
             'status' => 'recorded',
             'period' => $period,
+            'billablebytes' => $billableDelta,
+            'chargemicrousd' => $chargeMicrousd,
         ];
     }
 
@@ -1454,4 +1540,86 @@ final class GatewayService
             'created_at' => $now,
         ]);
     }
+
+    /**
+     * Reject storage overage that the account is not entitled to consume.
+     *
+     * @param array $quota Commercial quota decision.
+     * @return void
+     */
+    private function assertStoragePolicy(array $quota): void
+    {
+        if ((int) ($quota['overagebytes'] ?? 0) <= 0 || (bool) ($quota['overageallowed'] ?? false)) {
+            return;
+        }
+
+        $mode = (string) ($quota['mode'] ?? CommercialAccount::MODE_LEGACY);
+        if ($mode === CommercialAccount::MODE_FREE) {
+            throw new GatewayException(
+                'The free storage allowance has been reached. Add prepaid credit to continue with PAYG.',
+                409
+            );
+        }
+        if ($mode === CommercialAccount::MODE_PAYG) {
+            throw new GatewayException(
+                'PAYG storage above the free allowance requires available prepaid credit.',
+                402
+            );
+        }
+
+        throw new GatewayException(
+            'The storage quota has been reached and this plan does not allow overage.',
+            409
+        );
+    }
+
+    /**
+     * Enforce the free monthly transfer allowance before issuing a new stream.
+     *
+     * Legacy services preserve their existing WHMCS Usage Billing behavior.
+     * PAYG accounts may exceed the included transfer only while credit remains.
+     *
+     * @param object $service Authenticated aggregate service row.
+     * @return void
+     */
+    private function assertPlaybackPolicy(object $service): void
+    {
+        $account = CommercialAccount::find((int) $service->service_id);
+        if (!$account || (string) $account->billing_mode === CommercialAccount::MODE_LEGACY) {
+            return;
+        }
+
+        $transfer = (string) ($service->transfer_period ?? '') === gmdate('Y-m')
+            ? max(0, (int) ($service->transfer_bytes ?? 0))
+            : 0;
+        $freeTransfer = max(0, (int) $account->free_transfer_bytes);
+        if ($transfer < $freeTransfer) {
+            return;
+        }
+
+        if (
+            (string) $account->billing_mode === CommercialAccount::MODE_PAYG
+            && (int) $account->balance_microusd > 0
+        ) {
+            return;
+        }
+
+        throw new GatewayException(
+            'The included monthly transfer has been consumed. Recharge Elearning Stream to continue playback.',
+            402
+        );
+    }
+
+    /**
+     * Request-scoped Moodle installation id resolved by RequestAuthenticator.
+     *
+     * @param object $service Authenticated service row.
+     * @return int|null
+     */
+    private function installationId(object $service): ?int
+    {
+        $id = (int) ($service->authenticated_installation_id ?? 0);
+        return $id > 0 ? $id : null;
+    }
+
 }
