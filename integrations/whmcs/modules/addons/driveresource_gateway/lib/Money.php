@@ -27,16 +27,17 @@ final class Money
         $whole = (int) $matches[1];
         $fraction = str_pad((string) ($matches[2] ?? ''), 6, '0');
 
-        if ($whole > intdiv(PHP_INT_MAX, self::MICRO_SCALE)) {
+        $maxWhole = intdiv(PHP_INT_MAX, self::MICRO_SCALE);
+        $maxFraction = PHP_INT_MAX % self::MICRO_SCALE;
+        $fractionMicrounits = (int) $fraction;
+        if (
+            $whole > $maxWhole
+            || ($whole === $maxWhole && $fractionMicrounits > $maxFraction)
+        ) {
             throw new RuntimeException('Currency amount exceeds supported integer range.');
         }
 
-        $amount = ($whole * self::MICRO_SCALE) + (int) $fraction;
-        if ($amount < 0) {
-            throw new RuntimeException('Currency amount exceeds supported integer range.');
-        }
-
-        return $amount;
+        return ($whole * self::MICRO_SCALE) + $fractionMicrounits;
     }
 
     /**
@@ -52,11 +53,14 @@ final class Money
             throw new RuntimeException('Invalid currency formatting request.');
         }
 
-        return number_format(
-            $amountMicrounits / self::MICRO_SCALE,
-            $decimals,
-            '.',
-            ''
-        );
+        $whole = intdiv($amountMicrounits, self::MICRO_SCALE);
+        if ($decimals === 0) {
+            return (string) $whole;
+        }
+
+        $fraction = $amountMicrounits % self::MICRO_SCALE;
+        $fractionSix = str_pad((string) $fraction, 6, '0', STR_PAD_LEFT);
+
+        return $whole . '.' . substr($fractionSix, 0, $decimals);
     }
 }
