@@ -54,6 +54,9 @@ jobs:
       - name: Validate commercial wallet behavior
         run: php .github/scripts/commercial-wallet-behavior.php
 
+      - name: Validate Gateway 0.6 migration behavior
+        run: php .github/scripts/commercial-migration-behavior.php
+
       - name: Validate AMD syntax
         run: |
           node --check amd/src/bunnyupload.js
