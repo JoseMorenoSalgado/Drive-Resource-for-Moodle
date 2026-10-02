@@ -19,7 +19,7 @@ Production Moodle runtime supports:
 - Elearning Stream managed video;
 - historical Moodle-local PDF files.
 
-Google-backed remote sources are retired. Do not add Google URL parsing, Google hosts, viewer embeds, export URLs or provider-specific fallback paths back into runtime code.
+Google-backed remote sources are retired. Do not add Google URL parsing, Google hosts, viewer embeds, export URLs or provider-specific fallback paths back into runtime code. Do not recreate `classes/local/drive.php`; the only allowed historical provider token is the persisted `googledrive` source key inside `resource_compatibility` for migration handling.
 
 The future document/PDF product path must use the independent protected object-storage lane.
 
