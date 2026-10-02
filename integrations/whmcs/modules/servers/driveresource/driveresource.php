@@ -1497,7 +1497,10 @@ function driveresource_ensure_commercial_account(
         && (bool) $account->activation_verified
         && (string) $account->billing_mode !== 'legacy'
     ) {
-        $activationCredit = $config::activationCreditMicrousd();
+        // Credit exactly the activation amount persisted on the account.
+        // If configuration changes between a partial CreateAccount failure and
+        // a retry, the retry must not mint a different amount.
+        $activationCredit = max(0, (int) $account->activation_amount_microusd);
         if ($activationCredit > 0) {
             // Always attempt the deterministic activation ledger entry. This
             // makes provisioning recoverable if WHMCS retries after a partial
