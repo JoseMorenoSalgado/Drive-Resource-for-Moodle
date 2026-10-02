@@ -6,7 +6,7 @@ Elearning Stream is a protected managed-video activity for Moodle. The historica
 
 - Product: **Elearning Stream**
 - Moodle component: `mod_videoplayer` (compatibility identifier)
-- Moodle release: **1.3.0-rc3-m45**
+- Moodle release: **1.3.0-rc4-m45**
 - Gateway release: **0.6.0**
 - Target: Moodle **4.5 LTS**
 - PHP baseline: PHP 8.1+
@@ -95,6 +95,16 @@ Each Moodle installation has its own exact HTTPS site binding and token. A secon
 
 FREE permits one active Moodle installation by default. PAYG permits unlimited installations by default while maintaining one consolidated balance and usage ledger.
 
+## Runtime scope
+
+The Moodle runtime is intentionally narrow:
+
+- managed protected video through Elearning Stream;
+- historical Moodle-local protected PDF through bundled PDF.js;
+- historical retired remote-source records are recognised only to fail closed and migrate.
+
+Audio, image, generic-file presentation and gamification code from early prototypes are not part of the production runtime. Keeping unsupported feature branches out of the package reduces security, Privacy API, Backup/Restore and upgrade surface.
+
 ## Provider lanes
 
 The control plane separates:
@@ -103,6 +113,12 @@ The control plane separates:
 - **protected objects/documents** — independent S3-compatible lane reserved for the future document/PDF implementation.
 
 The S3 control plane must remain disabled in Moodle until its upload, delivery, lifecycle, accounting and security adapters pass production validation.
+
+## Future Moodle course format
+
+The planned course UX will be a separate `format_elearningstream` plugin. It must consume Moodle `cm_info`, modinfo and Completion APIs rather than Elearning Stream database tables or provider internals. See `docs/course-format-integration.md`.
+
+Marketplace/repository readiness requirements are tracked in `docs/moodle-marketplace.md`.
 
 ## Installation
 
