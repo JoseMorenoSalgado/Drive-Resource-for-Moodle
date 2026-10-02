@@ -38,6 +38,23 @@ assert_wallet(Money::microunitsToDecimal(10000000) === '10.00', 'US$10 decimal f
 $now = 1700000000;
 
 assert_wallet(
+    CommercialPolicy::nextActivationSettlementVersion(false, null, 0) === 1,
+    'First paid activation must create settlement version 1'
+);
+assert_wallet(
+    CommercialPolicy::nextActivationSettlementVersion(true, null, 1) === null,
+    'Verified activation must not mint duplicate credit'
+);
+assert_wallet(
+    CommercialPolicy::nextActivationSettlementVersion(false, null, 1) === 2,
+    'Paid after activation Unpaid must create a new settlement version'
+);
+assert_wallet(
+    CommercialPolicy::nextActivationSettlementVersion(false, $now, 1) === null,
+    'Refunded activation must be terminal'
+);
+
+assert_wallet(
     CommercialPolicy::nextRechargeSettlementVersion('pending', 0) === 1,
     'Initial Paid transition must create settlement version 1'
 );
