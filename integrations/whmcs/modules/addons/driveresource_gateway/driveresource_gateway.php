@@ -748,6 +748,9 @@ function driveresource_gateway_ensure_commercial_account_schema(): void
             $table->string('billing_mode', 16)->default('free')->index();
             $table->boolean('activation_verified')->default(false)->index();
             $table->bigInteger('activation_amount_microusd')->default(1000000);
+            $table->unsignedInteger('activation_invoice_id')->nullable()->index();
+            $table->unsignedInteger('activation_settlement_version')->default(0);
+            $table->unsignedInteger('activation_refunded_at')->nullable();
             $table->bigInteger('balance_microusd')->default(0);
             $table->unsignedBigInteger('free_storage_bytes')->default(7000000000);
             $table->unsignedBigInteger('free_transfer_bytes')->default(20000000000);
@@ -761,6 +764,33 @@ function driveresource_gateway_ensure_commercial_account_schema(): void
             $table->unsignedInteger('paid_at')->nullable();
             $table->unsignedInteger('created_at');
             $table->unsignedInteger('updated_at');
+        });
+    }
+
+    if (
+        $schema->hasTable('mod_driveresource_accounts')
+        && !$schema->hasColumn('mod_driveresource_accounts', 'activation_invoice_id')
+    ) {
+        $schema->table('mod_driveresource_accounts', static function (Blueprint $table): void {
+            $table->unsignedInteger('activation_invoice_id')->nullable()->index();
+        });
+    }
+
+    if (
+        $schema->hasTable('mod_driveresource_accounts')
+        && !$schema->hasColumn('mod_driveresource_accounts', 'activation_settlement_version')
+    ) {
+        $schema->table('mod_driveresource_accounts', static function (Blueprint $table): void {
+            $table->unsignedInteger('activation_settlement_version')->default(0);
+        });
+    }
+
+    if (
+        $schema->hasTable('mod_driveresource_accounts')
+        && !$schema->hasColumn('mod_driveresource_accounts', 'activation_refunded_at')
+    ) {
+        $schema->table('mod_driveresource_accounts', static function (Blueprint $table): void {
+            $table->unsignedInteger('activation_refunded_at')->nullable();
         });
     }
 
@@ -935,6 +965,9 @@ function driveresource_gateway_assert_commercial_schema(): void
             'billing_mode',
             'activation_verified',
             'activation_amount_microusd',
+            'activation_invoice_id',
+            'activation_settlement_version',
+            'activation_refunded_at',
             'balance_microusd',
             'free_storage_bytes',
             'free_transfer_bytes',
