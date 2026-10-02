@@ -17,6 +17,7 @@
 - Freezes activation credit to the amount persisted on the account so a retried `CreateAccount` cannot mint a different amount after configuration changes.
 - Converts the USD wallet recharge value into the client’s WHMCS invoice currency at invoice creation, freezes the exact invoice amount/currency, and verifies both before `InvoicePaid` can credit the wallet.
 - Adds executable CI behavior tests for activation, FREE→PAYG promotion, debt preservation, refund downgrade and exact money parsing.
+- Adds executable 0.5.9→0.6.0 migration scenarios for active, suspended and incomplete legacy services, using the same deterministic migration policy as production.
 - Restricts activation verification and the one-time US$1 credit to the WHMCS `CreateAccount` provisioning path; repair and token rotation cannot mint activation credit.
 - Rejects gateway authentication, upload and playback for non-legacy accounts whose activation has not been verified.
 - Carries insufficient PAYG storage/transfer charges as negative wallet debt instead of silently dropping uncovered provider cost.
