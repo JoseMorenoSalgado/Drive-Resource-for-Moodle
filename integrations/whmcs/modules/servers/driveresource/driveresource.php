@@ -1528,7 +1528,15 @@ function driveresource_ensure_commercial_account(
         }
 
         if (!(bool) $account->activation_verified) {
-            $settlementVersion = (int) ($account->activation_settlement_version ?? 0) + 1;
+            $settlementVersion = \WHMCS\Module\Addon\DriveresourceGateway\CommercialPolicy::nextActivationSettlementVersion(
+                (bool) $account->activation_verified,
+                !empty($account->activation_refunded_at) ? (int) $account->activation_refunded_at : null,
+                (int) ($account->activation_settlement_version ?? 0)
+            );
+            if ($settlementVersion === null) {
+                throw new RuntimeException('Elearning Stream activation cannot be settled.');
+            }
+
             $activationCredit = max(0, (int) $account->activation_amount_microusd);
 
             if ($activationCredit > 0) {
