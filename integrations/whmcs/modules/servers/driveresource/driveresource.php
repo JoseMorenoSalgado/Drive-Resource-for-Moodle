@@ -1408,7 +1408,14 @@ function driveresource_require_paid_activation_invoice(int $serviceId, int $clie
         throw new RuntimeException('Elearning Stream activation invoice must be Paid.');
     }
 
-    if ((float) $invoice->total <= 0) {
+    $moneyfile = dirname(__DIR__, 2) . '/addons/driveresource_gateway/lib/Money.php';
+    require_once $moneyfile;
+
+    if (
+        \WHMCS\Module\Addon\DriveresourceGateway\Money::decimalToMicrounits(
+            (string) $invoice->total
+        ) <= 0
+    ) {
         throw new RuntimeException('Elearning Stream activation invoice must have a positive total.');
     }
 
@@ -1417,7 +1424,12 @@ function driveresource_require_paid_activation_invoice(int $serviceId, int $clie
         ->where('type', 'Hosting')
         ->where('relid', $serviceId)
         ->first();
-    if (!$serviceItem || (float) $serviceItem->amount <= 0) {
+    if (
+        !$serviceItem
+        || \WHMCS\Module\Addon\DriveresourceGateway\Money::decimalToMicrounits(
+            (string) $serviceItem->amount
+        ) <= 0
+    ) {
         throw new RuntimeException(
             'Elearning Stream activation invoice must contain a positive Hosting line for this service.'
         );
@@ -1925,9 +1937,10 @@ function driveresource_parse_usd_microusd(string $raw): int
         throw new RuntimeException('Recharge amount must be a valid USD amount with at most two decimals.');
     }
 
-    $whole = (int) $matches[1];
-    $cents = (int) str_pad((string) ($matches[2] ?? ''), 2, '0');
-    return ($whole * 1000000) + ($cents * 10000);
+    $moneyfile = dirname(__DIR__, 2) . '/addons/driveresource_gateway/lib/Money.php';
+    require_once $moneyfile;
+
+    return \WHMCS\Module\Addon\DriveresourceGateway\Money::decimalToMicrounits($raw);
 }
 
 /**
@@ -1938,7 +1951,13 @@ function driveresource_parse_usd_microusd(string $raw): int
  */
 function driveresource_microusd_decimal(int $microusd): string
 {
-    return number_format(max(0, $microusd) / 1000000, 2, '.', '');
+    $moneyfile = dirname(__DIR__, 2) . '/addons/driveresource_gateway/lib/Money.php';
+    require_once $moneyfile;
+
+    return \WHMCS\Module\Addon\DriveresourceGateway\Money::microunitsToDecimal(
+        max(0, $microusd),
+        2
+    );
 }
 
 /**
