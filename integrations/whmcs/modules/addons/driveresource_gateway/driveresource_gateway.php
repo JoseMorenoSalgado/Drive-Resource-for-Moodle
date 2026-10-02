@@ -810,6 +810,22 @@ function driveresource_gateway_ensure_commercial_account_schema(): void
         });
     }
 
+    if (!$schema->hasTable('mod_driveresource_wallet_orders')) {
+        $schema->create('mod_driveresource_wallet_orders', static function (Blueprint $table): void {
+            $table->bigIncrements('id');
+            $table->unsignedInteger('service_id')->index();
+            $table->unsignedInteger('client_id')->index();
+            $table->unsignedInteger('invoice_id')->nullable()->unique();
+            $table->unsignedBigInteger('amount_microusd');
+            $table->char('currency', 3)->default('USD');
+            $table->string('status', 16)->default('pending')->index();
+            $table->unsignedInteger('created_at');
+            $table->unsignedInteger('paid_at')->nullable();
+            $table->unsignedInteger('refunded_at')->nullable();
+            $table->unsignedInteger('updated_at');
+        });
+    }
+
     if (
         $schema->hasTable('mod_driveresource_uploads')
         && !$schema->hasColumn('mod_driveresource_uploads', 'installation_id')
