@@ -80,7 +80,7 @@ refund / mark unpaid
          -> if no paid recharge remains: PAYG entitlement removed
 ```
 
-Creating an invoice never grants balance. Payment confirmation from WHMCS is the authority, and the paid invoice must still match the frozen client-currency amount before wallet credit is permitted.
+Creating an invoice never grants balance. Payment confirmation from WHMCS is the authority, and the paid invoice must still match the frozen client-currency amount before wallet credit is permitted. Each Paid settlement increments `settlement_version`; Unpaid reverses that exact version and a later Paid creates the next version, while Refunded remains terminal.
 
 ## Usage accounting
 
