@@ -64,7 +64,7 @@ Gateway 0.6.0 defaults:
 - FREE Moodle Installations: 1;
 - PAYG Moodle Installations: 0 (unlimited).
 
-Configure the WHMCS product as the **US$1 one-time activation** product. Provisioning occurs after WHMCS activates the paid service; the gateway then creates the FREE account and grants the US$1 wallet credit once.
+Configure the WHMCS product as the **US$1 one-time activation** product. In **Module Settings → Automatic Setup**, select the WHMCS option that provisions the module only after the first payment is received. Do not use immediate-on-order provisioning for this product. Once WHMCS invokes CreateAccount after payment, the gateway creates the FREE account and grants the US$1 wallet credit exactly once.
 
 ## Moodle connection
 
