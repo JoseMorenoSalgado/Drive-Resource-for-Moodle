@@ -23,7 +23,7 @@
  */
 
 
-use mod_videoplayer\local\drive;
+use mod_videoplayer\local\resource_compatibility;
 use mod_videoplayer\local\provider\bunny_asset_lifecycle;
 use mod_videoplayer\local\provider\bunny_stream;
 use mod_videoplayer\local\whmcs_gateway_client;
@@ -137,15 +137,15 @@ function videoplayer_queue_pdf_precache(int $instanceid): void {
  * @return stdClass
  */
 function videoplayer_normalise_instance_data(stdClass $data): stdClass {
-    $allowedsources = [bunny_stream::SOURCE, drive::SOURCE_LOCALPDF];
+    $allowedsources = [bunny_stream::SOURCE, resource_compatibility::SOURCE_LOCALPDF];
     $source = clean_param($data->source ?? bunny_stream::SOURCE, PARAM_ALPHANUMEXT);
     $data->source = in_array($source, $allowedsources, true) ? $source : bunny_stream::SOURCE;
 
-    $allowedtypes = array_merge([drive::TYPE_AUTO], drive::RESOURCE_TYPES);
-    $type = clean_param($data->type ?? drive::TYPE_AUTO, PARAM_ALPHANUMEXT);
-    $data->type = in_array($type, $allowedtypes, true) ? $type : drive::TYPE_AUTO;
+    $allowedtypes = array_merge([resource_compatibility::TYPE_AUTO], resource_compatibility::RESOURCE_TYPES);
+    $type = clean_param($data->type ?? resource_compatibility::TYPE_AUTO, PARAM_ALPHANUMEXT);
+    $data->type = in_array($type, $allowedtypes, true) ? $type : resource_compatibility::TYPE_AUTO;
 
-    if ($data->source === drive::SOURCE_LOCALPDF) {
+    if ($data->source === resource_compatibility::SOURCE_LOCALPDF) {
         $data->type = 'pdf';
         $data->videourl = '';
         $data->providerassetid = null;
@@ -216,7 +216,7 @@ function videoplayer_normalise_instance_data(stdClass $data): stdClass {
  */
 function videoplayer_save_localpdf_file(stdClass $data): void {
     if (
-        ($data->source ?? bunny_stream::SOURCE) !== drive::SOURCE_LOCALPDF
+        ($data->source ?? bunny_stream::SOURCE) !== resource_compatibility::SOURCE_LOCALPDF
             || empty($data->localpdffile)
             || empty($data->coursemodule)
     ) {
