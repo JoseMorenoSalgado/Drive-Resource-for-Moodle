@@ -24,7 +24,8 @@ Important fields:
 | `duration` | known media duration |
 | `watchedranges` | canonical union of actually reproduced video intervals |
 | `lastpage` / `totalpages` | local-PDF reading progress |
-| `points` | optional gamification total |
+
+The rc4 cleanup deliberately removes prototype gamification/reward storage and obsolete presentation configuration columns. New installs and upgraded installs therefore converge on the same functional schema.
 
 ### `videoplayer_transfer_events`
 
