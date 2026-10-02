@@ -558,7 +558,7 @@ final class http_range_proxy {
     /**
      * Determine whether an upstream MIME type is compatible with the viewer.
      *
-     * Empty and generic binary responses are accepted because Google may omit
+     * Empty and generic binary responses are accepted because some upstreams may omit
      * a specific media MIME type. HTML, JSON and unrelated text responses are
      * rejected so login, permission and download-warning pages never reach a
      * video, audio, image or PDF element.
@@ -717,7 +717,7 @@ final class http_range_proxy {
     /**
      * Build a stable browser-facing validator for this protected URL.
      *
-     * Google may expose different validators across redirects. A proxy-owned
+     * Upstream services may expose different validators across redirects. A proxy-owned
      * ETag prevents the browser from sending an upstream If-Range validator
      * that turns a seek request into a complete HTTP 200 response.
      *
