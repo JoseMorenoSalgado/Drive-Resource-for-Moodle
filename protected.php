@@ -40,7 +40,7 @@ $activity = activity_context::require_from_cmid($cmid);
 $resource = resource_descriptor::from_instance($activity->instance(), $activity->context());
 
 // Streaming responses can live for minutes. Release the PHP session lock before
-// connecting to Google so the same learner can continue navigating Moodle.
+// holding an upstream transfer session so the same learner can continue navigating Moodle.
 \core\session\manager::write_close();
 \core_php_time_limit::raise(0);
 while (ob_get_level()) {
