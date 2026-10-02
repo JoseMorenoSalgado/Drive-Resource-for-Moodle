@@ -59,7 +59,7 @@ Security requirements:
 - wallet/account rows are locked during balance mutation;
 - FREE/PAYG limits are enforced server-side;
 - account downgrade is rechecked at authentication time;
-- only the WHMCS `CreateAccount` boundary may verify activation and grant the one-time activation credit;
+- only the WHMCS `CreateAccount` boundary may initiate activation, and it must independently prove a Paid order invoice containing the exact Hosting service before verification or credit;
 - connection repair and token rotation cannot grant activation credit;
 - insufficient PAYG provider cost is preserved as wallet debt rather than discarded.
 
