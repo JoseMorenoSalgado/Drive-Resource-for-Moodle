@@ -210,7 +210,7 @@ add_hook('InvoiceUnpaid', 1, static function (array $vars): void {
 
 
 /**
- * Fallback Drive Resource dashboard for WHMCS themes that omit provisioning
+ * Fallback Elearning Stream dashboard for WHMCS themes that omit provisioning
  * module ClientArea output from product-details templates.
  *
  * WHMCS passes the current service model to this official output hook. We
