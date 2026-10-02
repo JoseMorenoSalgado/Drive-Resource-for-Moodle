@@ -44,6 +44,10 @@ A WHMCS service is one commercial account. Multiple Moodle installations share t
 
 This design works with PayPal and other WHMCS payment gateways without storing gateway credentials in Elearning Stream.
 
+For FREE/PAYG accounts, the module's historical WHMCS Usage Billing metrics deliberately report zero billable usage. The prepaid wallet is the billing authority, preventing an upgraded product with old Usage Billing pricing from charging the same storage/transfer twice. Legacy accounts continue exposing their historical usage metrics until intentionally migrated.
+
+If a paid wallet recharge is later refunded after some credit was consumed, the reversal may leave a negative wallet balance. That debt is carried forward; later recharges must cover it before paid overage becomes available again.
+
 ## Credential boundary
 
 Moodle receives:
