@@ -23,6 +23,8 @@ def reject(source: str, needle: str, message: str) -> None:
 server = read("integrations/whmcs/modules/servers/driveresource/driveresource.php")
 addon = read("integrations/whmcs/modules/addons/driveresource_gateway/driveresource_gateway.php")
 wallet = read("integrations/whmcs/modules/addons/driveresource_gateway/lib/WalletService.php")
+policy = read("integrations/whmcs/modules/addons/driveresource_gateway/lib/CommercialPolicy.php")
+money = read("integrations/whmcs/modules/addons/driveresource_gateway/lib/Money.php")
 commercial = read("integrations/whmcs/modules/addons/driveresource_gateway/lib/CommercialAccount.php")
 auth = read("integrations/whmcs/modules/addons/driveresource_gateway/lib/RequestAuthenticator.php")
 gateway = read("integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php")
@@ -54,6 +56,11 @@ require(
     server,
     "$activationeligible\n        && (bool) $account->activation_verified",
     "Activation credit must be gated by the CreateAccount boundary.",
+)
+require(
+    server,
+    "$account->activation_amount_microusd",
+    "Activation retries must credit the amount frozen on the commercial account.",
 )
 require(
     auth,
@@ -120,10 +127,59 @@ for table in (
     "mod_driveresource_usage_daily",
 ):
     require(addon, table, f"Commercial schema is missing {table}.")
+require(
+    addon,
+    "invoice_amount_microunits",
+    "Recharge orders must freeze the exact invoice amount for later payment validation.",
+)
+require(
+    server,
+    "Currency::convertBetween",
+    "Wallet recharge invoices must convert USD wallet value into the client's WHMCS currency.",
+)
+require(
+    server,
+    "'invoice_amount_microunits' => $invoiceMoney['microunits']",
+    "Recharge orders must persist the converted invoice amount.",
+)
+require(
+    hooks,
+    "getCurrencyCodeAttribute()",
+    "InvoicePaid must verify the invoice currency before wallet credit.",
+)
+require(
+    hooks,
+    "Money::decimalToMicrounits",
+    "InvoicePaid must verify the exact frozen invoice total.",
+)
+require(
+    hooks,
+    "->where('status', 'pending')\n            ->lockForUpdate()",
+    "InvoicePaid must serialize the recharge order before crediting the wallet.",
+)
+require(
+    hooks,
+    "CommercialPolicy::afterRechargeReversal",
+    "Refund/unpaid transitions must use the executable commercial policy.",
+)
 
 # Wallet idempotency and invoice lifecycle.
 require(wallet, "->where('idempotency_key', $idempotencyKey)", "Wallet operations must be idempotent.")
+require(wallet, "validatedExistingBalance", "Repeated wallet operations must validate idempotency-key ownership.")
+require(wallet, "Wallet idempotency key collision detected.", "Idempotency key collisions must fail closed.")
+require(wallet, "CommercialPolicy::afterCredit", "Wallet credits must use the executable commercial policy.")
+require(wallet, "CommercialPolicy::afterDebit", "Wallet debits must use the executable commercial policy.")
 require(wallet, "->lockForUpdate()", "Wallet account/ledger mutation must be serialized.")
+credit_start = wallet.index("public function credit(")
+credit_account_lock = wallet.index("mod_driveresource_accounts", credit_start)
+credit_ledger_lookup = wallet.index("mod_driveresource_wallet_ledger", credit_start)
+if credit_account_lock > credit_ledger_lookup:
+    raise SystemExit("Wallet credit must lock the account before checking the idempotency ledger.")
+debit_start = wallet.index("public function debit(")
+debit_account_lock = wallet.index("mod_driveresource_accounts", debit_start)
+debit_ledger_lookup = wallet.index("mod_driveresource_wallet_ledger", debit_start)
+if debit_account_lock > debit_ledger_lookup:
+    raise SystemExit("Wallet debit must lock the account before checking the idempotency ledger.")
 require(hooks, "->where('status', 'pending')", "InvoicePaid must only credit pending recharge orders.")
 require(hooks, "hash('sha256', 'wallet-credit|'", "Recharge credit key must be deterministic.")
 require(hooks, "hash('sha256', 'wallet-reversal|'", "Recharge reversal key must be deterministic.")
@@ -169,5 +225,16 @@ require(commercial, "MODE_PAYG = 'payg'", "PAYG mode contract is missing.")
 require(commercial, "MODE_LEGACY = 'legacy'", "Legacy compatibility mode is missing.")
 require(server, "minimum_recharge_microusd", "Wallet recharge minimum is not enforced.")
 require(server, "free_installation_limit", "FREE installation limit is not enforced.")
+
+
+# Executable domain policy must cover activation, PAYG, debt and refund state.
+for needle, message in (
+    ("afterCredit", "Commercial credit transition is missing."),
+    ("afterDebit", "Commercial debit transition is missing."),
+    ("afterRechargeReversal", "Recharge reversal transition is missing."),
+):
+    require(policy, needle, message)
+require(money, "decimalToMicrounits", "Exact invoice decimal parsing is missing.")
+require(money, "microunitsToDecimal", "Exact invoice decimal formatting is missing.")
 
 print("Elearning Stream commercial/wallet invariants: PASS")
