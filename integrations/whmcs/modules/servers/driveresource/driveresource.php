@@ -550,9 +550,7 @@ function driveresource_provision_moodle_connection(
             'site_url' => $siteUrl,
             'site_hash' => hash('sha256', $siteUrl),
             'token_hash' => hash('sha256', $token),
-            'status' => $activationeligible
-                ? \WHMCS\Module\Addon\DriveresourceGateway\CommercialAccount::STATUS_ACTIVE
-                : \WHMCS\Module\Addon\DriveresourceGateway\CommercialAccount::STATUS_UPLOAD_RESTRICTED,
+            'status' => 'active',
             // Legacy backend fields mirror the video provider for API compatibility.
             'backend_key' => $videoBackendKey,
             'backend_profile' => $videoBackendProfile,
@@ -718,26 +716,7 @@ function driveresource_AddMoodleInstallation(array $params): string
         $siteUrl = driveresource_normalize_site_url((string) ($_POST['moodleurl'] ?? ''));
         $label = trim((string) ($_POST['label'] ?? ''));
         $label = mb_substr($label !== '' ? $label : (string) parse_url($siteUrl, PHP_URL_HOST), 0, 191);
-        if (
-        $account
-        && !(bool) $account->activation_verified
-        && $activationeligible
-        && (string) $account->billing_mode !== 'legacy'
-    ) {
-        Capsule::table('mod_driveresource_accounts')
-            ->where('service_id', $serviceId)
-            ->update([
-                'activation_verified' => true,
-                'activation_amount_microusd' => $config::activationCreditMicrousd(),
-                'status' => \WHMCS\Module\Addon\DriveresourceGateway\CommercialAccount::STATUS_ACTIVE,
-                'updated_at' => $now,
-            ]);
-        $account = Capsule::table('mod_driveresource_accounts')
-            ->where('service_id', $serviceId)
-            ->first();
-    }
-
-    $siteHash = hash('sha256', $siteUrl);
+        $siteHash = hash('sha256', $siteUrl);
         $token = bin2hex(random_bytes(32));
         $now = time();
         $installationId = 0;
@@ -1444,12 +1423,33 @@ function driveresource_ensure_commercial_account(
             'minimum_recharge_microusd' => $config::minimumRechargeMicrousd(),
             'free_installation_limit' => $config::freeInstallationLimit(),
             'paid_installation_limit' => $config::paidInstallationLimit(),
-            'status' => 'active',
+            'status' => $activationeligible
+                ? \WHMCS\Module\Addon\DriveresourceGateway\CommercialAccount::STATUS_ACTIVE
+                : \WHMCS\Module\Addon\DriveresourceGateway\CommercialAccount::STATUS_UPLOAD_RESTRICTED,
             'grace_until' => null,
             'paid_at' => null,
             'created_at' => $now,
             'updated_at' => $now,
         ]);
+        $account = Capsule::table('mod_driveresource_accounts')
+            ->where('service_id', $serviceId)
+            ->first();
+    }
+
+    if (
+        $account
+        && !(bool) $account->activation_verified
+        && $activationeligible
+        && (string) $account->billing_mode !== 'legacy'
+    ) {
+        Capsule::table('mod_driveresource_accounts')
+            ->where('service_id', $serviceId)
+            ->update([
+                'activation_verified' => true,
+                'activation_amount_microusd' => $config::activationCreditMicrousd(),
+                'status' => \WHMCS\Module\Addon\DriveresourceGateway\CommercialAccount::STATUS_ACTIVE,
+                'updated_at' => $now,
+            ]);
         $account = Capsule::table('mod_driveresource_accounts')
             ->where('service_id', $serviceId)
             ->first();
