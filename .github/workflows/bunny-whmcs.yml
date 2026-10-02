@@ -48,6 +48,9 @@ jobs:
       - name: Validate release hardening invariants
         run: bash .github/scripts/release-invariants.sh
 
+      - name: Validate Moodle Marketplace architecture
+        run: bash .github/scripts/moodle-marketplace-invariants.sh
+
       - name: Validate commercial wallet invariants
         run: python3 .github/scripts/commercial-wallet-invariants.py
 
