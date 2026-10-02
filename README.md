@@ -6,7 +6,7 @@ Elearning Stream is a protected managed-video activity for Moodle. The historica
 
 - Product: **Elearning Stream**
 - Moodle component: `mod_videoplayer` (compatibility identifier)
-- Moodle release: **1.3.0-rc2-m45**
+- Moodle release: **1.3.0-rc3-m45**
 - Gateway release: **0.6.0**
 - Target: Moodle **4.5 LTS**
 - PHP baseline: PHP 8.1+
@@ -51,7 +51,7 @@ Default 0.6.0 policy:
 - PAYG Moodle installations: **unlimited by default**;
 - all installations under the account share the same wallet and aggregate usage.
 
-Money is stored as integer micro-USD. Only the WHMCS `CreateAccount` provisioning path may verify the paid activation and grant the one-time US$1 credit; repair and token-rotation paths cannot mint activation credit. Recharge invoices credit the wallet only after WHMCS reports `InvoicePaid`. Refund/unpaid transitions reverse the wallet entitlement idempotently. If provider usage exceeds the remaining prepaid balance, the wallet carries the deficit as debt so a later recharge must cover it before paid overage resumes.
+Money is stored as integer micro-USD. Only the WHMCS `CreateAccount` provisioning path may verify the paid activation and grant the one-time US$1 credit; repair and token-rotation paths cannot mint activation credit. Recharge invoices credit the wallet only after WHMCS reports `InvoicePaid`. The wallet remains USD-denominated, while WHMCS invoices are converted to the client’s configured currency; the exact converted amount and currency are frozen on the recharge order and revalidated at payment time. Refund/unpaid transitions reverse the wallet entitlement idempotently. If provider usage exceeds the remaining prepaid balance, the wallet carries the deficit as debt so a later recharge must cover it before paid overage resumes.
 
 ## Retired provider compatibility
 
