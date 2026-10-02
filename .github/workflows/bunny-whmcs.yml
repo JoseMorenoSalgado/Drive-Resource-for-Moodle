@@ -45,6 +45,9 @@ jobs:
       - name: Validate Elearning Stream/WHMCS boundaries
         run: bash .github/scripts/bunny-whmcs-invariants.sh
 
+      - name: Validate release hardening invariants
+        run: bash .github/scripts/release-invariants.sh
+
       - name: Validate AMD syntax
         run: |
           node --check amd/src/bunnyupload.js
