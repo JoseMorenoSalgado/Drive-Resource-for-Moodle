@@ -763,8 +763,8 @@ final class http_range_proxy {
         header('Expires: ' . gmdate('D, d M Y H:i:s', time() + self::PRIVATE_CACHE_SECONDS) . ' GMT');
         header('Vary: Range');
         header('ETag: ' . $validator);
-        header('X-Drive-Resource-Cache: ' . self::safe_cache_status($cachestatus));
-        header('X-Drive-Resource-Status: MEDIA');
+        header('X-Elearning-Stream-Cache: ' . self::safe_cache_status($cachestatus));
+        header('X-Elearning-Stream-Status: MEDIA');
 
         $acceptranges = strtolower((string) ($headers['accept-ranges'] ?? ''));
         if ($status === 206 || $acceptranges === 'bytes' || !empty($headers['content-length'])) {
@@ -791,8 +791,8 @@ final class http_range_proxy {
         header('Cache-Control: no-store, no-cache, must-revalidate, no-transform');
         header('X-Content-Type-Options: nosniff');
         header('X-Accel-Buffering: no');
-        header('X-Drive-Resource-Cache: ' . self::safe_cache_status($cachestatus));
-        header('X-Drive-Resource-Status: RANGE_INVALID');
+        header('X-Elearning-Stream-Cache: ' . self::safe_cache_status($cachestatus));
+        header('X-Elearning-Stream-Status: RANGE_INVALID');
         if (!empty($headers['content-range'])) {
             header('Content-Range: ' . self::safe_header_value((string) $headers['content-range']));
         }
@@ -810,7 +810,7 @@ final class http_range_proxy {
         header('Cache-Control: no-store, no-cache, must-revalidate, no-transform');
         header('X-Content-Type-Options: nosniff');
         header('X-Accel-Buffering: no');
-        header('X-Drive-Resource-Status: ' . self::safe_cache_status($status));
+        header('X-Elearning-Stream-Status: ' . self::safe_cache_status($status));
         die;
     }
 
