@@ -390,6 +390,12 @@ function driveresource_gateway_upgrade(array $vars): void
     if (version_compare($installed, '0.6.0', '<')) {
         driveresource_gateway_ensure_commercial_account_schema();
     }
+
+    // The 0.6 migration is deliberately idempotent. Always run its repair
+    // pass so an interrupted deployment can recover missing tables, columns,
+    // legacy account rows or primary installation bindings on the next module
+    // upgrade invocation instead of remaining in a partially migrated state.
+    driveresource_gateway_ensure_commercial_account_schema();
 }
 
 /**
@@ -1035,6 +1041,38 @@ function driveresource_gateway_assert_commercial_schema(): void
             'Elearning Stream 0.6 migration left '
                 . $missingAccounts
                 . ' service(s) without a commercial account.'
+        );
+    }
+
+    $missingInstallations = (int) Capsule::table('mod_driveresource_services as s')
+        ->leftJoin('mod_driveresource_installations as i', static function ($join): void {
+            $join->on('i.service_id', '=', 's.service_id')
+                ->on('i.site_hash', '=', 's.site_hash');
+        })
+        ->where('s.site_url', '<>', '')
+        ->where('s.site_hash', '<>', '')
+        ->where('s.token_hash', '<>', '')
+        ->whereNull('i.id')
+        ->count();
+
+    if ($missingInstallations > 0) {
+        throw new RuntimeException(
+            'Elearning Stream 0.6 migration left '
+                . $missingInstallations
+                . ' provisioned service(s) without a primary Moodle installation.'
+        );
+    }
+
+    $invalidLegacyActivation = (int) Capsule::table('mod_driveresource_accounts')
+        ->where('billing_mode', 'legacy')
+        ->where('activation_amount_microusd', '<>', 0)
+        ->count();
+
+    if ($invalidLegacyActivation > 0) {
+        throw new RuntimeException(
+            'Elearning Stream 0.6 migration assigned activation credit to '
+                . $invalidLegacyActivation
+                . ' legacy account(s).'
         );
     }
 }
