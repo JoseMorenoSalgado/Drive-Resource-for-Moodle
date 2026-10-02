@@ -29,15 +29,19 @@ final class CommercialAccount
      * @param int $serviceId WHMCS service id.
      * @return object|null
      */
-    public static function find(int $serviceId): ?object
+    public static function find(int $serviceId, bool $forUpdate = false): ?object
     {
         if ($serviceId <= 0 || !Capsule::schema()->hasTable('mod_driveresource_accounts')) {
             return null;
         }
 
-        return Capsule::table('mod_driveresource_accounts')
-            ->where('service_id', $serviceId)
-            ->first();
+        $query = Capsule::table('mod_driveresource_accounts')
+            ->where('service_id', $serviceId);
+        if ($forUpdate) {
+            $query->lockForUpdate();
+        }
+
+        return $query->first();
     }
 
     /**
@@ -60,7 +64,7 @@ final class CommercialAccount
         $incomingBytes = max(0, $incomingBytes);
         $projected = $used + $reserved + $incomingBytes;
 
-        $account = self::find($serviceId);
+        $account = self::find($serviceId, true);
         if (!$account) {
             $included = max(0, (int) ($service->quota_bytes ?? 0));
             $overage = max(0, $projected - $included);
