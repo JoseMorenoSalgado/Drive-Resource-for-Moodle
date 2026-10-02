@@ -97,6 +97,21 @@ require(
     "'activation_amount_microusd' => 0",
     "Legacy migration must not fabricate activation wallet credit.",
 )
+require(
+    addon,
+    "driveresource_gateway_ensure_commercial_account_schema();\n}",
+    "Gateway 0.6 migration repair pass must run on every upgrade invocation.",
+)
+require(
+    addon,
+    "$missingInstallations",
+    "Gateway upgrade must assert that provisioned legacy services receive a primary Moodle installation.",
+)
+require(
+    addon,
+    "$invalidLegacyActivation",
+    "Gateway upgrade must reject fabricated activation credit on legacy accounts.",
+)
 for table in (
     "mod_driveresource_accounts",
     "mod_driveresource_installations",
