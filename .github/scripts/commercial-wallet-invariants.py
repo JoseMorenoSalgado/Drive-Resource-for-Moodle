@@ -332,5 +332,35 @@ for needle, message in (
     require(policy, needle, message)
 require(money, "decimalToMicrounits", "Exact invoice decimal parsing is missing.")
 require(money, "microunitsToDecimal", "Exact invoice decimal formatting is missing.")
+reject(
+    server,
+    "(float) $invoice->total",
+    "Activation invoice validation must not use floating-point money."
+)
+reject(
+    server,
+    "(float) $serviceItem->amount",
+    "Activation Hosting-line validation must not use floating-point money."
+)
+reject(
+    hooks,
+    "(float) $invoice->total",
+    "Activation restoration must not use floating-point invoice validation."
+)
+reject(
+    hooks,
+    "(float) $serviceItem->amount",
+    "Activation restoration must not use floating-point Hosting-line validation."
+)
+require(
+    server,
+    "Money::decimalToMicrounits",
+    "Provisioning must parse financial amounts through the exact Money helper."
+)
+require(
+    hooks,
+    "Money::decimalToMicrounits",
+    "Invoice hooks must parse financial amounts through the exact Money helper."
+)
 
 print("Elearning Stream commercial/wallet invariants: PASS")
