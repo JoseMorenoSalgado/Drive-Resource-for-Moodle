@@ -1369,6 +1369,60 @@ function driveresource_sync_service_policy(array $params): void
 }
 
 /**
+ * Require a paid WHMCS order invoice that contains this exact service.
+ *
+ * CreateAccount can also be invoked manually by an administrator. The
+ * commercial activation boundary therefore verifies the order/invoice state
+ * instead of trusting the module-command name alone.
+ *
+ * @param int $serviceId WHMCS service id.
+ * @param int $clientId WHMCS client id.
+ * @return int Paid activation invoice id.
+ */
+function driveresource_require_paid_activation_invoice(int $serviceId, int $clientId): int
+{
+    if ($serviceId <= 0 || $clientId <= 0) {
+        throw new RuntimeException('Activation requires a valid WHMCS service and client.');
+    }
+
+    $orderId = (int) (Capsule::table('tblhosting')
+        ->where('id', $serviceId)
+        ->value('orderid') ?? 0);
+    if ($orderId <= 0) {
+        throw new RuntimeException('Elearning Stream activation order was not found.');
+    }
+
+    $invoiceId = (int) (Capsule::table('tblorders')
+        ->where('id', $orderId)
+        ->value('invoiceid') ?? 0);
+    if ($invoiceId <= 0) {
+        throw new RuntimeException('Elearning Stream activation invoice was not found.');
+    }
+
+    $invoice = \WHMCS\Billing\Invoice::find($invoiceId);
+    if (
+        !$invoice
+        || (int) $invoice->clientId !== $clientId
+        || strtolower((string) $invoice->status) !== 'paid'
+    ) {
+        throw new RuntimeException('Elearning Stream activation invoice must be Paid.');
+    }
+
+    $containsService = Capsule::table('tblinvoiceitems')
+        ->where('invoiceid', $invoiceId)
+        ->where('type', 'Hosting')
+        ->where('relid', $serviceId)
+        ->exists();
+    if (!$containsService) {
+        throw new RuntimeException(
+            'Elearning Stream activation invoice does not contain this service.'
+        );
+    }
+
+    return $invoiceId;
+}
+
+/**
  * Create the commercial account and primary Moodle installation exactly once.
  *
  * WHMCS invokes CreateAccount after the service activation invoice is paid.
@@ -1393,6 +1447,7 @@ function driveresource_ensure_commercial_account(
     $lib = dirname(__DIR__, 2) . '/addons/driveresource_gateway/lib';
     require_once $lib . '/Config.php';
     require_once $lib . '/CommercialAccount.php';
+    require_once $lib . '/CommercialPolicy.php';
     require_once $lib . '/WalletService.php';
 
     $config = '\\WHMCS\\Module\\Addon\\DriveresourceGateway\\Config';
@@ -1410,6 +1465,14 @@ function driveresource_ensure_commercial_account(
             ->value('userid') ?? 0);
     }
 
+    $activationInvoiceId = null;
+    if ($activationeligible) {
+        $activationInvoiceId = driveresource_require_paid_activation_invoice(
+            $serviceId,
+            $clientId
+        );
+    }
+
     $account = Capsule::table('mod_driveresource_accounts')
         ->where('service_id', $serviceId)
         ->first();
@@ -1419,8 +1482,11 @@ function driveresource_ensure_commercial_account(
             'service_id' => $serviceId,
             'client_id' => $clientId > 0 ? $clientId : null,
             'billing_mode' => 'free',
-            'activation_verified' => $activationeligible,
+            'activation_verified' => false,
             'activation_amount_microusd' => $config::activationCreditMicrousd(),
+            'activation_invoice_id' => $activationInvoiceId,
+            'activation_settlement_version' => 0,
+            'activation_refunded_at' => null,
             'balance_microusd' => 0,
             'free_storage_bytes' => $config::freeStorageBytes(),
             'free_transfer_bytes' => $config::freeTransferBytes(),
@@ -1429,9 +1495,7 @@ function driveresource_ensure_commercial_account(
             'minimum_recharge_microusd' => $config::minimumRechargeMicrousd(),
             'free_installation_limit' => $config::freeInstallationLimit(),
             'paid_installation_limit' => $config::paidInstallationLimit(),
-            'status' => $activationeligible
-                ? \WHMCS\Module\Addon\DriveresourceGateway\CommercialAccount::STATUS_ACTIVE
-                : \WHMCS\Module\Addon\DriveresourceGateway\CommercialAccount::STATUS_UPLOAD_RESTRICTED,
+            'status' => \WHMCS\Module\Addon\DriveresourceGateway\CommercialAccount::STATUS_UPLOAD_RESTRICTED,
             'grace_until' => null,
             'paid_at' => null,
             'created_at' => $now,
@@ -1442,23 +1506,82 @@ function driveresource_ensure_commercial_account(
             ->first();
     }
 
+    if (!$account) {
+        throw new RuntimeException('Elearning Stream commercial account could not be created.');
+    }
+
     if (
-        $account
-        && !(bool) $account->activation_verified
-        && $activationeligible
+        $activationeligible
         && (string) $account->billing_mode !== 'legacy'
     ) {
-        Capsule::table('mod_driveresource_accounts')
-            ->where('service_id', $serviceId)
-            ->update([
-                'activation_verified' => true,
-                'activation_amount_microusd' => $config::activationCreditMicrousd(),
-                'status' => \WHMCS\Module\Addon\DriveresourceGateway\CommercialAccount::STATUS_ACTIVE,
-                'updated_at' => $now,
-            ]);
-        $account = Capsule::table('mod_driveresource_accounts')
-            ->where('service_id', $serviceId)
-            ->first();
+        if (!empty($account->activation_refunded_at)) {
+            throw new RuntimeException(
+                'The Elearning Stream activation invoice was refunded. Create a new activation order.'
+            );
+        }
+
+        $storedInvoiceId = (int) ($account->activation_invoice_id ?? 0);
+        if ($storedInvoiceId > 0 && $storedInvoiceId !== $activationInvoiceId) {
+            throw new RuntimeException(
+                'Elearning Stream activation invoice does not match the account activation record.'
+            );
+        }
+
+        if (!(bool) $account->activation_verified) {
+            $settlementVersion = (int) ($account->activation_settlement_version ?? 0) + 1;
+            $activationCredit = max(0, (int) $account->activation_amount_microusd);
+
+            if ($activationCredit > 0) {
+                $wallet = new $walletClass();
+                $wallet->credit(
+                    $serviceId,
+                    $activationCredit,
+                    'activation',
+                    hash(
+                        'sha256',
+                        'activation-credit|' . $serviceId . '|' . $activationInvoiceId
+                            . '|v' . $settlementVersion
+                    ),
+                    'invoice:' . $activationInvoiceId,
+                    [
+                        'source' => 'create_account',
+                        'activation_invoice_id' => $activationInvoiceId,
+                        'settlement_version' => $settlementVersion,
+                    ]
+                );
+            }
+
+            $status = (string) $account->status;
+            if (
+                (int) ($account->activation_settlement_version ?? 0) === 0
+                && $status === \WHMCS\Module\Addon\DriveresourceGateway\CommercialAccount::STATUS_UPLOAD_RESTRICTED
+            ) {
+                $status = \WHMCS\Module\Addon\DriveresourceGateway\CommercialAccount::STATUS_ACTIVE;
+            }
+
+            Capsule::table('mod_driveresource_accounts')
+                ->where('service_id', $serviceId)
+                ->update([
+                    'activation_verified' => true,
+                    'activation_invoice_id' => $activationInvoiceId,
+                    'activation_settlement_version' => $settlementVersion,
+                    'activation_refunded_at' => null,
+                    'status' => $status,
+                    'updated_at' => $now,
+                ]);
+
+            $account = Capsule::table('mod_driveresource_accounts')
+                ->where('service_id', $serviceId)
+                ->first();
+        } else if ($storedInvoiceId === 0) {
+            Capsule::table('mod_driveresource_accounts')
+                ->where('service_id', $serviceId)
+                ->update([
+                    'activation_invoice_id' => $activationInvoiceId,
+                    'updated_at' => $now,
+                ]);
+            $account->activation_invoice_id = $activationInvoiceId;
+        }
     }
 
     $siteHash = hash('sha256', $siteUrl);
@@ -1496,31 +1619,6 @@ function driveresource_ensure_commercial_account(
                 'status' => 'active',
                 'updated_at' => $now,
             ]);
-    }
-
-    if (
-        $activationeligible
-        && (bool) $account->activation_verified
-        && (string) $account->billing_mode !== 'legacy'
-    ) {
-        // Credit exactly the activation amount persisted on the account.
-        // If configuration changes between a partial CreateAccount failure and
-        // a retry, the retry must not mint a different amount.
-        $activationCredit = max(0, (int) $account->activation_amount_microusd);
-        if ($activationCredit > 0) {
-            // Always attempt the deterministic activation ledger entry. This
-            // makes provisioning recoverable if WHMCS retries after a partial
-            // failure between account creation and wallet credit.
-            $wallet = new $walletClass();
-            $wallet->credit(
-                $serviceId,
-                $activationCredit,
-                'activation',
-                'activation:' . $serviceId,
-                'whmcs-service:' . $serviceId,
-                ['source' => 'create_account']
-            );
-        }
     }
 }
 
@@ -1613,6 +1711,10 @@ function driveresource_require_gateway(): void
             'service_id',
             'billing_mode',
             'activation_verified',
+            'activation_amount_microusd',
+            'activation_invoice_id',
+            'activation_settlement_version',
+            'activation_refunded_at',
             'balance_microusd',
             'free_storage_bytes',
             'free_transfer_bytes',
