@@ -56,6 +56,16 @@ grep -q "'AccessKey: '" integrations/whmcs/modules/addons/driveresource_gateway/
 grep -q 'hash_hmac' integrations/whmcs/modules/addons/driveresource_gateway/lib/RequestAuthenticator.php     || fail "Moodle-to-WHMCS HMAC verification is missing."
 grep -q 'mod_driveresource_nonces' integrations/whmcs/modules/addons/driveresource_gateway/lib/RequestAuthenticator.php     || fail "Replay nonce protection is missing."
 
+grep -q "X-Elearning-Stream-Token" classes/local/whmcs_gateway_client.php \
+    || fail "Moodle no longer sends branded Elearning Stream authentication headers."
+grep -q "gatewayHeader('Token')" integrations/whmcs/modules/addons/driveresource_gateway/lib/RequestAuthenticator.php \
+    || fail "Gateway no longer uses the branded header compatibility reader."
+grep -q "X-Drive-Resource-" integrations/whmcs/modules/addons/driveresource_gateway/lib/RequestAuthenticator.php \
+    || fail "Gateway legacy header fallback was removed before the compatibility window ended."
+if grep -q "X-Drive-Resource-" classes/local/whmcs_gateway_client.php; then
+    fail "Current Moodle client still emits retired gateway header names."
+fi
+
 echo "Checking account, FREE/PAYG and wallet controls..."
 grep -q 'reserved_bytes' integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "Concurrent upload reservation accounting is missing."
 grep -q 'CommercialAccount::uploadPolicy' integrations/whmcs/modules/addons/driveresource_gateway/lib/GatewayService.php     || fail "Upload authorization is not using the commercial account policy."
