@@ -16,6 +16,9 @@
 - Serializes wallet mutations by commercial-account row before checking the idempotency ledger, preventing concurrent duplicate hooks from both observing an empty ledger; reused keys with a different service, type or amount now fail closed.
 - Versions recharge settlements so `Paid → Unpaid → Paid` can safely debit and re-credit the same invoice without reusing an old ledger key; fully `Refunded` recharge orders remain terminal and require a new recharge.
 - Freezes activation credit to the amount persisted on the account so a retried `CreateAccount` cannot mint a different amount after configuration changes.
+- Requires `CreateAccount` to prove a Paid WHMCS order invoice containing the exact Hosting service before activation is verified or the US$1 credit is issued.
+- Persists activation invoice proof and versioned activation settlements; `InvoiceUnpaid` reverses activation, a later Paid may restore it once, while `InvoiceRefunded` makes that activation invoice terminal.
+- Repairs earlier 0.6 RC activation rows only when order, Paid invoice, Hosting line and activation ledger can be proven; ambiguous activated rows fail the migration postcondition.
 - Converts the USD wallet recharge value into the client’s WHMCS invoice currency at invoice creation, freezes the exact invoice amount/currency, and verifies both before `InvoicePaid` can credit the wallet.
 - Adds executable CI behavior tests for activation, FREE→PAYG promotion, debt preservation, refund downgrade and exact money parsing.
 - Adds executable 0.5.9→0.6.0 migration scenarios for active, suspended and incomplete legacy services, using the same deterministic migration policy as production.
