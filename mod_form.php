@@ -26,7 +26,7 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/course/moodleform_mod.php');
 
-use mod_videoplayer\local\drive;
+use mod_videoplayer\local\resource_compatibility;
 use mod_videoplayer\local\plugin_config;
 use mod_videoplayer\local\provider\bunny_stream;
 use mod_videoplayer\local\whmcs_gateway_client;
@@ -56,9 +56,9 @@ class mod_videoplayer_mod_form extends moodleform_mod {
         $legacygooglesource = false;
         if (!empty($this->current) && !empty($this->current->source)) {
             $candidate = clean_param((string)$this->current->source, PARAM_ALPHANUMEXT);
-            $legacygooglesource = $candidate === drive::SOURCE_GOOGLEDRIVE;
-            if ($candidate === drive::SOURCE_LOCALPDF) {
-                $currentsource = drive::SOURCE_LOCALPDF;
+            $legacygooglesource = $candidate === resource_compatibility::SOURCE_RETIRED_REMOTE;
+            if ($candidate === resource_compatibility::SOURCE_LOCALPDF) {
+                $currentsource = resource_compatibility::SOURCE_LOCALPDF;
             }
         }
 
@@ -101,7 +101,7 @@ class mod_videoplayer_mod_form extends moodleform_mod {
             $mform->setType('providerfilesize', PARAM_INT);
             $mform->addElement('hidden', 'providerstatus', '');
             $mform->setType('providerstatus', PARAM_ALPHANUMEXT);
-            $mform->addElement('hidden', 'type', drive::TYPE_VIDEO);
+            $mform->addElement('hidden', 'type', resource_compatibility::TYPE_VIDEO);
             $mform->setType('type', PARAM_ALPHANUMEXT);
 
             $uploadhtml = html_writer::start_div('mod-videoplayer-bunny-upload', [
@@ -316,14 +316,14 @@ class mod_videoplayer_mod_form extends moodleform_mod {
         if (
             $this->current
             && !empty($this->current->id)
-            && ($this->current->source ?? '') === drive::SOURCE_LOCALPDF
+            && ($this->current->source ?? '') === resource_compatibility::SOURCE_LOCALPDF
         ) {
             $draftitemid = file_get_submitted_draft_itemid('localpdffile');
             file_prepare_draft_area(
                 $draftitemid,
                 $this->context->id,
                 'mod_videoplayer',
-                drive::SOURCE_LOCALPDF,
+                resource_compatibility::SOURCE_LOCALPDF,
                 0,
                 $this->get_localpdf_filemanager_options()
             );
@@ -370,7 +370,7 @@ class mod_videoplayer_mod_form extends moodleform_mod {
     }
 
     /**
-     * Add Drive Resource custom completion controls.
+     * Add Elearning Stream custom completion controls.
      *
      * @category completion
      * @return array List of top-level form element names.
@@ -488,7 +488,7 @@ class mod_videoplayer_mod_form extends moodleform_mod {
             }
         }
 
-        if ($source === drive::SOURCE_LOCALPDF) {
+        if ($source === resource_compatibility::SOURCE_LOCALPDF) {
             $draftitemid = (int)($data['localpdffile'] ?? 0);
             $fs = get_file_storage();
             $context = context_user::instance($USER->id);
