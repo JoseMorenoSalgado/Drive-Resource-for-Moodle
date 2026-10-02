@@ -162,28 +162,6 @@ function videoplayer_normalise_instance_data(stdClass $data): stdClass {
 
     unset($data->streaminputmode, $data->streamurl);
 
-    // Ignore fields from historical forms/backups which are no longer part of
-    // the production activity schema.
-    foreach ([
-        'videourl',
-        'type',
-        'displaymode',
-        'disabledownload',
-        'enablegamification',
-        'pointsperpage',
-        'video',
-        'endscreentext',
-        'displayasstartscreen',
-        'starttime',
-        'endtime',
-        'grade',
-        'displayoptions',
-        'posterimage',
-        'extendedcompletion',
-    ] as $obsoletefield) {
-        unset($data->{$obsoletefield});
-    }
-
     $data->disablecontextmenu = empty($data->disablecontextmenu) ? 0 : 1;
     $data->enablewatermark = empty($data->enablewatermark) ? 0 : 1;
     $data->completionpercentage = max(
