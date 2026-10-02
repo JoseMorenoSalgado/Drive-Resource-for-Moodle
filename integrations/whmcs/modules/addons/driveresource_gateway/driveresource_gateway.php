@@ -946,7 +946,90 @@ function driveresource_gateway_ensure_commercial_account_schema(): void
         }
     }
 
+    driveresource_gateway_backfill_activation_invoice_links();
     driveresource_gateway_assert_commercial_schema();
+}
+
+/**
+ * Backfill invoice proof for non-legacy accounts created by earlier 0.6 RCs.
+ *
+ * A row is repaired only when the service order points to a Paid invoice
+ * owned by the same client and that invoice contains the exact Hosting line
+ * item for the service. Anything ambiguous is intentionally left untouched so
+ * the migration postcondition fails closed.
+ *
+ * @return void
+ */
+function driveresource_gateway_backfill_activation_invoice_links(): void
+{
+    $schema = Capsule::schema();
+    if (
+        !$schema->hasTable('mod_driveresource_accounts')
+        || !$schema->hasTable('mod_driveresource_wallet_ledger')
+    ) {
+        return;
+    }
+
+    $accounts = Capsule::table('mod_driveresource_accounts')
+        ->where('billing_mode', '<>', 'legacy')
+        ->where('activation_verified', true)
+        ->whereNull('activation_invoice_id')
+        ->get();
+
+    foreach ($accounts as $account) {
+        $serviceId = (int) $account->service_id;
+        $clientId = (int) ($account->client_id ?? 0);
+        if ($serviceId <= 0 || $clientId <= 0) {
+            continue;
+        }
+
+        $orderId = (int) (Capsule::table('tblhosting')
+            ->where('id', $serviceId)
+            ->value('orderid') ?? 0);
+        $invoiceId = $orderId > 0
+            ? (int) (Capsule::table('tblorders')->where('id', $orderId)->value('invoiceid') ?? 0)
+            : 0;
+        if ($invoiceId <= 0) {
+            continue;
+        }
+
+        $invoice = Capsule::table('tblinvoices')
+            ->where('id', $invoiceId)
+            ->where('userid', $clientId)
+            ->where('status', 'Paid')
+            ->first();
+        $containsService = Capsule::table('tblinvoiceitems')
+            ->where('invoiceid', $invoiceId)
+            ->where('type', 'Hosting')
+            ->where('relid', $serviceId)
+            ->exists();
+
+        if (!$invoice || !$containsService) {
+            continue;
+        }
+
+        $activationLedgerExists = Capsule::table('mod_driveresource_wallet_ledger')
+            ->where('service_id', $serviceId)
+            ->where('entry_type', 'activation')
+            ->exists();
+
+        $settlementVersion = max(
+            (int) ($account->activation_settlement_version ?? 0),
+            $activationLedgerExists || (int) $account->activation_amount_microusd === 0 ? 1 : 0
+        );
+        if ($settlementVersion <= 0) {
+            continue;
+        }
+
+        Capsule::table('mod_driveresource_accounts')
+            ->where('service_id', $serviceId)
+            ->whereNull('activation_invoice_id')
+            ->update([
+                'activation_invoice_id' => $invoiceId,
+                'activation_settlement_version' => $settlementVersion,
+                'updated_at' => time(),
+            ]);
+    }
 }
 
 /**
@@ -1098,6 +1181,24 @@ function driveresource_gateway_assert_commercial_schema(): void
             'Elearning Stream 0.6 migration assigned activation credit to '
                 . $invalidLegacyActivation
                 . ' legacy account(s).'
+        );
+    }
+
+    $unprovenActivations = (int) Capsule::table('mod_driveresource_accounts')
+        ->where('billing_mode', '<>', 'legacy')
+        ->where('activation_verified', true)
+        ->where(static function ($query): void {
+            $query->whereNull('activation_invoice_id')
+                ->orWhere('activation_invoice_id', '<=', 0)
+                ->orWhere('activation_settlement_version', '<=', 0);
+        })
+        ->count();
+
+    if ($unprovenActivations > 0) {
+        throw new RuntimeException(
+            'Elearning Stream 0.6 migration found '
+                . $unprovenActivations
+                . ' activated account(s) without Paid invoice proof.'
         );
     }
 }
