@@ -153,9 +153,16 @@ Provider ownership is singular at the upload/asset row. Moodle activity referenc
 
 Bind, restore and release lock the provider asset before mutating references. Physical deletion occurs only when no active reference remains and the configured retention period permits deletion.
 
-## Local PDF compatibility
+## Moodle runtime scope
 
-Historical Moodle-local PDF activities can still be streamed from Moodle File API using the local protected streamer and PDF.js. Remote Google-backed PDFs are retired. The future protected-document product path will use the independent S3-compatible provider lane.
+The active Moodle presentation runtime has exactly two lanes:
+
+- managed Elearning Stream video;
+- historical Moodle-local protected PDF rendered by bundled PDF.js.
+
+Audio, image, generic-file viewers, hidden gamification and the retired remote-PDF cache/downloader were removed in rc4. This deliberately keeps the activity module smaller than the future product roadmap: new document types must enter through the independent protected-object lane only after they have their own upload, authorization, lifecycle and accounting adapters.
+
+Historical Moodle-local PDF activities are streamed directly from Moodle File API with Range support. No remote PDF cache or remote document downloader exists in the Moodle runtime.
 
 ## Legacy compatibility
 
@@ -180,4 +187,8 @@ Compatibility identifiers must not re-enable Google network access or customer-f
 
 ## Persisted resource compatibility
 
-Runtime type/source compatibility is centralized in `classes/local/resource_compatibility.php`. The historical `classes/local/drive.php` class is a deprecated shim only; production controllers, forms, renderers and restore code must not depend on it.
+`classes/local/resource_compatibility.php` contains persisted source identifiers only. It must not grow URL parsing, MIME detection, provider routing or presentation behavior. The historical `classes/local/drive.php` class is not shipped.
+
+## Future course format
+
+The planned course experience is a separate `format_elearningstream` plugin. It consumes Moodle modinfo/`cm_info` and Completion APIs and must not query `videoplayer*` tables, provider ids or gateway credentials. This keeps course-layout releases independent from protected media delivery. See `docs/course-format-integration.md`.
