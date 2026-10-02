@@ -62,7 +62,7 @@ Existing pre-0.6.0 services are backfilled as `legacy` so a gateway upgrade cann
 - PAYG transfer: US$0.12/GB above free allowance;
 - PAYG installations: unlimited by default.
 
-All money is persisted in micro-USD integers. The wallet ledger is append-only and each financial operation has an idempotency key.
+All wallet value is persisted in micro-USD integers. The wallet ledger is append-only and each financial operation has an idempotency key. Wallet mutation first locks the commercial-account row and then checks the idempotency ledger, serializing concurrent hooks for the same account. Recharge invoices may use the client’s WHMCS currency: the USD wallet amount is converted once at invoice creation, and that exact invoice amount/currency is frozen for `InvoicePaid` verification.
 
 ## Recharge lifecycle
 
@@ -80,7 +80,7 @@ refund / mark unpaid
          -> if no paid recharge remains: PAYG entitlement removed
 ```
 
-Creating an invoice never grants balance. Payment confirmation from WHMCS is the authority.
+Creating an invoice never grants balance. Payment confirmation from WHMCS is the authority, and the paid invoice must still match the frozen client-currency amount before wallet credit is permitted.
 
 ## Usage accounting
 
