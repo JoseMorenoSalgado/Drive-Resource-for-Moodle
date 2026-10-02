@@ -119,7 +119,7 @@ function videoplayer_get_coursemodule_info($coursemodule) {
 /**
  * Legacy no-op retained for callback compatibility.
  *
- * Remote Google-backed PDF caching was removed from the Elearning Stream
+ * Remote-provider PDF caching was removed from the Elearning Stream
  * runtime. Moodle-local PDFs are already stored by the File API and do not
  * require an upstream precache task.
  *
@@ -264,7 +264,7 @@ function videoplayer_add_instance($data, $mform = null) {
 /**
  * Legacy no-op retained for upgrade compatibility.
  *
- * Google-backed PDF proxy caching is no longer part of Elearning Stream.
+ * Remote-provider PDF proxy caching is no longer part of Elearning Stream.
  *
  * @param stdClass $instance Persisted activity instance.
  * @return void
