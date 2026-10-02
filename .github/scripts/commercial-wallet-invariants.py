@@ -61,6 +61,16 @@ require(
     "Gateway authentication must reject unactivated non-legacy accounts.",
 )
 require(
+    auth,
+    "Elearning Stream commercial account migration is incomplete.",
+    "Gateway authentication must fail closed when a 0.6 account row is missing.",
+)
+require(
+    commercial,
+    "Capsule::schema()->hasTable('mod_driveresource_accounts')",
+    "Upload policy must not silently reinterpret a missing 0.6 account as legacy.",
+)
+require(
     gateway,
     "!(bool) ($quota['activationverified'] ?? false)",
     "Upload policy must reject unactivated accounts.",
