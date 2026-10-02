@@ -14,7 +14,7 @@ final class RequestAuthenticator
      * Authenticate one JSON request and reserve its nonce.
      *
      * @param string $rawBody Exact request body.
-     * @return array{service:object,payload:array,siteurl:string}
+     * @return array{service:object,installation:?object,payload:array,siteurl:string}
      */
     public function authenticate(string $rawBody): array
     {
@@ -73,13 +73,43 @@ final class RequestAuthenticator
         }
 
         if ((string) $service->status !== 'active') {
-            throw new GatewayException('Drive Resource service is not active.', 403);
+            throw new GatewayException('Elearning Stream service is not active.', 403);
         }
 
-        if (!hash_equals((string) $service->site_hash, hash('sha256', $site))
+        $installation = null;
+        if (Capsule::schema()->hasTable('mod_driveresource_installations')) {
+            $installation = Capsule::table('mod_driveresource_installations')
+                ->where('service_id', $serviceId)
+                ->where('site_hash', hash('sha256', $site))
+                ->first();
+
+            if (
+                !$installation
+                || (string) $installation->status !== 'active'
+                || !hash_equals((string) $installation->site_url, $site)
+                || !hash_equals((string) $installation->token_hash, hash('sha256', $token))
+            ) {
+                throw new GatewayException('Installation identity does not match this Moodle site.', 401);
+            }
+
+            // stdClass safely carries request-scoped context without changing
+            // the persistent compatibility service schema.
+            $service->authenticated_installation_id = (int) $installation->id;
+        } else if (
+            !hash_equals((string) $service->site_hash, hash('sha256', $site))
             || !hash_equals((string) $service->site_url, $site)
-            || !hash_equals((string) $service->token_hash, hash('sha256', $token))) {
+            || !hash_equals((string) $service->token_hash, hash('sha256', $token))
+        ) {
             throw new GatewayException('Service identity does not match this Moodle site.', 401);
+        }
+
+        if (Capsule::schema()->hasTable('mod_driveresource_accounts')) {
+            $account = Capsule::table('mod_driveresource_accounts')
+                ->where('service_id', $serviceId)
+                ->first();
+            if ($account && (string) $account->status === CommercialAccount::STATUS_SUSPENDED) {
+                throw new GatewayException('Elearning Stream account is suspended.', 403);
+            }
         }
 
         $hosting = Capsule::table('tblhosting as h')
@@ -95,6 +125,15 @@ final class RequestAuthenticator
         $expected = hash_hmac('sha256', $timestamp . "\n" . $nonce . "\n" . $bodyHash, $token);
         if (!hash_equals($expected, $signature)) {
             throw new GatewayException('Request signature validation failed.', 401);
+        }
+
+        if ($installation) {
+            Capsule::table('mod_driveresource_installations')
+                ->where('id', (int) $installation->id)
+                ->update([
+                    'last_seen_at' => $now,
+                    'updated_at' => $now,
+                ]);
         }
 
         Capsule::table('mod_driveresource_nonces')
@@ -114,6 +153,7 @@ final class RequestAuthenticator
 
         return [
             'service' => $service,
+            'installation' => $installation,
             'payload' => $payload,
             'siteurl' => $site,
         ];
