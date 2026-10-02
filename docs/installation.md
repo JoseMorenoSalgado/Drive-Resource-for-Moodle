@@ -2,7 +2,7 @@
 
 ## Supported platform
 
-For **Elearning Stream 1.3.0-rc1-m45**:
+For **Elearning Stream 1.3.0-rc2-m45**:
 
 - Moodle 4.5 LTS;
 - PHP 8.1+;
@@ -66,7 +66,13 @@ Gateway 0.6.0 defaults:
 
 Configure the WHMCS product as the **US$1 one-time activation** product. In **Module Settings → Automatic Setup**, select the WHMCS option that provisions the module only after the first payment is received. Do not use immediate-on-order provisioning for this product. Once WHMCS invokes CreateAccount after payment, the gateway creates the FREE account and grants the US$1 wallet credit exactly once.
 
-## Moodle connection
+## Gateway 0.5.9 → 0.6.0 upgrade validation
+
+Before production, upgrade a copy of the current WHMCS database. The 0.6 migration now fails closed if commercial tables/columns are incomplete or if any existing service is left without a commercial account. Existing services must remain `legacy`, keep their media/quota state, and receive no fabricated activation wallet credit.
+
+After the upgrade, confirm the Elearning Stream integration gate is green and exercise activation, recharge Paid/refund/unpaid, FREE installation limits, PAYG multi-Moodle access, upload/playback Range 206, rename and deletion lifecycle.
+
+
 
 Primary installation:
 
