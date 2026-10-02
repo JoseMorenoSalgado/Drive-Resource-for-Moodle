@@ -288,4 +288,154 @@ final class Config
 
         return $hours * 3600;
     }
+
+    /**
+     * Free video storage allowance in decimal bytes.
+     *
+     * @return int
+     */
+    public static function freeStorageBytes(): int
+    {
+        $gb = self::decimalSetting('free_storage_gb', '7');
+        return (int) round(max(0.0, min(100000.0, $gb)) * 1000000000);
+    }
+
+    /**
+     * Free monthly transfer allowance in decimal bytes.
+     *
+     * @return int
+     */
+    public static function freeTransferBytes(): int
+    {
+        $gb = self::decimalSetting('free_transfer_gb', '20');
+        return (int) round(max(0.0, min(1000000.0, $gb)) * 1000000000);
+    }
+
+    /**
+     * PAYG video storage price in micro-USD per GB-month.
+     *
+     * @return int
+     */
+    public static function storageRateMicrousdPerGb(): int
+    {
+        return self::usdSettingMicrousd('storage_rate_usd_per_gb', '0.03');
+    }
+
+    /**
+     * PAYG transfer price in micro-USD per GB.
+     *
+     * @return int
+     */
+    public static function transferRateMicrousdPerGb(): int
+    {
+        return self::usdSettingMicrousd('transfer_rate_usd_per_gb', '0.12');
+    }
+
+    /**
+     * Minimum recharge that promotes a FREE account to PAYG.
+     *
+     * @return int
+     */
+    public static function minimumRechargeMicrousd(): int
+    {
+        return self::usdSettingMicrousd('minimum_recharge_usd', '10');
+    }
+
+    /**
+     * Activation credit granted after WHMCS provisions a paid activation.
+     *
+     * @return int
+     */
+    public static function activationCreditMicrousd(): int
+    {
+        return self::usdSettingMicrousd('activation_credit_usd', '1');
+    }
+
+    /**
+     * Number of active Moodle installations permitted on FREE.
+     *
+     * @return int
+     */
+    public static function freeInstallationLimit(): int
+    {
+        $value = (int) (Setting::getSettingValueForModule(
+            'driveresource_gateway',
+            'free_installation_limit'
+        ) ?: 1);
+
+        return max(1, min(100, $value));
+    }
+
+    /**
+     * Number of active Moodle installations permitted on PAYG.
+     *
+     * Zero means unlimited.
+     *
+     * @return int
+     */
+    public static function paidInstallationLimit(): int
+    {
+        $raw = trim((string) Setting::getSettingValueForModule(
+            'driveresource_gateway',
+            'paid_installation_limit'
+        ));
+        $value = $raw === '' ? 0 : (int) $raw;
+
+        return max(0, min(100000, $value));
+    }
+
+    /**
+     * Read a decimal addon setting.
+     *
+     * @param string $name Setting key.
+     * @param string $default Default decimal value.
+     * @return float
+     */
+    private static function decimalSetting(string $name, string $default): float
+    {
+        $raw = trim((string) Setting::getSettingValueForModule(
+            'driveresource_gateway',
+            $name
+        ));
+        if ($raw === '') {
+            $raw = $default;
+        }
+        if (!preg_match('/^\\d+(?:\\.\\d{1,6})?$/', $raw)) {
+            throw new RuntimeException('Invalid Elearning Stream commercial setting: ' . $name);
+        }
+
+        return (float) $raw;
+    }
+
+    /**
+     * Convert a decimal USD setting to exact integer micro-USD.
+     *
+     * @param string $name Setting key.
+     * @param string $default Default USD value.
+     * @return int
+     */
+    private static function usdSettingMicrousd(string $name, string $default): int
+    {
+        $raw = trim((string) Setting::getSettingValueForModule(
+            'driveresource_gateway',
+            $name
+        ));
+        if ($raw === '') {
+            $raw = $default;
+        }
+        if (!preg_match('/^(\\d+)(?:\\.(\\d{1,6}))?$/', $raw, $matches)) {
+            throw new RuntimeException('Invalid Elearning Stream USD setting: ' . $name);
+        }
+
+        $whole = (int) $matches[1];
+        $fraction = str_pad((string) ($matches[2] ?? ''), 6, '0');
+        $microusd = ($whole * 1000000) + (int) $fraction;
+
+        if ($microusd < 0 || $microusd > 1000000000000) {
+            throw new RuntimeException('Elearning Stream USD setting is outside the supported range: ' . $name);
+        }
+
+        return $microusd;
+    }
+
 }
