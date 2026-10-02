@@ -352,7 +352,7 @@ final class GatewayService
                 ->first();
 
             if (!$locked || (string) $locked->status !== 'active') {
-                throw new GatewayException('Drive Resource service is not active.', 403);
+                throw new GatewayException('Elearning Stream service is not active.', 403);
             }
 
             $existing = Capsule::table('mod_driveresource_uploads')
