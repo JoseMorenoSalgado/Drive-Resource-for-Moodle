@@ -35,6 +35,8 @@ service_id + canonical site_url + installation token
 
 Tokens are stored as SHA-256 hashes in `mod_driveresource_installations`. Requests also require timestamp, nonce and HMAC validation.
 
+Moodle rc4 sends the authentication contract as `X-Elearning-Stream-*` headers. Gateway 0.6 temporarily accepts the historical `X-Drive-Resource-*` equivalents as a server-side fallback so older Moodle installations can be upgraded without downtime. New Moodle code must not emit the legacy header names.
+
 A secondary installation can never authenticate by knowing only the account Service ID.
 
 ## Tenant and asset isolation
